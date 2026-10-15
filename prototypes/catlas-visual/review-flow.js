@@ -56,7 +56,7 @@ render=function(){const r=activeRecord();state.reviewed=!!r?.packet;baseRender()
  if(state.tab==='evidence')$('inspector').insertAdjacentHTML('beforeend','<div class="pad provenance small">Reference metadata from prior research. This UI study does not contain the frozen source-byte archive; production evidence packaging is subsequent work.</div>');
  }
  $('state').textContent+=` · HISTORY: ${records.length} EVALUATIONS${r?' · DELIVERY: '+r.delivery.toUpperCase():''}`;
- $('historycount').textContent=records.length;
+ $('historycount').textContent=records.length;$('frame').textContent=state.treaty===null?'↗ Focus event':'↗ Focus treaty';
 };
 function summaryRows(data){return data.map(([k,v])=>`<div class="row"><span>${k}</span><b>${v}</b></div>`).join('');}
 function deliveryView(r){
