@@ -33,3 +33,15 @@ Open `combined.html` directly, or visit http://localhost:8765/combined.html with
 - Source precursor: `/private/tmp/catlas-prototype-workbench/catlas-workbench-poc.html` and the artifact in the 2026-10-12 Catlas planning session. Earlier synthetic fixtures and matrix were retained.
 
 Verified in Chromium: five outcomes ($7.5m / $3.75m / $0 / indeterminate / simulated initial $5m), revision to $7.5m, revision carried into packet, review invalidation, JSON download, map switching and analytical geometry. No production implementation or user validation verdict is implied. All prototype changes live on `codex/catlas-visual-prototype`; relates to CAT-7.
+
+## Agreed-workflow review prototype
+
+Open `workflow-review.html` directly, or visit http://localhost:8765/workflow-review.html using the same static server. This is the next discussion source for **Test the workbench layout and explanation flow**, following the resolved journey, treaty rules, replay fixtures and RAS handoff decisions. It is not a production implementation or customer-validation verdict.
+
+Retains the combined map presentation and five walkthroughs. Adds explicit UTC coverage evaluation, raw `mw` validation, per-case evaluation versions, immutable reviewed packet downloads, exception export, initial-$0 submission blocking, a local simulated RAS receiver, acknowledgement/rejection/unconfirmed delivery, same-packet retries/status checks, linked replacement assessments and session history with preserved-packet download. Input changes require fresh review. Reset workspace clears selection; reloading clears all demo records. `review-flow.js` is embedded into the standalone file; it documents the interaction additions and pure assessment function.
+
+The analytical map is the offline default; satellite imagery is opt-in. There are no network requests on load. Source reference metadata is embedded, with exact Ridgecrest occurrence milliseconds and clearly labelled simulated observations. **A frozen source-byte archive is not packaged in this UI study**: packet provenance marks capture time and digest as unavailable rather than inventing them. All receiving acknowledgements are mock responses, and the reviewer is a demo persona.
+
+Browser verification exercised five guided outcomes ($7.5m, $3.75m, $0, Needs review, simulated $5m), JSON downloads, exception null amount, review gating, immutable download before/after delivery, rejection/retry, acknowledgement loss followed by deduplicated retry/status reconciliation, replacement links and preserved history. Spot checks covered inception/expiry, unsupported magnitude and failed trigger plus missing coverage. Desktop and 375px layouts inspected; mobile panels no longer overlap, and no horizontal overflow or runtime errors were observed. No external requests occurred during offline verification. Satellite imagery was not part of this pass.
+
+User review remains pending: can the analyst explain the amount, distinguish evidence/version states and understand what was sent versus merely downloaded? The planning decision stays open until live feedback is recorded.
