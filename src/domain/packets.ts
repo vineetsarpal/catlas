@@ -48,7 +48,7 @@ export const DEMO_ANALYST = {
   name: "Alex Morgan",
   role: "Named demo analyst — unauthenticated persona",
 } as const;
-export const packetSchema = z
+const packetShapeSchema = z
   .object({
     schemaVersion: z.literal(1),
     packetId: z.string().min(1),
@@ -117,8 +117,10 @@ export const packetSchema = z
       })
       .nullable(),
     declarations: z.array(z.string()).min(1),
-  })
-  .superRefine((packet, ctx) => {
+  });
+// Live creation validates calculations; retained snapshots are validated structurally
+// without rerunning the current calculation over historical records.
+export const packetSnapshotSchema = packetShapeSchema.superRefine((packet, ctx) => {
     const a = packet.evaluation.assessment;
     if (
       JSON.stringify(packet.cedent) !==
@@ -169,16 +171,11 @@ export const packetSchema = z
         code: "custom",
         message: "Aggregation must equal the evaluated result",
       });
-    if (
-      JSON.stringify(
-        assess(packet.evaluation.event, packet.evaluation.contract),
-      ) !== JSON.stringify(a)
-    )
-      ctx.addIssue({
-        code: "custom",
-        message: "Assessment does not match its frozen raw inputs",
-      });
   });
+export const packetSchema = packetSnapshotSchema.superRefine((packet, ctx) => {
+    if (JSON.stringify(assess(packet.evaluation.event, packet.evaluation.contract)) !== JSON.stringify(packet.evaluation.assessment))
+      ctx.addIssue({code:'custom',message:'Assessment does not match its frozen raw inputs'});
+});
 export type RecoveryPacket = z.infer<typeof packetSchema>;
 export type LifecycleState = {
   evaluations: EvaluationRecord[];
@@ -195,11 +192,12 @@ export const browserRuntime: Runtime = {
   now: () => new Date().toISOString(),
   id: () => crypto.randomUUID(),
 };
-// JSON snapshots explicitly preserve absent supplied fields as null, including missing coverage dates.
+// Preserve explicitly missing nullable calculation fields as null. Other undefined
+// fields are omitted, retaining missing inputs without invalidating raw schemas.
 function snapshot<T>(value: T): T {
   return JSON.parse(
-    JSON.stringify(value, (_key, entry) =>
-      entry === undefined ? null : entry,
+    JSON.stringify(value, (key, entry) =>
+      entry === undefined && ["inception","expiry","magnitude","magnitudeType","occurredAt","latitude","longitude"].includes(key) ? null : entry,
     ),
   );
 }
@@ -221,6 +219,7 @@ export function evaluate(
   const lineageId = JSON.stringify([event.id ?? null, contract.id ?? null]);
   const previous = state.evaluations
     .filter((e) => e.lineageId === lineageId)
+    .sort((a,b)=>a.version-b.version)
     .at(-1);
   if (
     previous &&
@@ -317,6 +316,6 @@ export function createPacket(
 }
 // The same bytes are the handoff boundary for downloads and future simulated delivery.
 export function serializePacket(packet: RecoveryPacket): string {
-  packetSchema.parse(packet);
+  packetSnapshotSchema.parse(packet);
   return JSON.stringify(packet, null, 2) + "\n";
 }

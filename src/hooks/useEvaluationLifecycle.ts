@@ -1,25 +1,98 @@
-import { useCallback, useState } from "react";
-import { createPacket, emptyLifecycle, evaluate } from "../domain/packets";
-import type { EventInput, ContractInput } from "../domain/types";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPacket, emptyLifecycle, evaluate, type LifecycleState } from '../domain/packets';
+import type { EventInput, ContractInput } from '../domain/types';
+import { CompatibilityError, demoRepository } from '../persistence/repository';
 
-// Central input/lifecycle seam: scenario discovery and future imported revisions
-// use the same action. Presentation controls do not call it.
+export type StorageStatus = 'loading' | 'ready' | 'saving' | 'error' | 'incompatible';
+
+// Publish durable state only after its transaction commits. Serial actions also
+// prevent an earlier asynchronous action from overwriting a later selection.
 export function useEvaluationLifecycle() {
   const [lifecycle, setLifecycle] = useState(emptyLifecycle);
+  const [storageStatus, setStorageStatus] = useState<StorageStatus>('loading');
+  const [storageError, setStorageError] = useState('');
+  const current = useRef(lifecycle);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const mounted = useRef(false);
+  const operationVersion = useRef(0);
+
+  const publish = useCallback((state: LifecycleState) => {
+    current.current = state;
+    if (mounted.current) setLifecycle(state);
+  }, []);
+  const failure = useCallback((error: unknown) => {
+    if (!mounted.current) return;
+    setStorageStatus(error instanceof CompatibilityError ? 'incompatible' : 'error');
+    setStorageError(error instanceof Error ? error.message : String(error));
+  }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    let cancelled = false;
+    const initial = demoRepository.load().then(state => {
+      if (cancelled) return;
+      publish(state);
+      if (operationVersion.current === 0) setStorageStatus('ready');
+    }).catch(error => {
+      if (!cancelled) failure(error);
+    });
+    queue.current = initial;
+    return () => { cancelled = true; mounted.current = false; };
+  }, [publish, failure]);
+
+  const mutate = useCallback((update: (state: LifecycleState) => LifecycleState) => {
+    const operation = ++operationVersion.current;
+    setStorageStatus('saving');
+    setStorageError('');
+    const next = queue.current.then(async () => {
+      const state = await demoRepository.mutateLifecycle(update, current.current.currentEvaluationId);
+      publish(state);
+      if (mounted.current && operation === operationVersion.current) setStorageStatus('ready');
+      return state;
+    }).catch(error => {
+      if (operation === operationVersion.current) failure(error);
+      return undefined;
+    });
+    queue.current = next;
+    return next;
+  }, [publish, failure]);
   const evaluateInputs = useCallback(
-    (event: EventInput, contract: ContractInput) => {
-      setLifecycle((state) => evaluate(state, event, contract));
-    },
-    [],
+    (event: EventInput, contract: ContractInput) => mutate(state => evaluate(state, event, contract)),
+    [mutate],
+  );
+  const reviewEvaluation = useCallback(
+    (id: string, notes: string) => mutate(state => createPacket(state, id, notes)),
+    [mutate],
   );
   const clearSelection = useCallback(() => {
-    setLifecycle((state) => ({ ...state, currentEvaluationId: null }));
-  }, []);
-  const reviewEvaluation = useCallback(
-    (evaluationId: string, notes: string) => {
-      setLifecycle((state) => createPacket(state, evaluationId, notes));
-    },
-    [],
-  );
-  return { lifecycle, evaluateInputs, clearSelection, reviewEvaluation };
+    // Queue presentation changes so a pending save cannot restore selection later.
+    queue.current = queue.current.then(() => publish({ ...current.current, currentEvaluationId: null }));
+  }, [publish]);
+  const resumeEvaluation = useCallback((id: string) => {
+    queue.current = queue.current.then(() => {
+      if (current.current.evaluations.some(evaluation => evaluation.id === id)) {
+        publish({ ...current.current, currentEvaluationId: id });
+      }
+    });
+  }, [publish]);
+  const resetDemo = useCallback(() => {
+    const operation = ++operationVersion.current;
+    setStorageStatus('saving');
+    setStorageError('');
+    const next = queue.current.then(async () => {
+      publish(await demoRepository.reset());
+      if (mounted.current && operation === operationVersion.current) setStorageStatus('ready');
+      return true;
+    }).catch(error => {
+      if (operation === operationVersion.current) failure(error);
+      return false;
+    });
+    queue.current = next;
+    return next;
+  }, [publish, failure]);
+
+  return {
+    lifecycle, evaluateInputs, clearSelection, reviewEvaluation, resumeEvaluation,
+    resetDemo, storageStatus, storageError, repository: demoRepository,
+  };
 }

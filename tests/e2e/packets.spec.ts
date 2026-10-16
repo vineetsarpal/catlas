@@ -50,7 +50,7 @@ test("reviewed positive download is immutable under presentation changes", async
     page.getByRole("button", { name: "Download reviewed JSON", exact: true }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("region", { name: "Session packet history" }),
+    page.getByRole("region", { name: "Retained packet history" }),
   ).toContainText("DEMO-CA-PARAMETRIC");
 });
 test("real zero and exception JSON downloads preserve zero versus null", async ({

@@ -20,10 +20,12 @@ export function PacketReview({
   evaluation,
   packet,
   onReview,
+  disabled = false,
 }: {
   evaluation: EvaluationRecord;
   packet?: RecoveryPacket;
   onReview: (notes: string) => void;
+  disabled?: boolean;
 }) {
   const [notes, setNotes] = useState("");
   const incomplete = evaluation.assessment.amount === null;
@@ -52,16 +54,16 @@ export function PacketReview({
             id="review-notes"
             maxLength={4000}
             value={packet?.review?.notes ?? notes}
-            disabled={Boolean(packet)}
+            disabled={disabled || Boolean(packet)}
             onChange={(e) => setNotes(e.target.value)}
           />
-          <button disabled={Boolean(packet)} onClick={() => onReview(notes)}>
+          <button disabled={disabled || Boolean(packet)} onClick={() => onReview(notes)}>
             Review evaluation v{evaluation.version}
           </button>
         </>
       )}
       {!packet && incomplete && (
-        <button onClick={() => onReview("")}>Prepare exception packet</button>
+        <button disabled={disabled} onClick={() => onReview("")}>Prepare exception packet</button>
       )}
       <button
         disabled={!packet}
@@ -88,11 +90,10 @@ export function PacketReview({
 export function PacketHistory({ packets }: { packets: RecoveryPacket[] }) {
   if (!packets.length) return null;
   return (
-    <section className="packet-history" aria-label="Session packet history">
-      <h2>Session packet history</h2>
+    <section className="packet-history" aria-label="Retained packet history">
+      <h2>Retained packet history</h2>
       <p>
-        Prior packets remain immutable in this session. Refreshing this page
-        clears this temporary session history.
+        Prior packets remain immutable and retained locally across refresh on this origin. Download archived content independently of the selected evaluation.
       </p>
       {packets.map((packet) => (
         <div key={packet.packetId}>

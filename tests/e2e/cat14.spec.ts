@@ -23,7 +23,7 @@ test('world, globe, layers and synthetic locations preserve assessment',async({p
  await page.getByRole('button',{name:'World',exact:true}).click();await page.getByRole('button',{name:'Globe',exact:true}).click();
  await expect(page.getByRole('button',{name:'Globe',exact:true})).toHaveAttribute('aria-pressed','true');
  await page.getByLabel('Inspect synthetic location · 18 contextual sites').selectOption('DEMO-LOC-03');
- await expect(page.getByRole('status')).toContainText('Lancaster');await expect(page.getByRole('status')).toContainText('Western portfolio grouping');
+ await expect(page.getByRole('region',{name:'Map discovery and context'}).getByRole('status')).toContainText('Lancaster');await expect(page.getByRole('region',{name:'Map discovery and context'}).getByRole('status')).toContainText('Western portfolio grouping');
  expect(await page.locator('#context-location option').count()).toBe(19);
  await page.getByLabel('Treaty trigger zones',{exact:true}).uncheck();await page.getByLabel('Synthetic locations',{exact:true}).uncheck();
  await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');

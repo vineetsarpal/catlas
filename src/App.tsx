@@ -1,7 +1,9 @@
+import { eventSchema, contractSchema } from "./domain/types";
+import { StoragePanel, EvaluationHistory } from "./components/LocalHistory";
 import { usd } from "./format";
 import { EventEvidencePanel } from "./components/EventEvidencePanel";
 import { AreaExplanation } from "./components/AreaExplanation";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { scenarios } from "./data/scenarios";
 import { mainContract } from "./data/fixtures";
 import { WorkbenchMap } from "./components/WorkbenchMap";
@@ -10,31 +12,55 @@ import { PacketReview, PacketHistory } from "./components/PacketReview";
 import "./app.css";
 export default function App() {
   const [scenarioId, setScenarioId] = useState(""),
-    [selectedArea, setSelectedArea] = useState("mojave");
-  const { lifecycle, evaluateInputs, clearSelection, reviewEvaluation } =
-    useEvaluationLifecycle();
-  const chooseScenario = useCallback(
-    (id: string) => {
-      setScenarioId(id);
-      const next = scenarios.find((s) => s.id === id);
-      if (next) evaluateInputs(next.event, next.contract);
-      else clearSelection();
-    },
-    [evaluateInputs, clearSelection],
-  );
-  const scenario = scenarios.find((s) => s.id === scenarioId) ?? scenarios[0];
-  const { event, contract } = scenario;
-  const hasSelection = Boolean(scenarioId);
+    [selectedArea, setSelectedArea] = useState("mojave"),
+    [resetVersion, setResetVersion] = useState(0);
+  const {
+    lifecycle, evaluateInputs, clearSelection, reviewEvaluation, resumeEvaluation,
+    resetDemo, storageStatus, storageError, repository,
+  } = useEvaluationLifecycle();
+  const chooseScenario = useCallback(async (id: string) => {
+    const next = scenarios.find(scenario => scenario.id === id);
+    if (next) {
+      const saved = await evaluateInputs(next.event, next.contract);
+      if (saved) setScenarioId(id);
+    } else {
+      clearSelection();
+      setScenarioId("");
+    }
+  }, [evaluateInputs, clearSelection]);
+  const scenario = scenarios.find(scenario => scenario.id === scenarioId) ?? scenarios[0];
+  const evaluation = lifecycle.evaluations.find(evaluation => evaluation.id === lifecycle.currentEvaluationId);
+  const event = evaluation?.event ?? scenario.event;
+  const contract = evaluation?.contract ?? scenario.contract;
+  const hasSelection = Boolean(evaluation);
+  const busy = storageStatus !== "ready";
+  const mapEvent = useMemo(() => {
+    const parsed = eventSchema.safeParse(event);
+    return hasSelection && parsed.success ? parsed.data : null;
+  }, [event, hasSelection]);
+  const mapContract = useMemo(() => {
+    const parsed = contractSchema.shape.areas.safeParse(contract.areas);
+    return { areas: hasSelection ? (parsed.success ? parsed.data : []) : mainContract.areas };
+  }, [contract, hasSelection]);
+  const resume = (id: string) => {
+    resumeEvaluation(id);
+    setScenarioId("__retained__");
+  };
+  const reset = () => {
+    void resetDemo().then(saved => {
+      if (!saved) return;
+      setScenarioId("");
+      setSelectedArea("mojave");
+      setResetVersion(version => version + 1);
+    });
+  };
   const selectEvent = useCallback(
-    (next: typeof event) =>
+    (next: typeof scenario.event) =>
       chooseScenario(next.id === "SIM-OUTER-01" ? "outer" : "ridgecrest"),
     [chooseScenario],
   );
   const clearEvent = useCallback(() => chooseScenario(""), [chooseScenario]);
   const selectArea = useCallback((id: string) => setSelectedArea(id), []);
-  const evaluation = lifecycle.evaluations.find(
-    (e) => e.id === lifecycle.currentEvaluationId,
-  );
   const assessment = evaluation?.assessment;
   const packet = lifecycle.packets.find(
     (p) => p.evaluation.id === evaluation?.id,
@@ -64,21 +90,24 @@ export default function App() {
           </div>
           <div className="cedent">
             <span>Fictional cedent</span>
-            <strong>{contract.cedent.name}</strong>
-            <small>{contract.cedent.id}</small>
+            <strong>{contract.cedent?.name ?? "Unidentified cedent"}</strong>
+            <small>{contract.cedent?.id ?? "Missing cedent identity"}</small>
           </div>
         </section>
+        <StoragePanel status={storageStatus} error={storageError} onReset={reset} repository={repository} />
         <section
           className="scenario-picker"
           aria-label="Demonstration scenario"
         >
           <label htmlFor="scenario">Demonstration scenario</label>
           <select
+            disabled={busy}
             id="scenario"
             value={scenarioId}
             onChange={(e) => chooseScenario(e.target.value)}
           >
             <option value="">Choose an event or walkthrough</option>
+            {scenarioId==="__retained__"&&<option value="__retained__">Retained evaluation snapshot</option>}
             {scenarios.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
@@ -87,7 +116,7 @@ export default function App() {
           </select>
           <p>
             {hasSelection
-              ? scenario.description
+              ? scenarioId==="__retained__" ? "Exact retained evaluation snapshot; no recalculation under current fixtures." : scenario.description
               : "Discover an earthquake on the world map or choose a known walkthrough. No recovery is selected yet."}
           </p>
         </section>
@@ -101,21 +130,23 @@ export default function App() {
               {hasSelection && (
                 <span className="event-button">
                   M{event.magnitude} {event.magnitudeType} ·{" "}
-                  {event.provenance.kind === "historical"
+                  {event.provenance?.kind === "historical"
                     ? "historical evidence"
                     : "labelled simulation"}
                 </span>
               )}
             </div>
             <WorkbenchMap
-              event={hasSelection ? event : null}
-              contract={mainContract}
+              key={resetVersion}
+              event={mapEvent}
+              contract={mapContract}
               selectedArea={selectedArea}
               onSelectArea={selectArea}
-              onSelectEvent={selectEvent}
+              onSelectEvent={busy?undefined:selectEvent}
               onClearEvent={clearEvent}
             />
             {hasSelection && <EventEvidencePanel event={event} />}
+            {hasSelection&&!mapEvent&&<p className="map-input-warning">Selected evidence is incomplete or unsupported. Its raw inputs and exceptions remain available; no invalid epicentre is drawn.</p>}
           </section>
           {hasSelection && assessment && evaluation ? (
             <aside className="inspector">
@@ -209,7 +240,7 @@ export default function App() {
                 </div>
                 <div>
                   <dt>Treaty event cap</dt>
-                  <dd>{usd(contract.eventCap)}</dd>
+                  <dd>{contract.eventCap===undefined?"Missing cap":usd(contract.eventCap)}</dd>
                 </div>
                 <div>
                   <dt>Capped treaty total</dt>
@@ -229,6 +260,7 @@ export default function App() {
                 key={evaluation.id}
                 evaluation={evaluation}
                 packet={packet}
+                disabled={busy}
                 onReview={review}
               />
             </aside>
@@ -247,6 +279,7 @@ export default function App() {
             </aside>
           )}
         </div>
+        <EvaluationHistory lifecycle={lifecycle} onResume={resume} disabled={busy} />
         <PacketHistory packets={lifecycle.packets} />
       </main>
       <footer>

@@ -163,3 +163,5 @@ describe("evaluation review and immutable packet boundary", () => {
     expect(packetSchema.safeParse(p).success).toBe(false);
   });
 });
+
+it("retains absent required raw identity and does not turn undefined optional terms into null",()=>{const state=evaluate(emptyLifecycle(),{...ridgecrest,id:undefined},{...mainContract,minimumMagnitude:undefined});expect(state.evaluations[0].event.id).toBeUndefined();expect(state.evaluations[0].assessment.status).toBe("Needs review");expect(state.evaluations[0].assessment.amount).toBeNull();expect(state.evaluations[0].contract.minimumMagnitude).toBeUndefined();const complete=evaluate(emptyLifecycle(),ridgecrest,{...mainContract,minimumMagnitude:undefined});expect(complete.evaluations[0].assessment.amount).toBe(6000000);});

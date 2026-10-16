@@ -13,7 +13,7 @@ import './map-context.css';
 maplibregl.setWorkerUrl(workerUrl);
 
 export type WorkbenchMapProps = {
- event: EventEvidence | null; contract: Treaty; selectedArea: string;
+ event: EventEvidence | null; contract: Pick<Treaty,'areas'>; selectedArea: string;
  onSelectArea: (id: string) => void;
  onSelectEvent?: (event: EventEvidence) => void;
  onClearEvent?: () => void;
