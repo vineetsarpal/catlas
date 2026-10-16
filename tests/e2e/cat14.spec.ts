@@ -1,0 +1,22 @@
+import {test,expect} from '@playwright/test';
+test('world, globe, layers and synthetic locations preserve assessment',async({page})=>{
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ await page.goto('/');await page.getByRole('button',{name:'Ridgecrest historical replay · M7.1',exact:true}).click();
+ await expect(page.getByTestId('analytical-map')).toHaveAttribute('data-ready','true');
+ await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
+ await page.getByRole('button',{name:'World',exact:true}).click();await page.getByRole('button',{name:'Globe',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Globe',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.getByLabel('Inspect synthetic location · 18 contextual sites').selectOption('DEMO-LOC-03');
+ await expect(page.getByRole('status')).toContainText('Lancaster');await expect(page.getByRole('status')).toContainText('Western portfolio grouping');
+ expect(await page.locator('#context-location option').count()).toBe(19);
+ await page.getByLabel('Treaty trigger zones',{exact:true}).uncheck();await page.getByLabel('Synthetic locations',{exact:true}).uncheck();
+ await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
+ await page.getByRole('button',{name:'Map',exact:true}).click();await page.getByRole('button',{name:'Regional',exact:true}).click();
+ await page.getByLabel('Treaty trigger zones',{exact:true}).check();
+ await page.getByRole('button',{name:'Western $1,500,000',exact:true}).click();
+ await expect(page.getByRole('region',{name:'Western contribution explanation'})).toContainText('68.107 km');
+ await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ await expect.poll(async()=>Number(await page.locator('[data-camera-zoom]').getAttribute('data-camera-zoom'))).toBeGreaterThan(7);
+ await page.screenshot({path:`test-results/cat14-${test.info().project.name}.png`,fullPage:true});
+});
