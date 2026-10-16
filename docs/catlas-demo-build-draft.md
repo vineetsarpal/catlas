@@ -1,6 +1,6 @@
 # Catlas earthquake workbench — implementation draft
 
-Status: proposed PRD and issue breakdown for review; not yet published to Linear. No application implementation or deployment has started.
+Status: testing boundaries and ten-ticket breakdown approved by Vineet. Published as implementation PRD CAT-12 and children CAT-13 through CAT-22. Implementation in progress; deployment pending verified result.
 
 Source: [Chart the customer-testable Catlas earthquake workbench](https://linear.app/vineetsarpal/issue/CAT-1/chart-the-customer-testable-catlas-earthquake-workbench), its resolved decisions and superseding two-area amendments. Linear remains canonical; this file is a review draft. Publication should create a separate implementation parent and child issues, leaving the completed wayfinding map unchanged.
 
@@ -114,7 +114,7 @@ The demonstration uses public captured earthquake evidence, fictional RAS-origin
 - Cloudflare Pages static hosted build plus downloadable offline build with documented stable-origin local-server launcher. Hosted and local origins have separate browser data.
 - Core analytical flows must run without live USGS, external scripts, imagery or RAS. Desktop current Chrome/Edge and usable responsive layout to 375px.
 
-## Testing Decisions — proposed seams for approval
+## Testing Decisions — approved boundaries
 
 There is no reusable production test suite in this repository. Prototype browser checks are discussion evidence, not replacement application tests. Test observable results and state transitions, not React internals, CSS snapshots or incidental module structure.
 
@@ -125,9 +125,9 @@ There is no reusable production test suite in this repository. Prototype browser
 
 Each slice includes its relevant verification; testing is not postponed to a final separate phase. Visual inspection remains necessary for trigger-zone legibility and responsive layout. These internal checks do not claim external customer validation or vendor compatibility.
 
-## Proposed implementation slices
+## Approved implementation slices
 
-All slices below are proposed, not published. AFK means implementation can proceed from the approved specification without a further product decision; it does not waive repository review or confer deployment authorization. HITL indicates an explicit human/account step.
+All slices below are approved and published as CAT-13 through CAT-22. AFK means implementation can proceed from the approved specification without a further product decision; it does not waive repository review or confer deployment authorization. HITL indicates an explicit human/account step.
 
 ### 1. Replay Ridgecrest and explain the two-area $6m recovery
 
