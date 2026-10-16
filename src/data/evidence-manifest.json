@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-16T02:40:21.470Z",
+  "sourceUrl": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/detail/ci38457511.geojson",
+  "files": [
+    {
+      "file": "ridgecrest-detail.geojson",
+      "sha256": "b50ed4fa2bf4e43b897db38c5881dcdd0628c242207d96e1146022304f45ec77",
+      "capturedAt": "2026-10-16T02:39:50.818Z",
+      "sourceUrl": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/detail/ci38457511.geojson"
+    },
+    {
+      "file": "ridgecrest-origin.xml",
+      "sha256": "8314720acebafa1b2666972a49269f01e23f1dd3774c7d6da612cea5d3ca45e1",
+      "capturedAt": "2026-10-16T02:40:21.068Z",
+      "sourceUrl": "https://earthquake.usgs.gov/product/origin/ci38457511/ci/1662758014120/quakeml.xml"
+    }
+  ],
+  "eventAliases": [
+    "ci38457511",
+    "us70004bn0",
+    "at00pu7alg",
+    "pt19187000",
+    "iscgem616203758"
+  ],
+  "selectedProductId": "urn:usgs-product:ci:origin:ci38457511:1662758014120",
+  "selectedOriginId": "quakeml:service.scedc.caltech.edu/fdsnws/event/1/query?originid=105211013",
+  "selectedMagnitudeId": "quakeml:service.scedc.caltech.edu/fdsnws/event/1/query?magnitudeid=110266100",
+  "selection": "Highest preferredWeight origin product in captured USGS detail; CI origin and magnitude match summary raw values. Product IDs are from this captured response, not reconstructed historical revisions.",
+  "sourceProductUpdatedAt": "2022-09-09T21:13:34.120Z",
+  "declaration": "Historical event captured at preparation time; not a reconstruction of evidence available at occurrence.",
+  "captureClock": "Per-file capturedAt records filesystem write completion UTC; top-level capturedAt is manifest preparation UTC.",
+  "selectedFields": {
+    "magnitude": "properties.mag",
+    "magnitudeType": "properties.magType (literal mw)",
+    "occurredAt": "properties.time (epoch milliseconds)",
+    "epicentre": "geometry.coordinates [longitude, latitude, depth]"
+  },
+  "quakeMlNote": "Retained verbatim: magnitude type Mw; magnitude origin linkage is distinct from preferred hypocentre origin. Evaluation uses raw JSON summary fields, not normalized XML values."
+}

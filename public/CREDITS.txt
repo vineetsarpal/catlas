@@ -1,0 +1,3 @@
+Natural Earth 1:110m land polygons: public domain, https://www.naturalearthdata.com/about/terms-of-use/ . Source: https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_land.geojson . Local analytical context, no satellite imagery.
+USGS earthquake evidence: US government public data. Source response and selected origin retained verbatim; capture manifest in src/data/evidence-manifest.json. Public-source data is not a fictional RAS contract or a damage model.
+MapLibre GL JS: BSD-3-Clause. See bundled third-party licenses and dependency license files. React: MIT. d3-geo: ISC. Dexie: Apache-2.0. Zod: MIT.
