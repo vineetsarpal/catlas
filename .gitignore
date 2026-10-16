@@ -4,3 +4,6 @@ dist/
 test-results/
 playwright-report/
 *.tsbuildinfo
+release/
+offline-test-results/
+offline-report/

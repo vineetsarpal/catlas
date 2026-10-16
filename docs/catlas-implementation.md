@@ -1,29 +1,31 @@
-# Running the Catlas demonstration
+# Catlas demonstration implementation
 
-Use Node 22.22 or compatible newer Node. `npm ci`, then `npm run dev`. `npm run build` creates a static `dist/`; `npm run preview` serves it locally. All core assets are local. Never open the bundle as file://; a stable local HTTP origin is required for later IndexedDB history.
+CAT-13 through CAT-21 are implemented; CAT-22 provides verified static/offline artifacts with Cloudflare publication handled separately. CAT-1 is the unchanged completed planning map. Customer validation remains deferred.
 
-`npm test` checks the independent domain boundary and captured evidence integrity. `npm run test:e2e` checks desktop and 375px browser explanations with external requests blocked. Use `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to select an existing Chromium binary if the pinned Playwright browser is not installed.
+## Runtime and development
 
-The historical replay evaluates current captured source evidence, not a historical bulletin sequence. JSON summary has literal `mw`; retained XML has `Mw`. The selected magnitude's origin linkage is preserved verbatim and is distinct from the preferred hypocentre. Calculation uses the raw selected JSON summary and matching CI origin product. Evidence SHA-256 digests are measured from retained bytes. The manifest's capture timestamp records capture preparation, not event or publication time.
+React/TypeScript/Vite, MapLibre, pure TypeScript/d3-geo calculation, Dexie/IndexedDB, Vitest and Playwright. Compatible pinned dependencies are installed from package-lock.json. Node 22.22+ and Python 3.9+ build/package the demonstration; the extracted offline recipient only needs Python. There is no backend, sign-in or live RAS connection.
 
-The contract is a fictional simulated RAS v2 import, not Catlas-authored real insurance protection. No customer validation or production RAS compatibility has been established.
+`npm run dev` serves development on loopback. `npm run build` type-checks and produces static assets. `npm run package:offline` builds, supplies third-party notices/presenter/evidence metadata, validates captured source digests and produces `release/catlas-offline.zip`. `npm run test:offline` extracts that exact zip, checks every release-manifest file digest, then runs production browser journeys against its Python launcher. `npm run release` performs unit checks, packaging and extracted-bundle acceptance. `npm run test:e2e` covers broader lifecycle and error cases against development.
 
-## Module boundaries
+## Boundaries
 
-- `src/domain/types.ts`: runtime validated versioned event/treaty shapes; assessment and evaluation types. Later lifecycle should preserve raw inputs for incomplete evaluations, rather than forcing parse success.
-- `src/domain/assessment.ts`: pure assess, matrixCell, spherical distance and geodesic triggerPolygon. No map, React, persistence or clock dependencies.
-- `src/data/fixtures.ts`: validated main contract and captured Ridgecrest inputs; source manifest.
-- `src/components/WorkbenchMap.tsx`: geographic presentation, fixed references and epicentre. Does not calculate payout.
-- `src/App.tsx`: current view composition. Area selection only changes presentation. Future scenario/lifecycle controls should change substantive snapshots through an explicit evaluation boundary.
+- `domain/types.ts` separates raw input snapshots from strictly validated evidence/terms. Missing and unsupported inputs remain inspectable rather than being silently repaired.
+- `domain/assessment.ts` calculates raw magnitude/UTC coverage/spherical distance, exclusive bands, both contributions and cap independently of React, MapLibre, clock and storage.
+- `domain/packets.ts` owns immutable evaluations, lineage versions, version-specific review and canonical JSON serialization. Every input replacement creates a new evaluation; presentation does not. Complete zero and positive packets require a named unauthenticated demo review; incomplete assessments export exceptions with null amount.
+- `persistence/repository.ts` stores exact snapshots, packets and separate delivery/submission/receiver rows in versioned IndexedDB. Schema incompatibility preserves raw history and exposes export/reset. The lifecycle hook publishes state only after successful durable transactions; failures do not falsely claim retention. Reload opens world discovery; resume uses the stored inputs/results.
+- `delivery/model.ts` implements receipt, rejection, unconfirmed delivery, stable submission identities, deduplication and full replacement. `delivery/service.ts` performs transactions against the local receiver. Downloaded and submitted JSON is identical. Replacement review links the prior packet/receiving reference and requires reconciliation first; complete corrections to zero are allowed, incomplete replacements blocked.
+- `data/fixtures.ts`, `revisions.ts`, `scenarios.ts` and `outer-event.ts` contain captured evidence references and explicitly labelled fictional/synthetic inputs. A simulated M6.9 observation preserves earthquake lineage without claiming a historical bulletin. Same-ID fictional RAS terms v3 enable a complete downward-to-zero correction; v4 demonstrates missing coverage.
+- Components render current frozen evaluations and keep map/evidence/review/revision/delivery concerns separate. WorkbenchMap renders local land, geodesic fixed-reference zones and connectors, distinct earthquake/contextual site markers, world/regional and map/globe controls. All 18 amended site fixtures are context only. Area/layer/camera selection preserves reviewed content.
 
-## Evaluation and packet lifecycle (CAT-16)
+## Evidence and licensing
 
-`src/domain/packets.ts` is the in-memory service boundary for subsequent IndexedDB retention. `LifecycleState` contains frozen `EvaluationRecord[]`, frozen `RecoveryPacket[]` and `currentEvaluationId`; opening the world workspace creates none. `evaluate` snapshots raw `EventInput`/`ContractInput`, then calculates from that same snapshot. Supplied missing fields become null, including absent coverage dates. Event×treaty lineage versions increase on changed snapshots, with `previousEvaluationId` retained. Only the latest exact unchanged snapshot can resume; changing inputs away and back requires a fresh version.
+Raw USGS responses, selected product/origin/magnitude identifiers, aliases and measured source digests remain unchanged. The capture manifest distinguishes per-file completion, manifest preparation, event occurrence and product times. Summary `mw` is used literally; preserved XML `Mw` and origin linkage are not normalized to determine eligibility. Replay is not an as-of-event reconstruction.
 
-`createPacket` reviews only the current evaluation and returns the already frozen packet if one exists. Complete zero and positive assessments require named unauthenticated demo review. Incomplete assessments yield an unreviewed exception packet with null recovery and explicit reasons. There is one packet per evaluation. Notes cannot subsequently rewrite it; past packets remain downloadable during the session. Browser refresh retention is the next slice.
+Packaging copies actual installed runtime dependency LICENSE/NOTICE texts, including transitive dependencies, to `THIRD_PARTY_NOTICES.md`; MurmurHash's full MIT text is retained from its README. Natural Earth land is public domain; source and USGS credits remain in CREDITS.txt. No external fonts, sprites, satellite assets or remote scripts are needed. ZIP entry timestamps are normalized container metadata; measured packaging time and file hashes are recorded separately in release-manifest.json.
 
-`packetSchema` validates complete/exception gates, review identity/version, cedent and lineage consistency, canonical rule constants, aggregation, and recomputed assessment agreement with raw inputs. `serializePacket` defines the exact JSON bytes for download and the future simulated send adapter. Delivery state/attempts/receipts belong outside this immutable content. JSON includes raw evidence provenance and genuine capture metadata; it does not fabricate historical observation revisions.
+## Distribution and verification
 
-The service accepts injected `Runtime.now` and `Runtime.id` for deterministic tests; the browser uses actual UTC time and random UUID identities. It has no storage, network, map or React dependency.
+The loopback Python launcher serves `dist/` on stable http://127.0.0.1:4178. Changing hostname, port, browser/profile or switching to Cloudflare changes the local-history origin. Clear selection preserves history; explicit reset clears browser demo/receiver data and leaves packaged evidence untouched.
 
-`src/hooks/useEvaluationLifecycle.ts` exposes stable `evaluateInputs(event, contract)`, `clearSelection()` and `reviewEvaluation(id, notes)` actions. Scenario discovery invokes the same raw-input evaluation action that later evidence/terms revision can invoke. The hook is the local persistence attachment point. Extracted `PacketReview`, `EventEvidencePanel` and `AreaExplanation` keep map/evidence/review composition separate.
+See the separate presenter, offline, Cloudflare and verification documents. Hosting requires the intended account/project and publication authorization against the verified artifact. No hosting credentials are packaged. Browser checks establish internal consistency and operability, not external usefulness, vendor integration or authenticated financial approval.
