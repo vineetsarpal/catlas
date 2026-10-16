@@ -7,6 +7,7 @@ import { useCallback, useMemo, useState } from "react";
 import { scenarios } from "./data/scenarios";
 import { mainContract } from "./data/fixtures";
 import { WorkbenchMap } from "./components/WorkbenchMap";
+import { RevisionControls } from "./components/RevisionControls";
 import { useEvaluationLifecycle } from "./hooks/useEvaluationLifecycle";
 import { PacketReview, PacketHistory } from "./components/PacketReview";
 import "./app.css";
@@ -120,6 +121,10 @@ export default function App() {
               : "Discover an earthquake on the world map or choose a known walkthrough. No recovery is selected yet."}
           </p>
         </section>
+        <RevisionControls evaluation={evaluation} disabled={busy} onRevise={async (nextEvent,nextContract)=>{
+          const saved=await evaluateInputs(nextEvent,nextContract);
+          if(saved)setScenarioId("__retained__");
+        }}/>
         <div className="workspace">
           <section className="map-panel">
             <div className="panel-heading">
