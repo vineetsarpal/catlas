@@ -17,7 +17,7 @@ export const submissionSchema = z
     packetId: identity,
     caseId: identity,
     payload: z.string(),
-    state: z.enum(["received", "rejected"]),
+    state: z.enum(["received", "rejected", "unconfirmed"]),
     createdAt: instant,
     updatedAt: instant,
     reference: identity.nullable(),
@@ -31,7 +31,8 @@ export const attemptSchema = z
     submissionId: identity,
     packetId: identity,
     attemptedAt: instant,
-    state: z.enum(["received", "rejected"]),
+    action: z.enum(["send", "retry", "check"]).optional(),
+    state: z.enum(["received", "rejected", "unconfirmed"]),
     reference: identity.nullable(),
     reason: identity.nullable(),
   })
@@ -156,9 +157,11 @@ export function validateHistory(raw: {
         const s = history.submissions.find((s) => s.id === id);
         if (
           !s ||
-          s.state !== "received" ||
+          (s.state !== "received" && s.state !== "unconfirmed") ||
           s.caseId !== r.caseId ||
-          s.reference !== r.reference ||
+          (s.state === "received"
+            ? s.reference !== r.reference
+            : s.reference !== null) ||
           !r.acceptedPacketIds.includes(s.packetId)
         )
           fail();
@@ -172,7 +175,7 @@ export function validateHistory(raw: {
     );
   }
 }
-export type ReceiverOutcome = "accept" | "reject";
+export type ReceiverOutcome = "accept" | "reject" | "unconfirmed";
 export function receive(
   history: DeliveryHistoryState,
   submissionId: string,
@@ -206,7 +209,8 @@ export function receive(
     const reason =
       current && current.currentPacketId !== packet.packetId
         ? "A receiving case already exists. A different packet requires a linked replacement assessment."
-        : outcome === "reject"
+        : outcome === "reject" &&
+            !current?.acceptedSubmissionIds.includes(submissionId)
           ? "Simulated RAS rejected this demonstration submission for manual inspection."
           : null;
     let reference: string | null = null;
@@ -235,11 +239,18 @@ export function receive(
       packetId: packet.packetId,
       caseId: packet.evaluation.lineageId,
       payload,
-      state: reason ? "rejected" : "received",
+      state: reason
+        ? "rejected"
+        : outcome === "unconfirmed"
+          ? "unconfirmed"
+          : "received",
       createdAt: previous?.createdAt ?? at,
       updatedAt: at,
-      reference,
-      reason,
+      reference: !reason && outcome === "unconfirmed" ? null : reference,
+      reason:
+        !reason && outcome === "unconfirmed"
+          ? "Acknowledgement lost; timeout proves neither receipt nor rejection."
+          : reason,
     };
   }
   const attempt: DeliveryAttempt = {
@@ -248,6 +259,7 @@ export function receive(
     submissionId,
     packetId: packet.packetId,
     attemptedAt: at,
+    action: previous ? "retry" : "send",
     state: submission.state,
     reference: submission.reference,
     reason: submission.reason,
@@ -261,4 +273,76 @@ export function receive(
     receiverRecords: records,
   };
   return { history: validateHistory(next), submission, attempt };
+}
+
+export function checkStatus(
+  history: DeliveryHistoryState,
+  submissionId: string,
+  payload: string,
+  runtime: Runtime = browserRuntime,
+) {
+  const before = validateHistory(history),
+    packet = parsePayload(payload),
+    previous = before.submissions.find((s) => s.id === submissionId);
+  if (submissionId !== submissionIdentity(packet.packetId))
+    throw new Error(
+      "Submission identity must belong to this immutable packet.",
+    );
+  if (previous && previous.payload !== payload)
+    throw new Error("Same submission identity cannot carry changed payload.");
+  const receiver = before.receiverRecords.find((r) =>
+    r.acceptedSubmissionIds.includes(submissionId),
+  );
+  const at = runtime.now();
+  const submission: Submission = {
+    schemaVersion: 1,
+    id: submissionId,
+    packetId: packet.packetId,
+    caseId: packet.evaluation.lineageId,
+    payload,
+    state: receiver
+      ? "received"
+      : previous?.state === "rejected"
+        ? "rejected"
+        : "unconfirmed",
+    createdAt: previous?.createdAt ?? at,
+    updatedAt: at,
+    reference: receiver?.reference ?? null,
+    reason: receiver
+      ? null
+      : previous?.state === "rejected"
+        ? previous.reason
+        : "Receiver status not found; delivery remains unconfirmed.",
+  };
+  const attempt: DeliveryAttempt = {
+    schemaVersion: 1,
+    id: runtime.id(),
+    submissionId,
+    packetId: packet.packetId,
+    attemptedAt: at,
+    action: "check",
+    state: submission.state,
+    reference: submission.reference,
+    reason: submission.reason,
+  };
+  const next = {
+    submissions: [
+      ...before.submissions.filter((s) => s.id !== submissionId),
+      submission,
+    ],
+    attempts: [...before.attempts, attempt],
+    receiverRecords: before.receiverRecords,
+  };
+  return { history: validateHistory(next), submission, attempt };
+}
+export function lineageDelivery(
+  history: DeliveryHistoryState,
+  lineageId: string,
+) {
+  const submissions = history.submissions.filter((s) => s.caseId === lineageId);
+  return {
+    receiver: history.receiverRecords.find((r) => r.caseId === lineageId),
+    submissions,
+    unconfirmed: submissions.filter((s) => s.state === "unconfirmed"),
+  };
 }

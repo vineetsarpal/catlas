@@ -15,6 +15,7 @@ import {
 import {
   initialSendGate,
   receive,
+  checkStatus,
   submissionIdentity,
   validateHistory,
   type ReceiverOutcome,
@@ -53,15 +54,22 @@ export async function loadDeliveryHistory(
         throw new CompatibilityError(
           "Simulated RAS history uses an incompatible storage format. Raw history is preserved; export or explicitly reset demo data.",
         );
-      return validateHistory(rows);
+      const history = validateHistory(rows);
+      history.attempts.sort(
+        (a, b) =>
+          a.attemptedAt.localeCompare(b.attemptedAt) ||
+          a.id.localeCompare(b.id),
+      );
+      return history;
     },
   );
 }
-export async function submitPacket(
+async function packetAction(
   repository: DemoRepository,
   packet: RecoveryPacket,
   outcome: ReceiverOutcome = "accept",
   runtime: Runtime = browserRuntime,
+  action: "submit" | "check" = "submit",
 ) {
   const gate = initialSendGate(packet);
   if (gate) throw new Error(gate);
@@ -87,13 +95,21 @@ export async function submitPacket(
           attempts: await tables.deliveryAttempts.toArray(),
           receiverRecords: await tables.receiverRecords.toArray(),
         });
-        const result = receive(
-          before,
-          submissionIdentity(packet.packetId),
-          payload,
-          outcome,
-          runtime,
-        );
+        const result =
+          action === "check"
+            ? checkStatus(
+                before,
+                submissionIdentity(packet.packetId),
+                payload,
+                runtime,
+              )
+            : receive(
+                before,
+                submissionIdentity(packet.packetId),
+                payload,
+                outcome,
+                runtime,
+              );
         await tables.submissions.put(result.submission as OperationalRecord);
         await tables.deliveryAttempts.add(result.attempt as OperationalRecord);
         for (const receiver of result.history.receiverRecords)
@@ -102,4 +118,20 @@ export async function submitPacket(
       });
     },
   );
+}
+
+export async function submitPacket(
+  repository: DemoRepository,
+  packet: RecoveryPacket,
+  outcome: ReceiverOutcome = "accept",
+  runtime: Runtime = browserRuntime,
+) {
+  return packetAction(repository, packet, outcome, runtime, "submit");
+}
+export async function checkPacketStatus(
+  repository: DemoRepository,
+  packet: RecoveryPacket,
+  runtime: Runtime = browserRuntime,
+) {
+  return packetAction(repository, packet, "accept", runtime, "check");
 }

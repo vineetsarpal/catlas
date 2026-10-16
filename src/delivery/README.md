@@ -18,3 +18,13 @@ Each packet uses submission identity `submission:${packetId}`. Retries preserve 
 CAT-20 can extend operational states with unconfirmed delivery and status reconciliation. CAT-21 can extend the case transition to validate explicit replacement links and permit complete downward-to-zero corrections; current initial-send zero gate intentionally blocks them until that replacement path exists. Neither extension requires changing immutable payload bytes on retry.
 
 Tests: model.test.ts verifies seven receiver cases. tests/e2e/delivery.spec.ts uses real IndexedDB and actual downloaded bytes, offline receipt, rejection, retries, persistence, initial gates, incompatible-record preservation/reset, concurrent sends and altered-content rejection. Browser tests require the shared App integration above; temporary worktree wiring/config used for verification is excluded from the commit.
+
+## Lost acknowledgement and reconciliation (CAT-20)
+
+The simulated `unconfirmed` outcome accepts into receiver truth while withholding the acknowledgement: sender submission and its attempt retain state `unconfirmed`, null receiving reference and an explicit uncertainty reason. A timeout establishes neither receipt nor rejection. Refresh retains these rows; receiver count is explicitly simulator truth rather than a sender acknowledgement.
+
+`checkPacketStatus(repository, packet, runtime?)` uses the existing submission identity and exact retained bytes, then appends an `action: 'check'` attempt. A matching accepted receiver record supplies its existing acknowledgement/reference; unknown/not-found status stays unconfirmed. The check never creates or changes a receiver record. Retrying uses `action: 'retry'`; repeated lost acknowledgements preserve uncertainty, and an acknowledged retry returns the original reference. Existing received/rejected rows without an action field remain compatible and are displayed as legacy sends.
+
+`lineageDelivery(history, lineageId)` returns the receiving case, all submissions and the unconfirmed subset for CAT-21. Receiver truth must not be used as an acknowledged reference before the sender submission is reconciled. Delivery history orders attempts by actual recorded attempt time for presentation; the raw archive retains database primary-key order and must not be mistaken for chronology.
+
+The complete replacement workflow remains a later slice. No immutable packet content, source provenance or financial approval state changes during reconciliation.

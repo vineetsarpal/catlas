@@ -24,19 +24,29 @@ export function DeliveryHistory({
             {history.receiverRecords.length === 1 ? "" : "s"}
           </p>
           <p>
+            Receiver simulator truth: the count above is not a sender
+            acknowledgement.
+          </p>
+          <p>
             {history.attempts.length} delivery attempts · records retained
             separately from immutable packets.
           </p>
           {history.attempts.map((attempt) => (
             <article key={attempt.id} data-testid="delivery-attempt">
               <strong>
-                {attempt.state === "received" ? "Received" : "Rejected"} ·{" "}
-                {attempt.reference ?? attempt.reason}
+                {attempt.state === "received"
+                  ? "Received"
+                  : attempt.state === "unconfirmed"
+                    ? "Delivery unconfirmed"
+                    : "Rejected"}{" "}
+                · {attempt.reference ?? attempt.reason}
               </strong>
               <p>
                 {attempt.attemptedAt} · packet {attempt.packetId}
               </p>
-              <p>Submission {attempt.submissionId}</p>
+              <p>
+                {attempt.action ?? "send"} · Submission {attempt.submissionId}
+              </p>
             </article>
           ))}
         </>
