@@ -48,6 +48,14 @@ export const DEMO_ANALYST = {
   name: "Alex Morgan",
   role: "Named demo analyst — unauthenticated persona",
 } as const;
+export const replacementSchema = z.object({
+  purpose: z.literal("Full replacement assessment"),
+  previousPacketId: z.string().min(1),
+  previousEvaluationId: z.string().min(1),
+  previousEvaluationVersion: z.number().int().positive(),
+  priorRASReference: z.string().min(1),
+});
+export type Replacement = z.infer<typeof replacementSchema>;
 const packetShapeSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -117,10 +125,13 @@ const packetShapeSchema = z
       })
       .nullable(),
     declarations: z.array(z.string()).min(1),
+    replacement: replacementSchema.optional(),
   });
 // Live creation validates calculations; retained snapshots are validated structurally
 // without rerunning the current calculation over historical records.
 export const packetSnapshotSchema = packetShapeSchema.superRefine((packet, ctx) => {
+    if (packet.replacement && (packet.kind!=="reviewed-recovery" || packet.replacement.previousPacketId===packet.packetId || packet.replacement.previousEvaluationId===packet.evaluation.id || packet.replacement.previousEvaluationVersion>=packet.evaluation.version))
+      ctx.addIssue({code:"custom",message:"Replacement must identify an earlier reviewed evaluation"});
     const a = packet.evaluation.assessment;
     if (
       JSON.stringify(packet.cedent) !==
@@ -213,6 +224,7 @@ export function evaluate(
   event: EventInput,
   contract: ContractInput,
   runtime = browserRuntime,
+  options: {forceNewVersion?:boolean} = {},
 ): LifecycleState {
   const eventSnapshot = snapshot(event),
     contractSnapshot = snapshot(contract);
@@ -222,7 +234,7 @@ export function evaluate(
     .sort((a,b)=>a.version-b.version)
     .at(-1);
   if (
-    previous &&
+    previous && !options.forceNewVersion &&
     JSON.stringify(previous.event) === JSON.stringify(eventSnapshot) &&
     JSON.stringify(previous.contract) === JSON.stringify(contractSnapshot)
   )
@@ -250,6 +262,7 @@ export function createPacket(
   evaluationId: string,
   notes = "",
   runtime = browserRuntime,
+  replacement?: Replacement,
 ): LifecycleState {
   if (state.currentEvaluationId !== evaluationId)
     throw new Error("Review must target the current evaluation");
@@ -310,6 +323,7 @@ export function createPacket(
             ]
           : []),
       ],
+      ...(replacement ? {replacement} : {}),
     }),
   );
   return { ...state, packets: [...state.packets, packet] };

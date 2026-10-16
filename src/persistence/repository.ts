@@ -73,6 +73,14 @@ export function restoreLifecycle(archive: Archive): LifecycleState {
             throw new CompatibilityError('A saved packet is incompatible with its evaluation snapshot. Raw history is preserved; export it or explicitly reset demo data.');
         return immutable(structuredClone(row.value)) as typeof result.data;
     });
+    for (const packet of packets) {
+        const link = packet.replacement;
+        if (!link)
+            continue;
+        const base = packets.find(p => p.packetId === link.previousPacketId);
+        if (!base || base.evaluation.id !== link.previousEvaluationId || base.evaluation.version !== link.previousEvaluationVersion || base.evaluation.lineageId !== packet.evaluation.lineageId)
+            throw new CompatibilityError('Saved replacement references are incompatible. Raw history is preserved.');
+    }
     if (new Set(packets.map(p => p.evaluation.id)).size !== packets.length)
         throw new CompatibilityError('Saved history contains multiple packets for one evaluation. Raw history is preserved.');
     evaluations.sort((a, b) => a.evaluatedAt.localeCompare(b.evaluatedAt) || a.version - b.version);
@@ -99,10 +107,10 @@ export class DemoRepository {
             return restoreLifecycle(archive);
         });
     }
-    async mutateLifecycle(update: (state: LifecycleState) => LifecycleState, currentEvaluationId: string | null): Promise<LifecycleState> {
+    async mutateLifecycle(update: (state: LifecycleState) => LifecycleState | Promise<LifecycleState>, currentEvaluationId: string | null): Promise<LifecycleState> {
         return this.db.transaction('rw', this.db.tables, async () => {
             const before = restoreLifecycle(await this.archiveRows());
-            const after = update({ ...before, currentEvaluationId });
+            const after = await update({ ...before, currentEvaluationId });
             if (before.evaluations.some(e => !after.evaluations.some(next => next.id === e.id)) || before.packets.some(p => !after.packets.some(next => next.packetId === p.packetId)))
                 throw new Error('Lifecycle updates cannot remove saved history; use explicit reset.');
             for (const evaluation of after.evaluations) {

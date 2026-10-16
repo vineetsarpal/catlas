@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { demoRepository, type DemoRepository } from "../persistence/repository";
 import type { RecoveryPacket } from "../domain/packets";
-import { initialSendGate, type ReceiverOutcome } from "../delivery/model";
+import { deliveryGate, type ReceiverOutcome } from "../delivery/model";
 import { submitPacket, checkPacketStatus } from "../delivery/service";
 import { useDeliveryHistory } from "../delivery/useDeliveryHistory";
 import "./delivery.css";
@@ -22,7 +22,7 @@ export function DeliveryPanel({
   const submission = history.submissions.find(
       (s) => s.packetId === packet?.packetId,
     ),
-    gate = initialSendGate(packet);
+    gate = deliveryGate(history,packet);
   async function check() {
     if (!packet) return;
     setChecking(true);
@@ -49,7 +49,8 @@ export function DeliveryPanel({
   }
   return (
     <section className="delivery-panel" aria-label="Simulated RAS delivery">
-      <h3>Send to simulated RAS</h3>
+<h3>{packet?.replacement?"Send full replacement to simulated RAS":"Send to simulated RAS"}</h3>
+      {packet?.replacement&&<p>Full replacement assessment · previous packet {packet.replacement.previousPacketId} · existing reference {packet.replacement.priorRASReference}. Replaces the full amount; no additive claim.</p>}
       <p>
         Local vendor-neutral demonstration receiver. No network service or real
         RAS writeback.

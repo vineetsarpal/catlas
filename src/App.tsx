@@ -11,7 +11,8 @@ import { RevisionControls } from "./components/RevisionControls";
 import { DeliveryPanel } from "./components/DeliveryPanel";
 import { DeliveryHistory } from "./components/DeliveryHistory";
 import { useEvaluationLifecycle } from "./hooks/useEvaluationLifecycle";
-import { PacketReview, PacketHistory } from "./components/PacketReview";
+import { ReplacementReview } from "./components/ReplacementReview";
+import { PacketHistory } from "./components/PacketReview";
 import "./app.css";
 export default function App() {
   const [scenarioId, setScenarioId] = useState(""),
@@ -19,7 +20,7 @@ export default function App() {
     [resetVersion, setResetVersion] = useState(0);
   const {
     lifecycle, evaluateInputs, clearSelection, reviewEvaluation, resumeEvaluation,
-    resetDemo, storageStatus, storageError, repository,
+    resetDemo, storageStatus, storageError, actionError, repository,
   } = useEvaluationLifecycle();
   const chooseScenario = useCallback(async (id: string) => {
     const next = scenarios.find(scenario => scenario.id === id);
@@ -97,7 +98,7 @@ export default function App() {
             <small>{contract.cedent?.id ?? "Missing cedent identity"}</small>
           </div>
         </section>
-        <StoragePanel status={storageStatus} error={storageError} onReset={reset} repository={repository} />
+<p className="storage-summary" role="status">{storageStatus==="ready"?"Local history saved in this browser":storageStatus==="saving"?"Saving local history…":storageStatus==="loading"?"Loading local history…":"Local history requires attention below"}</p>
         <section
           className="scenario-picker"
           aria-label="Demonstration scenario"
@@ -123,10 +124,6 @@ export default function App() {
               : "Discover an earthquake on the world map or choose a known walkthrough. No recovery is selected yet."}
           </p>
         </section>
-        <RevisionControls evaluation={evaluation} disabled={busy} onRevise={async (nextEvent,nextContract)=>{
-          const saved=await evaluateInputs(nextEvent,nextContract);
-          if(saved)setScenarioId("__retained__");
-        }}/>
         <div className="workspace">
           <section className="map-panel">
             <div className="panel-heading">
@@ -263,10 +260,14 @@ export default function App() {
                 {contract.expiry ?? "missing expiry"})<br />
                 RAS authors contracts; Catlas imports versioned terms.
               </p>
-              <PacketReview
+              <ReplacementReview
                 key={evaluation.id}
                 evaluation={evaluation}
                 packet={packet}
+                packets={lifecycle.packets}
+                repository={repository}
+                actionError={actionError}
+                onFreshEvaluation={()=>{void evaluateInputs(event,contract,{forceNewVersion:true}).then(saved=>{if(saved)setScenarioId("__retained__");});}}
                 disabled={busy}
                 onReview={review}
               />
@@ -287,6 +288,11 @@ export default function App() {
             </aside>
           )}
         </div>
+        <RevisionControls evaluation={evaluation} disabled={busy} onRevise={async (nextEvent,nextContract)=>{
+          const saved=await evaluateInputs(nextEvent,nextContract);
+          if(saved)setScenarioId("__retained__");
+        }}/>
+        <StoragePanel status={storageStatus} error={storageError} onReset={reset} repository={repository} />
         <EvaluationHistory lifecycle={lifecycle} onResume={resume} disabled={busy} />
         <PacketHistory packets={lifecycle.packets} />
         <DeliveryHistory repository={repository}/>

@@ -30,11 +30,9 @@ test('real IndexedDB retains reviewed bytes, unreviewed snapshots, selection cle
         const repoUrl = '/src/persistence/repository.ts', packetUrl = '/src/domain/packets.ts', fixtureUrl = '/src/data/fixtures.ts';
         const { demoRepository } = await import(repoUrl), { evaluate } = await import(packetUrl), { ridgecrest, mainContract } = await import(fixtureUrl);
         await demoRepository.mutateLifecycle((state: any) => evaluate(state, { ...ridgecrest, id: 'SIM-RETAINED', name: 'Retained custom simulation', magnitude: 6.9, evidenceVersion: 'SIM-RETAINED-1', provenance: { kind: 'simulation', description: 'Persistence verification fixture' } }, { ...mainContract, eventCap: 9000000 }), null);
-        await demoRepository.deliveryTransaction(async ({ deliveryAttempts, submissions, receiverRecords }: any) => {
-            await deliveryAttempts.add({ id: 'test-attempt', state: 'unconfirmed' });
-            await submissions.add({ id: 'test-submission' });
-            await receiverRecords.add({ id: 'test-receiver' });
-        });
+        const serviceUrl='/src/delivery/service.ts';
+        const retained=await demoRepository.db.packets.toArray();
+        await (await import(serviceUrl)).submitPacket(demoRepository,retained[0].value,'accept');
     });
     // Reopen a tab on the same origin, not just React's current in-memory state.
     const reopened = await context.newPage();

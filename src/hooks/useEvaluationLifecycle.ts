@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPacket, emptyLifecycle, evaluate, type LifecycleState } from '../domain/packets';
+import { reviewWithDeliveryContext } from '../delivery/service';
+import { ReviewBlockedError } from '../delivery/model';
+import { emptyLifecycle, evaluate, type LifecycleState } from '../domain/packets';
 import type { EventInput, ContractInput } from '../domain/types';
 import { CompatibilityError, demoRepository } from '../persistence/repository';
 
@@ -11,6 +13,7 @@ export function useEvaluationLifecycle() {
   const [lifecycle, setLifecycle] = useState(emptyLifecycle);
   const [storageStatus, setStorageStatus] = useState<StorageStatus>('loading');
   const [storageError, setStorageError] = useState('');
+  const [actionError, setActionError] = useState('');
   const current = useRef(lifecycle);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const mounted = useRef(false);
@@ -40,28 +43,34 @@ export function useEvaluationLifecycle() {
     return () => { cancelled = true; mounted.current = false; };
   }, [publish, failure]);
 
-  const mutate = useCallback((update: (state: LifecycleState) => LifecycleState) => {
+  const mutate = useCallback((update: (state: LifecycleState) => LifecycleState | Promise<LifecycleState>) => {
     const operation = ++operationVersion.current;
     setStorageStatus('saving');
     setStorageError('');
+    setActionError('');
     const next = queue.current.then(async () => {
       const state = await demoRepository.mutateLifecycle(update, current.current.currentEvaluationId);
       publish(state);
       if (mounted.current && operation === operationVersion.current) setStorageStatus('ready');
       return state;
     }).catch(error => {
-      if (operation === operationVersion.current) failure(error);
+      if (operation === operationVersion.current) {
+        if (error instanceof ReviewBlockedError) {
+          setActionError(error.message);
+          setStorageStatus('ready');
+        } else failure(error);
+      }
       return undefined;
     });
     queue.current = next;
     return next;
   }, [publish, failure]);
   const evaluateInputs = useCallback(
-    (event: EventInput, contract: ContractInput) => mutate(state => evaluate(state, event, contract)),
+    (event: EventInput, contract: ContractInput, options?: { forceNewVersion?: boolean }) => mutate(state => evaluate(state, event, contract, undefined, options)),
     [mutate],
   );
   const reviewEvaluation = useCallback(
-    (id: string, notes: string) => mutate(state => createPacket(state, id, notes)),
+    (id: string, notes: string) => mutate(state => reviewWithDeliveryContext(demoRepository, state, id, notes)),
     [mutate],
   );
   const clearSelection = useCallback(() => {
@@ -79,6 +88,7 @@ export function useEvaluationLifecycle() {
     const operation = ++operationVersion.current;
     setStorageStatus('saving');
     setStorageError('');
+    setActionError('');
     const next = queue.current.then(async () => {
       publish(await demoRepository.reset());
       if (mounted.current && operation === operationVersion.current) setStorageStatus('ready');
@@ -93,6 +103,6 @@ export function useEvaluationLifecycle() {
 
   return {
     lifecycle, evaluateInputs, clearSelection, reviewEvaluation, resumeEvaluation,
-    resetDemo, storageStatus, storageError, repository: demoRepository,
+    resetDemo, storageStatus, storageError, actionError, repository: demoRepository,
   };
 }
