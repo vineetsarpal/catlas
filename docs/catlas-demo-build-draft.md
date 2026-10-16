@@ -1,6 +1,6 @@
 # Catlas earthquake workbench — implementation draft
 
-Status: testing boundaries and ten-ticket breakdown approved by Vineet. Published as implementation PRD CAT-12 and children CAT-13 through CAT-22. CAT-13 through CAT-22 implemented, verified and published at https://catlas-demo.pages.dev/. Offline bundle is available at https://catlas-demo.pages.dev/catlas-offline.zip.
+Status: testing boundaries and ten-ticket breakdown approved by Vineet. Published as implementation PRD CAT-12 and children CAT-13 through CAT-22. CAT-13 through CAT-22 implemented, verified and published at https://catlas-workbench.pages.dev/. Offline bundle is available at https://catlas-workbench.pages.dev/catlas-offline.zip.
 
 Source: [Chart the customer-testable Catlas earthquake workbench](https://linear.app/vineetsarpal/issue/CAT-1/chart-the-customer-testable-catlas-earthquake-workbench), its resolved decisions and superseding two-area amendments. Linear remains canonical; this file is a review draft. Publication should create a separate implementation parent and child issues, leaving the completed wayfinding map unchanged.
 

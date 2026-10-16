@@ -1,21 +1,21 @@
 # Cloudflare Pages publication
 
-The concrete upload is the static `release/pages/` directory produced by `npm run package:offline`. The application files are also inside the verified offline zip under `catlas-offline/dist`. The Pages payload adds `/catlas-offline.zip` and its SHA-256 sidecar alongside the app files, separately from the offline staging directory to prevent recursive archives on rebuilding. No Functions, backend, bindings, credentials or Cloudflare runtime SDK are required. Vite uses relative local asset paths.
+The live demonstration is https://catlas-workbench.pages.dev/. Download the offline bundle at https://catlas-workbench.pages.dev/catlas-offline.zip and its current SHA-256 at https://catlas-workbench.pages.dev/catlas-offline.zip.sha256.
 
-Published 16 October 2026 after user authorization and OAuth consent to the selected Cloudflare account. Dedicated Direct Upload project **catlas-demo**, production branch **main**. Live URL: https://catlas-demo.pages.dev/; immutable deployment URL: https://f35b0f48.catlas-demo.pages.dev/. The already verified directory was uploaded without rebuilding. No credentials are embedded in the release.
+## Git-connected production
 
-The completed publication used:
+Cloudflare Pages project **catlas-workbench** connects to GitHub **vineetsarpal/catlas**, production branch **main**, through the existing authorized Cloudflare Pages GitHub installation. Pushing to main triggers a native Cloudflare build and deployment. The implementation is published on main and codex/catlas-implementation. No Cloudflare API token or GitHub Actions deployment secret is needed in the repository.
 
-```sh
-wrangler login
-wrangler pages project create catlas-demo --production-branch main
-wrangler pages deploy release/pages --project-name catlas-demo --branch main
-```
+Build settings: React (Vite) preset; repository root; command **npm run package:offline**; output directory **release/pages**; environment variables **NODE_VERSION=22.22.3**, **PYTHON_VERSION=3.13.2**. The command type-checks/builds the static app, validates genuine source evidence hashes, collects dependency license texts and packages the offline download. Run the unit and browser checks before pushing application changes.
 
-Future uploads can deploy to the existing project; do not recreate it. The local installed Wrangler 4.24.3 help confirms `pages deploy [directory]`, `--project-name` and `--branch`. Wrangler accepts the static folder rather than the offline launcher zip. Record the deployment's returned URL and validate the selected deployment over HTTPS before calling it published.
+Each build records actual packaging time, source commit, observed Git dirty state and file digests in the offline release manifest. The ZIP digest changes when packaging observations change; compare each downloaded ZIP with its own SHA-256 sidecar, rather than a prior release hash. These observations are separate from unchanged historical evidence provenance. Cloudflare dependency setup may affect the observed Git dirty state, which is reported without normalization.
 
-For Git-integrated builds, use repository root, build command **npm run package:offline**, output directory **release/pages**, Node **22.22.3** and Python **3.13.2** (or compatible versions). Python is only used to collect notices/package artifacts. Preserve the lockfile and run the extracted release checks before approving an equivalent rebuilt deployment. Direct Upload and Git integration have different project setup choices; the operator should choose deliberately for the intended project.
+## Migration and local operation
 
-Post-publication checks: fresh world opening; Ridgecrest $6m and both geodesic areas; genuine evidence and notices accessible; all five walkthroughs; reviewed download; unconfirmed reconciliation; full replacement and correction to zero; reload/reset; 375px no horizontal overflow. Hosted and local URLs have separate browser histories. All six production acceptance journeys passed over the live HTTPS URL in installed Chrome, with desktop and 375px viewports. The downloaded `/catlas-offline.zip` matched SHA-256 `f7012cfe9a5d976c51f744c25ebae20e8b9f3d8a03845a8fe61adebb902384df`.
+The original catlas-demo Direct Upload deployment was verified before migration. Cloudflare does not support converting a Direct Upload project to native Git integration, so catlas-workbench was created as a Git-connected project. The old project is removed only after the new production deployment passes browser and bundle checks. The prior release remains locally retained for recovery.
 
-Official documentation checked 16 October 2026: [Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/), [build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/), [React/Vite guide](https://developers.cloudflare.com/pages/framework-guides/deploy-a-react-site/). Those sources document prebuilt uploads, build/output settings and Pages URLs. No new framework adapter is needed for this static application.
+The packaged application has no Functions, backend, bindings, authentication credentials or Cloudflare runtime SDK. Vite uses relative local assets. The offline ZIP extracts to catlas-offline; run **python3 serve.py** and open **http://127.0.0.1:4178/**. Hosted, old hosted and offline origins have separate browser histories; export any history needed before leaving an old origin. No browser history is migrated automatically.
+
+Verify each release over HTTPS: world opening, Ridgecrest $6m and both geodesic areas, genuine evidence and notices, all five cases, reviewed download, unconfirmed reconciliation, full replacements and correction to zero, reload/reset, and 375px usability. Download and validate the offline ZIP against its sidecar and per-file release manifest. Preserve the lockfile and run the extracted release checks for changed runtime assets.
+
+Official documentation: [Git integration](https://developers.cloudflare.com/pages/configuration/git-integration/), [Direct Upload limitation](https://developers.cloudflare.com/pages/get-started/direct-upload/), [build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/).
