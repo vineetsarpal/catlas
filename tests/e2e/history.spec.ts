@@ -112,3 +112,22 @@ test('failed atomic save keeps previous retained content and displays error', as
     await page.reload();
     await expect(page.getByTestId('retained-evaluation')).toContainText('Unreviewed / no packet');
 });
+
+test('incomplete scheduled reference survives evaluation, exception export and reload',async({page})=>{
+ await page.goto('/');await choose(page,'ridgecrest');
+ await page.evaluate(async()=>{
+  const repoUrl='/src/persistence/repository.ts',packetUrl='/src/domain/packets.ts',fixtureUrl='/src/data/fixtures.ts';
+  const {demoRepository}=await import(repoUrl),{evaluate}=await import(packetUrl),{ridgecrest,mainContract}=await import(fixtureUrl);
+  await demoRepository.mutateLifecycle((state:any)=>evaluate(state,ridgecrest,{...mainContract,id:'DEMO-MISSING-REFERENCE',areas:mainContract.areas.map((area:any,index:number)=>index?area:{...area,latitude:undefined})}),null);
+ });
+ await page.reload();
+ const incomplete=page.getByTestId('retained-evaluation').filter({hasText:'DEMO-MISSING-REFERENCE'});
+ await incomplete.getByRole('button').click();
+ await expect(page.getByTestId('treaty-total')).toHaveText('Indeterminate');
+ await expect(page.getByRole('region',{name:'Missing or unsupported inputs'})).toContainText('areas.0.latitude');
+ await page.getByRole('button',{name:'Prepare exception packet',exact:true}).click();
+ const bytes=await download(page,'Download exception JSON');
+ expect(JSON.parse(bytes).aggregation.totalRecovery).toBeNull();
+ await page.reload();
+ expect(await download(page,/Download archived exception packet/)).toBe(bytes);
+});

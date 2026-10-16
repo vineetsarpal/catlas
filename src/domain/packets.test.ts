@@ -165,3 +165,15 @@ describe("evaluation review and immutable packet boundary", () => {
 });
 
 it("retains absent required raw identity and does not turn undefined optional terms into null",()=>{const state=evaluate(emptyLifecycle(),{...ridgecrest,id:undefined},{...mainContract,minimumMagnitude:undefined});expect(state.evaluations[0].event.id).toBeUndefined();expect(state.evaluations[0].assessment.status).toBe("Needs review");expect(state.evaluations[0].assessment.amount).toBeNull();expect(state.evaluations[0].contract.minimumMagnitude).toBeUndefined();const complete=evaluate(emptyLifecycle(),ridgecrest,{...mainContract,minimumMagnitude:undefined});expect(complete.evaluations[0].assessment.amount).toBe(6000000);});
+
+it.each([undefined,null,91])('retains missing or unsupported scheduled reference latitude %s as an exception',latitude=>{
+ const contract={...mainContract,areas:mainContract.areas.map((area,index)=>index?area:{...area,latitude})};
+ let state=evaluate(emptyLifecycle(),ridgecrest,contract);
+ expect(state.evaluations[0].assessment.amount).toBeNull();
+ expect(state.evaluations[0].assessment.exceptions.join('; ')).toContain('areas.0.latitude');
+ state=createPacket(state,state.currentEvaluationId!);
+ const packet=packetSchema.parse(JSON.parse(serializePacket(state.packets[0])));
+ expect(packet.kind).toBe('exception');
+ expect(packet.aggregation.totalRecovery).toBeNull();
+ expect(packet.evaluation.contract.areas![0].latitude).toBe(latitude===undefined?null:latitude);
+});

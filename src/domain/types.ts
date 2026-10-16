@@ -10,7 +10,9 @@ export const eventInputSchema = eventSchema.partial().extend({
 });
 export const contractInputSchema = contractSchema.partial().extend({
  inception: z.string().nullable().optional(), expiry: z.string().nullable().optional(),
- areas: z.array(contractSchema.shape.areas.element.partial()).optional(),
+ areas: z.array(contractSchema.shape.areas.element.partial().extend({
+  latitude:z.number().nullable().optional(), longitude:z.number().nullable().optional(),
+ })).optional(),
 });
 export type EventInput = z.infer<typeof eventInputSchema>;
 export type ContractInput = z.infer<typeof contractInputSchema>;
