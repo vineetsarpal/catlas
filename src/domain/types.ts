@@ -1,9 +1,21 @@
 import { z } from 'zod';
 const coordinate = z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) });
 export const eventSchema = z.object({ schemaVersion: z.literal(1), id: z.string().min(1), name: z.string(), evidenceVersion: z.string().min(1), magnitude: z.number().min(0).max(10), magnitudeType: z.literal('mw'), occurredAt: z.iso.datetime(), ...coordinate.shape, provenance: z.record(z.string(), z.unknown()) });
-export const contractSchema = z.object({ schemaVersion: z.literal(1), id: z.string().min(1), name: z.string(), version: z.number().int().positive(), source: z.literal('Simulated RAS'), cedent: z.object({ id: z.string(), name: z.string() }), currency: z.literal('USD'), inception: z.iso.datetime(), expiry: z.iso.datetime(), eventCap: z.number().nonnegative(), minimumMagnitude: z.number().optional(), areas: z.array(z.object({ id: z.string(), name: z.string(), ...coordinate.shape, allocation: z.number().nonnegative() })).min(1) }).superRefine((c, ctx) => { if (Date.parse(c.expiry) <= Date.parse(c.inception)) ctx.addIssue({code:'custom',message:'Expiry must follow inception',path:['expiry']}); if(new Set(c.areas.map(a=>a.id)).size!==c.areas.length) ctx.addIssue({code:'custom',message:'Area IDs must be unique',path:['areas']}); });
+export const contractSchema = z.object({ schemaVersion: z.literal(1), id: z.string().min(1), name: z.string(), version: z.number().int().positive(), source: z.literal('Simulated RAS'), cedent: z.object({ id: z.string(), name: z.string() }), currency: z.literal('USD'), inception: z.iso.datetime(), expiry: z.iso.datetime(), eventCap: z.number().nonnegative(), minimumMagnitude: z.number().min(0).max(10).optional(), areas: z.array(z.object({ id: z.string(), name: z.string(), ...coordinate.shape, allocation: z.number().nonnegative() })).min(1) }).superRefine((c, ctx) => { if (Date.parse(c.expiry) <= Date.parse(c.inception)) ctx.addIssue({code:'custom',message:'Expiry must follow inception',path:['expiry']}); if(new Set(c.areas.map(a=>a.id)).size!==c.areas.length) ctx.addIssue({code:'custom',message:'Area IDs must be unique',path:['areas']}); });
+// Raw evaluation snapshots retain missing/unsupported values for exception packets.
+// Validation for calculation remains strict in eventSchema / contractSchema.
+export const eventInputSchema = eventSchema.partial().extend({
+ magnitude: z.number().nullable().optional(), magnitudeType: z.string().nullable().optional(),
+ occurredAt: z.string().nullable().optional(), latitude: z.number().nullable().optional(), longitude: z.number().nullable().optional(),
+});
+export const contractInputSchema = contractSchema.partial().extend({
+ inception: z.string().nullable().optional(), expiry: z.string().nullable().optional(),
+ areas: z.array(contractSchema.shape.areas.element.partial()).optional(),
+});
+export type EventInput = z.infer<typeof eventInputSchema>;
+export type ContractInput = z.infer<typeof contractInputSchema>;
 export type EventEvidence = z.infer<typeof eventSchema>;
 export type Treaty = z.infer<typeof contractSchema>;
 export type AreaAssessment = { areaId: string; name: string; distanceKm: number; band: 'inner'|'outer'|'outside'; magnitudeRow: string; rate: number; allocation: number; contribution: number };
 export type Assessment = { ruleVersion: string; status: 'Trigger met'|'Not triggered'|'Outside coverage'|'Needs review'; amount: number|null; uncappedSum: number|null; eventCap: number|null; areas: AreaAssessment[]; exceptions: string[]; knownFailures: string[] };
-export type Evaluation = { id: string; version: number; evaluatedAt: string; event: EventEvidence; contract: Treaty; assessment: Assessment; previousEvaluationId?: string };
+export type Evaluation = { id: string; version: number; evaluatedAt: string; event: EventInput; contract: ContractInput; assessment: Assessment; previousEvaluationId?: string };

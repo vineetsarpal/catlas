@@ -1,0 +1,36 @@
+import { test, expect } from '@playwright/test';
+
+test('distinguish known zeros from incomplete assessments in each walkthrough',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/');
+ const picker=page.getByRole('combobox',{name:'Demonstration scenario',exact:true});
+ await picker.selectOption('high-threshold');
+ await expect(page.getByTestId('treaty-total')).toHaveText('$0');
+ await expect(page.getByText('● Not triggered',{exact:true})).toBeVisible();
+ await expect(page.getByRole('caption')).toContainText('minimum M7.5');
+ const highlighted=page.locator('.selected-cell');
+ await expect(highlighted).toHaveText('0%');
+ await picker.selectOption('incomplete');
+ await expect(page.getByTestId('treaty-total')).toHaveText('Indeterminate');
+ await expect(page.getByText('● Needs review',{exact:true})).toBeVisible();
+ const missing=page.getByRole('region',{name:'Missing or unsupported inputs'});
+ await expect(missing).toContainText('Contract inception:');
+ await expect(missing).toContainText('Contract expiry:');
+ await expect(page.locator('.area-explanation')).toHaveCount(0);
+ await expect(page.locator('.aggregation')).toContainText('Not determined');
+ await picker.selectOption('failed-and-missing');
+ await expect(page.getByTestId('treaty-total')).toHaveText('Indeterminate');
+ await expect(page.getByRole('region',{name:'Known failed conditions'})).toContainText('below the minimum 7.5');
+ await expect(missing).toBeVisible();
+ await picker.selectOption('outside-coverage');
+ await expect(page.getByTestId('treaty-total')).toHaveText('$0');
+ await expect(page.getByText('● Outside coverage',{exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Known failed conditions'})).toContainText('outside the UTC coverage interval');
+ await expect(page.locator('.formula')).toContainText('Coverage gate failed');
+ await picker.selectOption('ridgecrest');
+ await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
+ await expect(page.getByRole('button',{name:'Western $1,500,000'})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Missing or unsupported inputs'})).toHaveCount(0);
+ expect(errors).toEqual([]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
