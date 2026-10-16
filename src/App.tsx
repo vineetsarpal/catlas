@@ -1,19 +1,259 @@
-import { useCallback, useMemo, useState } from 'react';
-import { scenarios } from './data/scenarios';
-import { matrixCell, assess } from './domain/assessment';
-import { mainContract, manifest } from './data/fixtures';
-import { WorkbenchMap } from './components/WorkbenchMap';
-import './app.css';
-export const usd = (amount:number) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(amount);
-export default function App(){
- const [scenarioId,setScenarioId] = useState(''), [selectedArea,setSelectedArea]=useState('mojave');
- const scenario = scenarios.find(s=>s.id===scenarioId) ?? scenarios[0];
- const {event,contract} = scenario;
- const hasSelection = Boolean(scenarioId);
- const selectEvent=useCallback((next:typeof event)=>setScenarioId(next.id==='SIM-OUTER-01'?'outer':'ridgecrest'),[]);
- const clearEvent=useCallback(()=>setScenarioId(''),[]);
- const selectArea=useCallback((id:string)=>setSelectedArea(id),[]);
- const assessment=useMemo(()=>assess(event,contract),[event,contract]);
- const area=assessment.areas.find(a=>a.areaId===selectedArea);
- return <div className="catlas"><header className="topbar"><a className="brand" href="./">◈ <strong>catlas</strong><span>EARTHQUAKE WORKBENCH</span></a><span className="demo-tag">Demonstration · simulated RAS</span></header><main><section className="intro"><div><p className="eyebrow">CEDENT INVESTIGATION / HISTORICAL REPLAY</p><h1>One earthquake. Two area contributions.</h1><p>Explain a provisional contractual recovery from frozen evidence and imported terms.</p></div><div className="cedent"><span>Fictional cedent</span><strong>{contract.cedent.name}</strong><small>{contract.cedent.id}</small></div></section><section className="scenario-picker" aria-label="Demonstration scenario"><label htmlFor="scenario">Demonstration scenario</label><select id="scenario" value={scenarioId} onChange={e=>setScenarioId(e.target.value)}><option value="">Choose an event or walkthrough</option>{scenarios.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</select><p>{hasSelection?scenario.description:"Discover an earthquake on the world map or choose a known walkthrough. No recovery is selected yet."}</p></section><div className="workspace"><section className="map-panel"><div className="panel-heading"><div><p className="eyebrow">SELECTED EVENT</p><h2>{hasSelection?event.name:"World event discovery"}</h2></div>{hasSelection&&<span className="event-button">M{event.magnitude} {event.magnitudeType} · {event.provenance.kind==='historical'?'historical evidence':'labelled simulation'}</span>}</div><WorkbenchMap event={hasSelection?event:null} contract={mainContract} selectedArea={selectedArea} onSelectArea={selectArea} onSelectEvent={selectEvent} onClearEvent={clearEvent}/>{hasSelection&&<><div className="event-facts"><div><span>Raw magnitude</span><strong>{event.magnitude} {event.magnitudeType}</strong></div><div><span>Occurrence (UTC)</span><strong>{event.occurredAt}</strong></div><div><span>Epicentre</span><strong>{event.latitude}, {event.longitude}</strong></div></div>{event.provenance.kind==='historical'?<details className="evidence"><summary>Inspect captured USGS evidence and provenance</summary><p>Historical event; capture at preparation time. This is not a reconstruction of what was known at occurrence.</p><p>Selected summary fields: literal raw <code>mw</code>, magnitude 7.1, occurrence and epicentre. Highest preferredWeight CI origin product matches these summary values. QuakeML is retained verbatim: its magnitude spelling is <code>Mw</code> and its magnitude origin linkage differs from the preferred hypocentre. No normalization of XML spelling determines eligibility.</p><dl><dt>Capture recorded (UTC)</dt><dd>{manifest.capturedAt}</dd><dt>Product</dt><dd>{manifest.selectedProductId}</dd><dt>Selected origin</dt><dd>{manifest.selectedOriginId}</dd><dt>Selected magnitude</dt><dd>{manifest.selectedMagnitudeId}</dd></dl>{manifest.files.map(f=><p key={f.file}><a href={`${import.meta.env.BASE_URL}evidence/${f.file}`} download>{f.file}</a><br/><code>SHA-256 {f.sha256}</code></p>)}<p>{manifest.selection}</p></details>:<details className="evidence"><summary>Inspect simulation provenance</summary><p>This event and occurrence time are synthetic. No historical USGS observation or capture is asserted.</p><pre>{JSON.stringify(event.provenance,null,2)}</pre></details>}</>}</section>{hasSelection?<aside className="inspector"><p className="eyebrow">IMPORTED CONTRACT · V{contract.version}</p><h2>{contract.name}</h2><p className="muted">{contract.id}<br/>{contract.source} · fictional contract import</p><div className="result"><span className="status">● {assessment.status}</span><strong data-testid="treaty-total">{assessment.amount===null?'Indeterminate':usd(assessment.amount)}</strong><span>{assessment.amount===null?'No recovery amount asserted':'Provisional recovery · USD'}</span></div><p className="caution">Calculated contractual amount. Subject to analyst review; not a physical loss estimate, approved receivable or payment.</p>{assessment.exceptions.length>0&&<section className="assessment-reasons" aria-label="Missing or unsupported inputs"><h3>Missing or unsupported inputs</h3><ul>{assessment.exceptions.map(reason=><li key={reason}>{reason}</li>)}</ul><p>Needs review: complete required inputs before asserting a recovery. An exception packet may describe these gaps.</p></section>}{assessment.knownFailures.length>0&&<section className="assessment-reasons" aria-label="Known failed conditions"><h3>Known failed conditions</h3><ul>{assessment.knownFailures.map(reason=><li key={reason}>{reason}</li>)}</ul>{assessment.amount===null&&<p>These known failures do not establish zero while required inputs are missing.</p>}</section>}<div className="area-tabs" aria-label="Inspect scheduled area">{assessment.areas.map(a=><button key={a.areaId} onClick={()=>selectArea(a.areaId)} aria-pressed={a.areaId===selectedArea}>{a.name}<strong>{usd(a.contribution)}</strong></button>)}</div>{area&&<section className="area-explanation" aria-label={`${area.name} contribution explanation`}><div className="area-title"><h3>{area.name} area</h3><span>{area.distanceKm.toFixed(3)} km</span></div><p>Fixed reference → earthquake epicentre<br/>Spherical surface distance · Earth radius 6,371 km</p><table><caption>Magnitude × exclusive distance band{contract.minimumMagnitude ? ` · minimum M${contract.minimumMagnitude}` : ''}</caption><thead><tr><th>Raw mw</th><th>≤25 km</th><th>&gt;25–100 km</th></tr></thead><tbody>{[0,6.5,7,7.5].map(m=>[matrixCell(m,25,contract.minimumMagnitude).magnitudeRow,matrixCell(m,25,contract.minimumMagnitude).rate*100,matrixCell(m,100,contract.minimumMagnitude).rate*100]).map(([row,inner,outer])=><tr key={row}><th>{row}</th><td className={area.magnitudeRow===row&&area.band==='inner'?'selected-cell':''}>{inner}%</td><td className={area.magnitudeRow===row&&area.band==='outer'?'selected-cell':''}>{outer}%</td></tr>)}</tbody></table><p className="formula">{assessment.status==='Outside coverage'?<>Coverage gate failed · matrix rate not applied → <strong>{usd(area.contribution)}</strong></>:<>{area.rate*100}% × {usd(area.allocation)} = <strong>{usd(area.contribution)}</strong></>}</p><p>Allocation is a contractual maximum contribution. Each scheduled area contributes once; nested band rates are exclusive.</p></section>}<dl className="aggregation"><div><dt>Area contributions</dt><dd>{assessment.uncappedSum===null?'Not determined':usd(assessment.uncappedSum)}</dd></div><div><dt>Treaty event cap</dt><dd>{usd(contract.eventCap)}</dd></div><div><dt>Capped treaty total</dt><dd>{assessment.amount===null?'Indeterminate':usd(assessment.amount)}</dd></div></dl><p className="muted">UTC coverage [{contract.inception??'missing inception'}, {contract.expiry??'missing expiry'})<br/>RAS authors contracts; Catlas imports versioned terms.</p></aside>:<aside className="inspector"><p className="eyebrow">READY TO INVESTIGATE</p><h2>Select an earthquake</h2><p>Choose Ridgecrest or the labelled synthetic outer event to inspect the two scheduled area contributions and treaty total.</p><p>Map locations are synthetic context. They do not create recovery conditions.</p></aside>}</div></main><footer>Offline analytical map · Natural Earth public-domain land data · MapLibre GL JS (BSD-3-Clause) · Public USGS earthquake evidence · Customer validation deferred</footer></div>;
+import { usd } from "./format";
+import { EventEvidencePanel } from "./components/EventEvidencePanel";
+import { AreaExplanation } from "./components/AreaExplanation";
+import { useCallback, useState } from "react";
+import { scenarios } from "./data/scenarios";
+import { mainContract } from "./data/fixtures";
+import { WorkbenchMap } from "./components/WorkbenchMap";
+import { useEvaluationLifecycle } from "./hooks/useEvaluationLifecycle";
+import { PacketReview, PacketHistory } from "./components/PacketReview";
+import "./app.css";
+export default function App() {
+  const [scenarioId, setScenarioId] = useState(""),
+    [selectedArea, setSelectedArea] = useState("mojave");
+  const { lifecycle, evaluateInputs, clearSelection, reviewEvaluation } =
+    useEvaluationLifecycle();
+  const chooseScenario = useCallback(
+    (id: string) => {
+      setScenarioId(id);
+      const next = scenarios.find((s) => s.id === id);
+      if (next) evaluateInputs(next.event, next.contract);
+      else clearSelection();
+    },
+    [evaluateInputs, clearSelection],
+  );
+  const scenario = scenarios.find((s) => s.id === scenarioId) ?? scenarios[0];
+  const { event, contract } = scenario;
+  const hasSelection = Boolean(scenarioId);
+  const selectEvent = useCallback(
+    (next: typeof event) =>
+      chooseScenario(next.id === "SIM-OUTER-01" ? "outer" : "ridgecrest"),
+    [chooseScenario],
+  );
+  const clearEvent = useCallback(() => chooseScenario(""), [chooseScenario]);
+  const selectArea = useCallback((id: string) => setSelectedArea(id), []);
+  const evaluation = lifecycle.evaluations.find(
+    (e) => e.id === lifecycle.currentEvaluationId,
+  );
+  const assessment = evaluation?.assessment;
+  const packet = lifecycle.packets.find(
+    (p) => p.evaluation.id === evaluation?.id,
+  );
+  const review = (notes: string) => {
+    if (evaluation) reviewEvaluation(evaluation.id, notes);
+  };
+  const area = assessment?.areas.find((a) => a.areaId === selectedArea);
+  return (
+    <div className="catlas">
+      <header className="topbar">
+        <a className="brand" href="./">
+          ◈ <strong>catlas</strong>
+          <span>EARTHQUAKE WORKBENCH</span>
+        </a>
+        <span className="demo-tag">Demonstration · simulated RAS</span>
+      </header>
+      <main>
+        <section className="intro">
+          <div>
+            <p className="eyebrow">CEDENT INVESTIGATION / HISTORICAL REPLAY</p>
+            <h1>One earthquake. Two area contributions.</h1>
+            <p>
+              Explain a provisional contractual recovery from frozen evidence
+              and imported terms.
+            </p>
+          </div>
+          <div className="cedent">
+            <span>Fictional cedent</span>
+            <strong>{contract.cedent.name}</strong>
+            <small>{contract.cedent.id}</small>
+          </div>
+        </section>
+        <section
+          className="scenario-picker"
+          aria-label="Demonstration scenario"
+        >
+          <label htmlFor="scenario">Demonstration scenario</label>
+          <select
+            id="scenario"
+            value={scenarioId}
+            onChange={(e) => chooseScenario(e.target.value)}
+          >
+            <option value="">Choose an event or walkthrough</option>
+            {scenarios.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <p>
+            {hasSelection
+              ? scenario.description
+              : "Discover an earthquake on the world map or choose a known walkthrough. No recovery is selected yet."}
+          </p>
+        </section>
+        <div className="workspace">
+          <section className="map-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">SELECTED EVENT</p>
+                <h2>{hasSelection ? event.name : "World event discovery"}</h2>
+              </div>
+              {hasSelection && (
+                <span className="event-button">
+                  M{event.magnitude} {event.magnitudeType} ·{" "}
+                  {event.provenance.kind === "historical"
+                    ? "historical evidence"
+                    : "labelled simulation"}
+                </span>
+              )}
+            </div>
+            <WorkbenchMap
+              event={hasSelection ? event : null}
+              contract={mainContract}
+              selectedArea={selectedArea}
+              onSelectArea={selectArea}
+              onSelectEvent={selectEvent}
+              onClearEvent={clearEvent}
+            />
+            {hasSelection && <EventEvidencePanel event={event} />}
+          </section>
+          {hasSelection && assessment && evaluation ? (
+            <aside className="inspector">
+              <p className="eyebrow">IMPORTED CONTRACT · V{contract.version}</p>
+              <h2>{contract.name}</h2>
+              <p className="muted">
+                {contract.id}
+                <br />
+                {contract.source} · fictional contract import
+              </p>
+              <div className="result">
+                <span className="status">● {assessment.status}</span>
+                <strong data-testid="treaty-total">
+                  {assessment.amount === null
+                    ? "Indeterminate"
+                    : usd(assessment.amount)}
+                </strong>
+                <span>
+                  {assessment.amount === null
+                    ? "No recovery amount asserted"
+                    : "Provisional recovery · USD"}
+                </span>
+              </div>
+              <p className="caution">
+                Calculated contractual amount. Subject to analyst review; not a
+                physical loss estimate, approved receivable or payment.
+              </p>
+              {assessment.exceptions.length > 0 && (
+                <section
+                  className="assessment-reasons"
+                  aria-label="Missing or unsupported inputs"
+                >
+                  <h3>Missing or unsupported inputs</h3>
+                  <ul>
+                    {assessment.exceptions.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                  <p>
+                    Needs review: complete required inputs before asserting a
+                    recovery. An exception packet may describe these gaps.
+                  </p>
+                </section>
+              )}
+              {assessment.knownFailures.length > 0 && (
+                <section
+                  className="assessment-reasons"
+                  aria-label="Known failed conditions"
+                >
+                  <h3>Known failed conditions</h3>
+                  <ul>
+                    {assessment.knownFailures.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                  {assessment.amount === null && (
+                    <p>
+                      These known failures do not establish zero while required
+                      inputs are missing.
+                    </p>
+                  )}
+                </section>
+              )}
+              <div className="area-tabs" aria-label="Inspect scheduled area">
+                {assessment.areas.map((a) => (
+                  <button
+                    key={a.areaId}
+                    onClick={() => selectArea(a.areaId)}
+                    aria-pressed={a.areaId === selectedArea}
+                  >
+                    {a.name}
+                    <strong>{usd(a.contribution)}</strong>
+                  </button>
+                ))}
+              </div>
+              {area && (
+                <AreaExplanation
+                  area={area}
+                  assessment={assessment}
+                  contract={contract}
+                />
+              )}
+              <dl className="aggregation">
+                <div>
+                  <dt>Area contributions</dt>
+                  <dd>
+                    {assessment.uncappedSum === null
+                      ? "Not determined"
+                      : usd(assessment.uncappedSum)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Treaty event cap</dt>
+                  <dd>{usd(contract.eventCap)}</dd>
+                </div>
+                <div>
+                  <dt>Capped treaty total</dt>
+                  <dd>
+                    {assessment.amount === null
+                      ? "Indeterminate"
+                      : usd(assessment.amount)}
+                  </dd>
+                </div>
+              </dl>
+              <p className="muted">
+                UTC coverage [{contract.inception ?? "missing inception"},{" "}
+                {contract.expiry ?? "missing expiry"})<br />
+                RAS authors contracts; Catlas imports versioned terms.
+              </p>
+              <PacketReview
+                key={evaluation.id}
+                evaluation={evaluation}
+                packet={packet}
+                onReview={review}
+              />
+            </aside>
+          ) : (
+            <aside className="inspector">
+              <p className="eyebrow">READY TO INVESTIGATE</p>
+              <h2>Select an earthquake</h2>
+              <p>
+                Choose Ridgecrest or the labelled synthetic outer event to
+                inspect the two scheduled area contributions and treaty total.
+              </p>
+              <p>
+                Map locations are synthetic context. They do not create recovery
+                conditions.
+              </p>
+            </aside>
+          )}
+        </div>
+        <PacketHistory packets={lifecycle.packets} />
+      </main>
+      <footer>
+        Offline analytical map · Natural Earth public-domain land data ·
+        MapLibre GL JS (BSD-3-Clause) · Public USGS earthquake evidence ·
+        Customer validation deferred
+      </footer>
+    </div>
+  );
 }

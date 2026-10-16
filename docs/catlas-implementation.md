@@ -15,3 +15,15 @@ The contract is a fictional simulated RAS v2 import, not Catlas-authored real in
 - `src/data/fixtures.ts`: validated main contract and captured Ridgecrest inputs; source manifest.
 - `src/components/WorkbenchMap.tsx`: geographic presentation, fixed references and epicentre. Does not calculate payout.
 - `src/App.tsx`: current view composition. Area selection only changes presentation. Future scenario/lifecycle controls should change substantive snapshots through an explicit evaluation boundary.
+
+## Evaluation and packet lifecycle (CAT-16)
+
+`src/domain/packets.ts` is the in-memory service boundary for subsequent IndexedDB retention. `LifecycleState` contains frozen `EvaluationRecord[]`, frozen `RecoveryPacket[]` and `currentEvaluationId`; opening the world workspace creates none. `evaluate` snapshots raw `EventInput`/`ContractInput`, then calculates from that same snapshot. Supplied missing fields become null, including absent coverage dates. Event×treaty lineage versions increase on changed snapshots, with `previousEvaluationId` retained. Only the latest exact unchanged snapshot can resume; changing inputs away and back requires a fresh version.
+
+`createPacket` reviews only the current evaluation and returns the already frozen packet if one exists. Complete zero and positive assessments require named unauthenticated demo review. Incomplete assessments yield an unreviewed exception packet with null recovery and explicit reasons. There is one packet per evaluation. Notes cannot subsequently rewrite it; past packets remain downloadable during the session. Browser refresh retention is the next slice.
+
+`packetSchema` validates complete/exception gates, review identity/version, cedent and lineage consistency, canonical rule constants, aggregation, and recomputed assessment agreement with raw inputs. `serializePacket` defines the exact JSON bytes for download and the future simulated send adapter. Delivery state/attempts/receipts belong outside this immutable content. JSON includes raw evidence provenance and genuine capture metadata; it does not fabricate historical observation revisions.
+
+The service accepts injected `Runtime.now` and `Runtime.id` for deterministic tests; the browser uses actual UTC time and random UUID identities. It has no storage, network, map or React dependency.
+
+`src/hooks/useEvaluationLifecycle.ts` exposes stable `evaluateInputs(event, contract)`, `clearSelection()` and `reviewEvaluation(id, notes)` actions. Scenario discovery invokes the same raw-input evaluation action that later evidence/terms revision can invoke. The hook is the local persistence attachment point. Extracted `PacketReview`, `EventEvidencePanel` and `AreaExplanation` keep map/evidence/review composition separate.
