@@ -1,0 +1,54 @@
+.catlas .delivery-panel,
+.catlas .delivery-history {
+  border-top: 1px solid #38515d;
+  padding-top: 20px;
+  margin-top: 20px;
+}
+.catlas .delivery-panel label {
+  display: block;
+  font-size: 12px;
+  color: #d1e5e8;
+}
+.catlas .delivery-panel select {
+  display: block;
+  max-width: 100%;
+  padding: 9px;
+  margin: 8px 0;
+  background: #192d39;
+  color: #d7e9ec;
+  border: 1px solid #55747c;
+  border-radius: 4px;
+  font: inherit;
+}
+.catlas .delivery-panel button {
+  padding: 11px;
+  background: #234345;
+  color: #c4f0e3;
+  border: 1px solid #7ccbb8;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+}
+.catlas .delivery-panel button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.catlas .delivery-panel code {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.catlas .delivery-history article {
+  border: 1px solid #38515d;
+  padding: 12px;
+  margin: 12px 0;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+.catlas .delivery-history strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.catlas .delivery-panel [role="alert"],
+.catlas .delivery-history [role="alert"] {
+  color: #f7c8a3;
+}
