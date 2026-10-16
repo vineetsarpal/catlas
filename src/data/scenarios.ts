@@ -1,4 +1,5 @@
 import { mainContract, ridgecrest } from './fixtures';
+import { outerEvent } from './outer-event';
 import type { ContractInput, EventEvidence } from '../domain/types';
 
 export type DemoScenario = {
@@ -16,6 +17,7 @@ export const incompleteContract = {
 };
 export const scenarios: DemoScenario[] = [
  {id:'ridgecrest',label:'Ridgecrest replay',description:'Captured historical USGS earthquake evidence / fictional main treaty.',event:ridgecrest,contract:mainContract},
+ {id:'outer',label:'Synthetic outer-band event',description:'Explicitly synthetic M7.1 event and in-coverage occurrence. Both scheduled areas select the exclusive outer band.',event:outerEvent,contract:mainContract},
  {id:'high-threshold',label:'High threshold · known zero',description:'Captured Ridgecrest evidence / separate fictional RAS contract variant requiring minimum M7.5.',event:ridgecrest,contract:highThresholdContract},
  {id:'incomplete',label:'Missing coverage · needs review',description:'Captured Ridgecrest evidence / fictional RAS import missing both coverage dates.',event:ridgecrest,contract:incompleteContract},
  {id:'outside-coverage',label:'Outside coverage · known zero',description:'Captured Ridgecrest evidence / fictional RAS variant covering 2020 only. The historical occurrence is unchanged.',event:ridgecrest,contract:{...mainContract,id:'DEMO-CA-OUTSIDE',name:'California Portfolio — outside-coverage variant',inception:'2020-01-01T00:00:00Z',expiry:'2021-01-01T00:00:00Z'}},

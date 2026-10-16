@@ -1,4 +1,20 @@
 import {test,expect} from '@playwright/test';
+test('discover the synthetic outer event from an unselected world and clear safely',async({page})=>{
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ await page.goto('/');
+ await expect(page.getByTestId('treaty-total')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'World',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.getByRole('button',{name:'Synthetic outer event · M7.1',exact:true}).click();
+ await expect(page.getByTestId('treaty-total')).toHaveText('$3,750,000');
+ await expect(page.getByRole('button',{name:'Mojave $2,250,000',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Western $1,500,000',exact:true})).toBeVisible();
+ await page.getByText('Inspect simulation provenance',{exact:true}).click();
+ await expect(page.getByText('Inspect captured USGS evidence and provenance',{exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Clear event selection',exact:true}).click();
+ await expect(page.getByTestId('treaty-total')).toHaveCount(0);
+ await page.getByRole('combobox',{name:'Demonstration scenario',exact:true}).selectOption('ridgecrest');
+ await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
+});
 test('world, globe, layers and synthetic locations preserve assessment',async({page})=>{
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  await page.goto('/');await page.getByRole('button',{name:'Ridgecrest historical replay · M7.1',exact:true}).click();
