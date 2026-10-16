@@ -8,6 +8,8 @@ import { scenarios } from "./data/scenarios";
 import { mainContract } from "./data/fixtures";
 import { WorkbenchMap } from "./components/WorkbenchMap";
 import { RevisionControls } from "./components/RevisionControls";
+import { DeliveryPanel } from "./components/DeliveryPanel";
+import { DeliveryHistory } from "./components/DeliveryHistory";
 import { useEvaluationLifecycle } from "./hooks/useEvaluationLifecycle";
 import { PacketReview, PacketHistory } from "./components/PacketReview";
 import "./app.css";
@@ -268,6 +270,7 @@ export default function App() {
                 disabled={busy}
                 onReview={review}
               />
+              <DeliveryPanel packet={packet} disabled={busy} repository={repository}/>
             </aside>
           ) : (
             <aside className="inspector">
@@ -286,6 +289,7 @@ export default function App() {
         </div>
         <EvaluationHistory lifecycle={lifecycle} onResume={resume} disabled={busy} />
         <PacketHistory packets={lifecycle.packets} />
+        <DeliveryHistory repository={repository}/>
       </main>
       <footer>
         Offline analytical map · Natural Earth public-domain land data ·
