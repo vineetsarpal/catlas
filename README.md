@@ -2,6 +2,8 @@
 
 A browser-only earthquake workbench demonstrating provisional contractual recovery for fictional cedent Sierra Mutual. Captured Ridgecrest evidence produces Mojave $4.5m + Western $1.5m = $6m. Imported RAS terms, immutable reviewed packets, retained local history and simulated delivery/replacement workflows are implemented.
 
+[Open the live demonstration](https://catlas-demo.pages.dev/) · [Download the verified offline bundle](https://catlas-demo.pages.dev/catlas-offline.zip)
+
 ## Run and verify
 
 Use Node 22.22 or a compatible newer version, Python 3.9+, and an installed Playwright Chromium or Chrome browser:

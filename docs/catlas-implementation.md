@@ -1,6 +1,6 @@
 # Catlas demonstration implementation
 
-CAT-13 through CAT-21 are implemented; CAT-22 provides verified static/offline artifacts with Cloudflare publication handled separately. CAT-1 is the unchanged completed planning map. Customer validation remains deferred.
+CAT-13 through CAT-22 are implemented, verified and published at https://catlas-demo.pages.dev/, with a downloadable offline bundle. CAT-1 is the unchanged completed planning map. Customer validation remains deferred.
 
 ## Runtime and development
 
@@ -28,4 +28,4 @@ Packaging copies actual installed runtime dependency LICENSE/NOTICE texts, inclu
 
 The loopback Python launcher serves `dist/` on stable http://127.0.0.1:4178. Changing hostname, port, browser/profile or switching to Cloudflare changes the local-history origin. Clear selection preserves history; explicit reset clears browser demo/receiver data and leaves packaged evidence untouched.
 
-See the separate presenter, offline, Cloudflare and verification documents. Hosting requires the intended account/project and publication authorization against the verified artifact. No hosting credentials are packaged. Browser checks establish internal consistency and operability, not external usefulness, vendor integration or authenticated financial approval.
+See the separate presenter, offline, Cloudflare and verification documents. Hosting uses the authorized Cloudflare Pages project `catlas-demo`; the exact verified artifact was published and tested over HTTPS. No hosting credentials are packaged. Browser checks establish internal consistency and operability, not external usefulness, vendor integration or authenticated financial approval.
