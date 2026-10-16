@@ -36,3 +36,17 @@ test('world, globe, layers and synthetic locations preserve assessment',async({p
  await expect.poll(async()=>Number(await page.locator('[data-camera-zoom]').getAttribute('data-camera-zoom'))).toBeGreaterThan(7);
  await page.screenshot({path:`test-results/cat14-${test.info().project.name}.png`,fullPage:true});
 });
+
+test('discover an earthquake using the actual world cluster and regional map marker',async({page})=>{
+ await page.goto('/');
+ await expect(page.getByTestId('analytical-map')).toHaveAttribute('data-ready','true');
+ await page.getByTestId('analytical-map').scrollIntoViewIfNeeded();
+ const cluster=page.getByRole('button',{name:'Explore California earthquake cluster',exact:true});
+ await expect(cluster).toBeInViewport();
+ await cluster.click();
+ await expect(page.getByTestId('treaty-total')).toHaveCount(0);
+ const event=page.getByRole('button',{name:'Select Ridgecrest historical event',exact:true});
+ await expect(event).toBeInViewport();
+ await event.click();
+ await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
+});

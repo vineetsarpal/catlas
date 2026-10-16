@@ -27,12 +27,14 @@ export function WorkbenchMap({event,contract,selectedArea,onSelectArea,onSelectE
  const [layers,setLayers]=useState({events:true,locations:true,zones:true,references:true});
  const [locationId,setLocationId]=useState('');
  const location=contextLocations.find(l=>l.id===locationId);
+ const viewRef=useRef(view);viewRef.current=view;
+ const worldCamera=()=>({center:[0,15] as [number,number],zoom:Math.min(0.8,Math.log2(Math.max(1,Math.min(container.current?.clientWidth??400,container.current?.clientHeight??400))/512)-0.1)});
  const callbacks=useRef({onSelectArea,onSelectEvent});callbacks.current={onSelectArea,onSelectEvent};
  useEffect(()=>{
   if(!container.current)return;
   try {
-   const m=new maplibregl.Map({container:container.current,center:event?[-117.7,35.65]:[0,15],zoom:event?7.2:0.8,style:{version:8,sources:{land:{type:'geojson',data:`${import.meta.env.BASE_URL}map/land.geojson`}},layers:[{id:'ocean',type:'background',paint:{'background-color':'#111f2c'}},{id:'land',type:'fill',source:'land',paint:{'fill-color':'#1c303d','fill-outline-color':'#47606a'}}]},attributionControl:false});
-   map.current=m;const observer=new ResizeObserver(()=>m.resize());observer.observe(container.current);
+   const m=new maplibregl.Map({container:container.current,...(event?{center:[-117.7,35.65] as [number,number],zoom:7.2}:worldCamera()),style:{version:8,sources:{land:{type:'geojson',data:`${import.meta.env.BASE_URL}map/land.geojson`}},layers:[{id:'ocean',type:'background',paint:{'background-color':'#111f2c'}},{id:'land',type:'fill',source:'land',paint:{'fill-color':'#1c303d','fill-outline-color':'#47606a'}}]},attributionControl:false});
+   map.current=m;const observer=new ResizeObserver(()=>{m.resize();if(viewRef.current==='world')m.jumpTo(worldCamera());});observer.observe(container.current);
    m.addControl(new maplibregl.NavigationControl(),'top-right');
    m.on('moveend',()=>{if(container.current)container.current.dataset.cameraZoom=String(m.getZoom());});
    m.on('error',()=>setError('Map unavailable; all calculation and explanation controls remain available.'));
@@ -58,15 +60,15 @@ export function WorkbenchMap({event,contract,selectedArea,onSelectArea,onSelectE
   const m=map.current;if(!m||!ready)return;const markers:maplibregl.Marker[]=[];
   const marker=(lng:number,lat:number,text:string,label:string,className:string,click?:()=>void)=>{const el=document.createElement(click?'button':'div');el.className=className;el.textContent=text;el.setAttribute('aria-label',label);if(click)el.onclick=click;markers.push(new maplibregl.Marker({element:el}).setLngLat([lng,lat]).addTo(m));};
   if(layers.references)for(const a of contract.areas)marker(a.longitude,a.latitude,`◆ ${a.name}`,`${a.name} fixed reference`,'reference-marker',()=>callbacks.current.onSelectArea(a.id));
-  if(layers.events){for(const e of [ridgecrest,outerEvent])marker(e.longitude,e.latitude,'✦',`Select ${e.id==='SIM-OUTER-01'?'synthetic outer event':'Ridgecrest historical event'}`,'epicentre-marker discovery-marker',()=>callbacks.current.onSelectEvent?.(e));if(event&&event.id!==ridgecrest.id&&event.id!==outerEvent.id)marker(event.longitude,event.latitude,'✦','Selected earthquake epicentre','epicentre-marker');}
+  if(layers.events){if(view==='world')marker(-117.85,35.8,'✦ 2','Explore California earthquake cluster','epicentre-marker discovery-marker event-cluster',()=>focus('regional'));else {for(const e of [outerEvent,ridgecrest])marker(e.longitude,e.latitude,'✦',`Select ${e.id==='SIM-OUTER-01'?'synthetic outer event':'Ridgecrest historical event'}`,'epicentre-marker discovery-marker',()=>callbacks.current.onSelectEvent?.(e));if(event&&event.id!==ridgecrest.id&&event.id!==outerEvent.id)marker(event.longitude,event.latitude,'✦','Selected earthquake epicentre','epicentre-marker');}}
   if(layers.locations)for(const l of contextLocations)marker(l.longitude,l.latitude,'●',`Synthetic location ${l.name}`,'context-location-marker',()=>setLocationId(l.id));
   return()=>markers.forEach(marker=>marker.remove());
- },[ready,contract,event,layers]);
+ },[ready,contract,event,layers,view]);
  useEffect(()=>{const m=map.current;if(!m||!ready)return;for(const id of ['zone-fill','zone-line'])m.setLayoutProperty(id,'visibility',layers.zones?'visible':'none');m.setLayoutProperty('reference-connectors','visibility',layers.references?'visible':'none');},[ready,layers]);
  useEffect(()=>{const m=map.current;if(!m||!ready)return;m.setProjection({type:projection});},[ready,projection]);
- const focus=(mode:'world'|'regional')=>{setView(mode);map.current?.easeTo(mode==='world'?{center:[0,15],zoom:0.8,duration:400}:{center:[-117.7,35.65],zoom:7.2,duration:400});};
+ const focus=(mode:'world'|'regional')=>{setView(mode);map.current?.easeTo(mode==='world'?{...worldCamera(),duration:400}:{center:[-117.7,35.65],zoom:7.2,duration:400});};
  const selectEvent=(next:EventEvidence)=>{onSelectEvent?.(next);focus('regional');};
- useEffect(()=>{if(event){setView('regional');map.current?.easeTo({center:[-117.7,35.65],zoom:7.2,duration:400});}},[event]);
+ useEffect(()=>{if(event&&ready){setView('regional');map.current?.easeTo({center:[-117.7,35.65],zoom:7.2,duration:400});}},[event,ready]);
  useEffect(()=>{const a=contract.areas.find(a=>a.id===selectedArea);if(a&&map.current&&view==='regional')map.current.easeTo({center:[a.longitude,a.latitude],zoom:7.2,duration:400});},[selectedArea,contract]);
  return <section className="map-explorer" aria-label="Map discovery and context">
   <div className="map-discovery"><span>{event?'Explore another event':'Choose an event to begin an assessment'}</span><button onClick={()=>selectEvent(ridgecrest)}>Ridgecrest historical replay · M7.1</button><button onClick={()=>selectEvent(outerEvent)}>Synthetic outer event · M7.1</button>{event&&onClearEvent&&<button onClick={()=>{onClearEvent();focus('world');}}>Clear event selection</button>}</div>
