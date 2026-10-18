@@ -1,0 +1,18 @@
+{
+  "eventId": "ci38457511",
+  "eventName": "Ridgecrest earthquake",
+  "magnitude": 7.1,
+  "occurredAt": "2019-07-06T03:19:53Z",
+  "productId": "urn:usgs-product:atlas:shakemap:ci38457511:1594160054783",
+  "provider": "USGS atlas",
+  "productVersion": 1,
+  "processedAt": "2020-06-03T01:21:17",
+  "evidenceKind": "Retrospective atlas evidence; not a reconstruction of the first bulletin",
+  "sourceUrl": "https://earthquake.usgs.gov/product/shakemap/ci38457511/atlas/1594160054783/download/grid.xml",
+  "rawSha256": "f4fbcf36e9098963ddc2ea82656974c268b50df5dfdb49b9bf9ffae72ea8e306",
+  "normalizedBy": "named XML fields; exact supplied longitude/latitude axes; MMI intensity; north-to-south rows reversed",
+  "measure": "MMI",
+  "units": "intensity",
+  "nx": 581,
+  "ny": 474
+}

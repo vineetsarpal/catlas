@@ -1,0 +1,31 @@
+:root {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #223348;
+  background: #f4f6f9;
+  font-synthesis: none;
+  --wb-ink: #223348;
+  --wb-muted: #64748b;
+  --wb-line: #e1e7ef;
+  --wb-accent: #21695e;
+  --wb-accent-soft: #edf6f3;
+}
+body { margin: 0; }
+.workbench-header { min-height: 72px; padding: 0 32px; display: flex; align-items: center; gap: 40px; background: #fff; border-bottom: 1px solid var(--wb-line); }
+.workbench-header .workbench-brand { display: flex; align-items: center; gap: 10px; color: #1c3544; text-decoration: none; font-size: 26px; font-weight: 750; letter-spacing: -1px; }
+.workbench-mark { color: #28796a; font-size: 34px; line-height: 1; }
+.workbench-edition { margin-left: 9px; border-left: 1px solid var(--wb-line); padding-left: 18px; font-size: 12px; font-weight: 450; letter-spacing: 0; color: var(--wb-muted); }
+.workbench-header nav { align-self: stretch; display: flex; gap: 28px; }
+.workbench-header nav a { display: flex; align-items: center; border-bottom: 3px solid transparent; padding: 3px 0 0; font-size: 13px; font-weight: 550; color: #65758a; text-decoration: none; }
+.workbench-header nav a:hover { color: var(--wb-accent); }
+.workbench-header nav a[aria-current="page"] { color: var(--wb-accent); border-bottom-color: var(--wb-accent); }
+.workbench-environment { display: flex; align-items: center; gap: 7px; margin-left: auto; white-space: nowrap; font-size: 11px; color: var(--wb-muted); }
+.workbench-environment>span { width: 6px; height: 6px; border-radius: 50%; background: #2c8a70; }
+@media(max-width:1050px) { .workbench-edition { display: none; } .workbench-header { gap: 28px; } }
+@media(max-width:760px) {
+  .workbench-header { padding: 12px 16px 0; flex-wrap: wrap; gap: 12px 20px; }
+  .workbench-header .workbench-brand { font-size: 24px; }
+  .workbench-environment { font-size: 10px; }
+  .workbench-header nav { order: 3; width: 100%; gap: 24px; }
+  .workbench-header nav a { min-height: 44px; font-size: 12px; }
+}
+@media print { .workbench-header { display: none; } }

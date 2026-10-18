@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Package already built local assets, measured integrity metadata and dependency notices."""
 import hashlib
+import gzip
 import json
 import re
 import shutil
@@ -40,6 +41,10 @@ for file in manifest['files']:
     path = DIST / 'evidence' / file['file']
     if sha(path) != file['sha256']:
         raise SystemExit(f'Captured evidence digest mismatch: {path}')
+shaking = DIST / 'evidence/shaking/ridgecrest-grid.xml.gz'
+if hashlib.sha256(gzip.decompress(shaking.read_bytes())).hexdigest() != 'f4fbcf36e9098963ddc2ea82656974c268b50df5dfdb49b9bf9ffae72ea8e306':
+    raise SystemExit('Captured Ridgecrest numeric shaking grid digest mismatch.')
+(DIST / 'EXPOSURE.md').write_text((ROOT / 'docs/catlas-exposure.md').read_text())
 (DIST / 'PRESENTER.md').write_text((ROOT / 'docs/catlas-presenter.md').read_text())
 OUT.mkdir(exist_ok=True)
 stage = OUT / 'catlas-offline'

@@ -13,7 +13,10 @@ import { DeliveryHistory } from "./components/DeliveryHistory";
 import { useEvaluationLifecycle } from "./hooks/useEvaluationLifecycle";
 import { ReplacementReview } from "./components/ReplacementReview";
 import { PacketHistory } from "./components/PacketReview";
+import { WorkbenchHeader } from "./components/WorkbenchHeader";
 import "./app.css";
+import "./workbench-theme.css";
+import "./recovery-theme.css";
 export default function App() {
   const [scenarioId, setScenarioId] = useState(""),
     [selectedArea, setSelectedArea] = useState("mojave"),
@@ -75,18 +78,12 @@ export default function App() {
   const area = assessment?.areas.find((a) => a.areaId === selectedArea);
   return (
     <div className="catlas">
-      <header className="topbar">
-        <a className="brand" href="./">
-          ◈ <strong>catlas</strong>
-          <span>EARTHQUAKE WORKBENCH</span>
-        </a>
-        <span className="demo-tag">Demonstration · simulated RAS</span>
-      </header>
+      <WorkbenchHeader active="recovery" />
       <main>
         <section className="intro">
           <div>
             <p className="eyebrow">CEDENT INVESTIGATION / HISTORICAL REPLAY</p>
-            <h1>One earthquake. Two area contributions.</h1>
+            <h1>Parametric recovery</h1>
             <p>
               Explain a provisional contractual recovery from frozen evidence
               and imported terms.

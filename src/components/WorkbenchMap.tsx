@@ -10,6 +10,7 @@ import { outerEvent } from '../data/outer-event';
 import { contextLocations } from '../data/locations';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './map-context.css';
+import { contextMapStyle, renderedGeography, setGeographyVisibility } from '../maps/geography';
 maplibregl.setWorkerUrl(workerUrl);
 
 export type WorkbenchMapProps = {
@@ -25,6 +26,7 @@ export function WorkbenchMap({event,contract,selectedArea,onSelectArea,onSelectE
  const [view,setView]=useState<'world'|'regional'>(event?'regional':'world');
  const [projection,setProjection]=useState<'mercator'|'globe'>('mercator');
  const [layers,setLayers]=useState({events:true,locations:true,zones:true,references:true});
+ const [geography,setGeography]=useState({countries:true,states:true,labels:true});
  const [locationId,setLocationId]=useState('');
  const location=contextLocations.find(l=>l.id===locationId);
  const viewRef=useRef(view);viewRef.current=view;
@@ -33,9 +35,10 @@ export function WorkbenchMap({event,contract,selectedArea,onSelectArea,onSelectE
  useEffect(()=>{
   if(!container.current)return;
   try {
-   const m=new maplibregl.Map({container:container.current,...(event?{center:[-117.7,35.65] as [number,number],zoom:7.2}:worldCamera()),style:{version:8,sources:{land:{type:'geojson',data:`${import.meta.env.BASE_URL}map/land.geojson`}},layers:[{id:'ocean',type:'background',paint:{'background-color':'#111f2c'}},{id:'land',type:'fill',source:'land',paint:{'fill-color':'#1c303d','fill-outline-color':'#47606a'}}]},attributionControl:false});
+   const m=new maplibregl.Map({container:container.current,...(event?{center:[-117.7,35.65] as [number,number],zoom:7.2}:worldCamera()),style:contextMapStyle('dark','ocean'),attributionControl:false});
    map.current=m;const observer=new ResizeObserver(()=>{m.resize();if(viewRef.current==='world')m.jumpTo(worldCamera());});observer.observe(container.current);
    m.addControl(new maplibregl.NavigationControl(),'top-right');
+   m.on('idle',()=>{if(container.current&&m.isStyleLoaded()){const context=renderedGeography(m);container.current.dataset.boundaryFeatures=String(context.boundaries);container.current.dataset.geographicLabels=JSON.stringify(context.labels);}});
    m.on('moveend',()=>{if(container.current)container.current.dataset.cameraZoom=String(m.getZoom());});
    m.on('error',()=>setError('Map unavailable; all calculation and explanation controls remain available.'));
    m.on('load',()=>{
@@ -66,6 +69,7 @@ export function WorkbenchMap({event,contract,selectedArea,onSelectArea,onSelectE
  },[ready,contract,event,layers,view]);
  useEffect(()=>{const m=map.current;if(!m||!ready)return;for(const id of ['zone-fill','zone-line'])m.setLayoutProperty(id,'visibility',layers.zones?'visible':'none');m.setLayoutProperty('reference-connectors','visibility',layers.references?'visible':'none');},[ready,layers]);
  useEffect(()=>{const m=map.current;if(!m||!ready)return;m.setProjection({type:projection});},[ready,projection]);
+ useEffect(()=>{if(ready&&map.current)setGeographyVisibility(map.current,geography);},[ready,geography]);
  const focus=(mode:'world'|'regional')=>{setView(mode);map.current?.easeTo(mode==='world'?{...worldCamera(),duration:400}:{center:[-117.7,35.65],zoom:7.2,duration:400});};
  const selectEvent=(next:EventEvidence)=>{onSelectEvent?.(next);focus('regional');};
  useEffect(()=>{if(event&&ready){setView('regional');map.current?.easeTo({center:[-117.7,35.65],zoom:7.2,duration:400});}},[event,ready]);
@@ -73,7 +77,7 @@ export function WorkbenchMap({event,contract,selectedArea,onSelectArea,onSelectE
  return <section className="map-explorer" aria-label="Map discovery and context">
   <div className="map-discovery"><span>{event?'Explore another event':'Choose an event to begin an assessment'}</span><button onClick={()=>selectEvent(ridgecrest)}>Ridgecrest historical replay · M7.1</button><button onClick={()=>selectEvent(outerEvent)}>Synthetic outer event · M7.1</button>{event&&onClearEvent&&<button onClick={()=>{onClearEvent();focus('world');}}>Clear event selection</button>}</div>
   <div className="map-tools"><div role="group" aria-label="Map extent"><button aria-pressed={view==='world'} onClick={()=>focus('world')}>World</button><button aria-pressed={view==='regional'} onClick={()=>focus('regional')}>Regional</button></div><div role="group" aria-label="Map projection"><button aria-pressed={projection==='mercator'} onClick={()=>setProjection('mercator')}>Map</button><button aria-pressed={projection==='globe'} onClick={()=>setProjection('globe')}>Globe</button></div></div>
-  <fieldset className="map-layers"><legend>Contextual layers</legend>{(Object.keys(layers) as (keyof typeof layers)[]).map(key=><label key={key}><input type="checkbox" checked={layers[key]} onChange={e=>setLayers({...layers,[key]:e.target.checked})}/>{{events:'Earthquake events',locations:'Synthetic locations',zones:'Treaty trigger zones',references:'References and connectors'}[key]}</label>)}</fieldset>
+  <fieldset className="map-layers"><legend>Contextual layers</legend>{(Object.keys(layers) as (keyof typeof layers)[]).map(key=><label key={key}><input type="checkbox" checked={layers[key]} onChange={e=>setLayers({...layers,[key]:e.target.checked})}/>{{events:'Earthquake events',locations:'Synthetic locations',zones:'Treaty trigger zones',references:'References and connectors'}[key]}</label>)}{(Object.keys(geography) as (keyof typeof geography)[]).map(key=><label key={key}><input type="checkbox" checked={geography[key]} onChange={e=>setGeography({...geography,[key]:e.target.checked})}/>{{countries:'Country borders',states:'State / province borders',labels:'Place labels'}[key]}</label>)}</fieldset>
   <div className="map-wrap" data-testid="analytical-map" data-ready={ready}><div ref={container} className="map" aria-label="Treaty trigger zone map"/><div className="map-key"><span>✦ Earthquake events · historical / synthetic</span><span>◆ Fixed references · ● synthetic locations</span><span className="mojave-key">Mojave · 25 km inner / 100 km outer</span><span className="western-key">Western · 25 km inner / 100 km outer</span></div>{error&&<p role="status">{error}</p>}<div className="map-caption">Treaty trigger zones · fixed-reference distance bands<br/>Not damage radii or property-coverage boundaries</div></div>
   <div className="location-context"><label htmlFor="context-location">Inspect synthetic location · 18 contextual sites</label><select id="context-location" value={locationId} onChange={e=>setLocationId(e.target.value)}><option value="">Choose a contextual location</option>{contextLocations.map(l=><option key={l.id} value={l.id}>{l.id} · {l.name}</option>)}</select>{location&&<p role="status"><strong>{location.name}</strong> · {location.id}<br/>Longitude {location.longitude}, latitude {location.latitude}{location.group&&<> · {location.group} portfolio grouping</>}<br/>Synthetic context only. Site selection does not change treaty references or recovery.</p>}<p>Each area contributes once. Inner and outer bands are exclusive; overlapping scheduled areas may both contribute. Camera and layer controls do not change assessment inputs.</p></div>
  </section>;

@@ -1,8 +1,38 @@
 # Catlas
 
-Catlas supports a ceded reinsurance analyst's investigation of catastrophe events and explanation of provisional contractual recoveries.
+Catlas supports an insurer's investigation of catastrophe events and potentially affected portfolio exposure, alongside a ceded reinsurance analyst's explanation of provisional contractual recoveries.
 
 ## Language
+
+**Exposure portfolio**:
+A collection of insured locations and their associated insurance values and attributes used to investigate an insurer's exposure to catastrophe events.
+
+**Insured location**:
+A consolidated insured site identified within an exposure portfolio. Multiple policies covering that site are represented by the supplied consolidated location record rather than counted as separate locations.
+
+**Portfolio snapshot**:
+A particular exposure portfolio identified by its source and as-of date. Its as-of date describes the supplied portfolio and does not by itself establish policy coverage at an event's occurrence time.
+
+**Total insured value**:
+The insurance value supplied for a consolidated insured location, expressed in its stated currency. It is an exposure measure, distinct from a policy limit, estimated damage or payable loss; an unknown value is not zero.
+
+**Hazard footprint**:
+A geographic representation of a specified catastrophe hazard's intensity for an event and evidence version. It is distinct from contractual trigger zones and verified damage.
+
+**Potentially affected exposure**:
+Insured locations and associated values identified by comparing a portfolio with event hazard evidence. It does not establish physical damage, insured loss or reinsurance recovery.
+
+**Investigation threshold**:
+The selected minimum estimated hazard intensity used to screen insured locations for investigation. It is distinct from a damage threshold or a contractual recovery trigger.
+
+**Impact summary**:
+A shareable account of an event's potentially affected portfolio exposure, with the supporting evidence and limitations identified. It does not assert damage or loss solely from hazard-footprint intersection.
+
+**Exposure investigation version**:
+A reproducible assessment of a portfolio snapshot against selected event and hazard evidence using identified analysis settings. Applying revised evidence or changing substantive analysis inputs produces a new version rather than rewriting an earlier assessment.
+
+**Case bundle**:
+A portable record containing the portfolio snapshot, captured hazard evidence and analysis settings needed to reopen an exposure investigation. It includes the insured-location data contained in that investigation.
 
 **Reinsurance contract**:
 An agreement authored and maintained in RAS whose relevant terms are imported into Catlas for event evaluation. A treaty is a reinsurance contract.

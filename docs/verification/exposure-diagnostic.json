@@ -1,0 +1,42 @@
+{
+  "runAt": "2026-10-18T01:49:46.010Z",
+  "node": "v24.10.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "parseMs": 121.059,
+  "measurements": [
+    {
+      "locations": 1000,
+      "durationMs": 1.0168749999999989,
+      "summary": {
+        "total": 1000,
+        "meetingThreshold": 590,
+        "belowThreshold": 300,
+        "unknownIntensity": 110,
+        "knownValueByCurrency": {
+          "USD": 6876000000,
+          "CAD": 660000000
+        },
+        "unknownValueCount": 55
+      },
+      "supportedBaseline": true
+    },
+    {
+      "locations": 10000,
+      "durationMs": 3.046500000000009,
+      "summary": {
+        "total": 10000,
+        "meetingThreshold": 5877,
+        "belowThreshold": 3013,
+        "unknownIntensity": 1110,
+        "knownValueByCurrency": {
+          "USD": 68282000000,
+          "CAD": 6660000000
+        },
+        "unknownValueCount": 555
+      },
+      "supportedBaseline": false
+    }
+  ],
+  "declaration": "Node calculation timing only; 1,000-location supported baseline, 10,000 diagnostic only; not a browser FPS, memory or production SLA claim."
+}

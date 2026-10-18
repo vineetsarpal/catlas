@@ -1,0 +1,68 @@
+/* Recovery uses the same surfaces and hierarchy as the exposure workspace. */
+.catlas { min-height:100vh; color:var(--wb-ink); background:#f4f6f9; }
+.catlas main { max-width:1640px; padding:30px 32px; }
+.catlas a { color:var(--wb-accent); }
+.catlas p { color:var(--wb-muted); }
+.catlas h1 { font-size:27px; font-weight:650; letter-spacing:-.8px; }
+.catlas h2 { font-size:18px; font-weight:600; }
+.catlas h3 { font-weight:600; }
+.catlas .intro { margin-bottom:16px; }
+.catlas .intro p { margin:6px 0; }
+.catlas .eyebrow { color:#78889b; font-size:10px; font-weight:650; letter-spacing:1.3px; }
+.catlas .cedent { border-left:1px solid var(--wb-line); padding-left:24px; }
+.catlas .cedent span,.catlas .cedent small { color:var(--wb-muted); }
+.catlas .storage-summary { font-size:10px; margin-bottom:18px; }
+.catlas .scenario-picker { background:#fff; border:1px solid var(--wb-line); border-radius:8px; padding:16px 20px; gap:8px 20px; }
+.catlas .scenario-picker label { color:#44586c; font-weight:550; }
+.catlas .scenario-picker p { font-size:11px; }
+.catlas .scenario-picker select { background:#fff; color:#33465c; border-color:#d5dee8; border-radius:5px; }
+.catlas .workspace { grid-template-columns:minmax(0,1fr) 380px; }
+.catlas .map-panel,.catlas .inspector { border-color:var(--wb-line); background:#fff; border-radius:9px; box-shadow:0 2px 3px #23344903; }
+.catlas .panel-heading { padding:20px 22px; }
+.catlas .event-button { background:#edf6f3; color:#286e5c; border-color:#cfe3da; }
+.catlas .map-discovery { background:#f8fafc; border-bottom:1px solid var(--wb-line); }
+.catlas .map-discovery>span,.catlas .map-layers,.catlas .location-context label { color:#5e7186; }
+.catlas .map-layers legend { color:#77879b; }
+.catlas .map-explorer button { color:#456074; background:#fff; border-color:#d5dee8; border-radius:5px; }
+.catlas .map-explorer button[aria-pressed=true] { background:#edf6f3; color:#21695e; border-color:#a8cfc2; }
+.catlas .map-explorer .discovery-marker { color:#ffbd78; background:#152b34b0; border:0; }
+.catlas .map-explorer .context-location-marker { background:#bd8542; border-color:#edbe7c; color:#ffe4b9; }
+.catlas .location-context { background:#fafbfd; border-color:var(--wb-line); }
+.catlas .location-context select { background:#fff; color:#34465c; border-color:#d5dee8; }
+.catlas .event-facts { border-color:var(--wb-line); background:#fafbfd; }
+.catlas .event-facts span,.catlas .evidence dt { color:#7a899a; }
+.catlas .event-facts strong { color:#34465c; }
+.catlas .evidence summary { color:#426174; }
+.catlas .evidence dd { color:#5a6e82; }
+.catlas .inspector { padding:24px; }
+.catlas .muted { color:#758599; }
+.catlas .result { background:#edf6f3; border:1px solid #d4e8df; border-radius:7px; padding:18px; margin:20px 0 12px; }
+.catlas .status { color:#2e7a60; font-weight:550; }
+.catlas .result>strong { color:#235b4f; font-size:44px; font-weight:600; }
+.catlas .result>span:last-child { color:#607f73; }
+.catlas .caution { border-color:var(--wb-line); line-height:1.65; }
+.catlas .area-tabs button { background:#fff; color:#61758a; border-color:#dce3eb; border-radius:6px; }
+.catlas .area-tabs button[aria-pressed=true] { background:#edf6f3; color:#276b58; border-color:#a6cdbd; }
+.catlas .area-title span { color:#507d70; }
+.catlas .area-explanation table { font-variant-numeric:tabular-nums; }
+.catlas .area-explanation caption { color:#6b7d8f; }
+.catlas .area-explanation td,.catlas .area-explanation th { border-color:#e1e7ef; padding:10px 4px; }
+.catlas .area-explanation th { color:#66788a; background:#f7f9fb; }
+.catlas .selected-cell { background:#d9eee4; color:#205842; outline-color:#98c6b1; font-weight:650; }
+.catlas .formula { color:#2b6e57!important; background:#f5faf7; padding:12px; border-radius:5px; }
+.catlas .aggregation { border-color:var(--wb-line); }
+.catlas .aggregation dt { color:#728196; }
+.catlas .aggregation div:last-child { color:#286b56; font-weight:650; }
+.catlas :is(.packet-review,.delivery-panel,.delivery-history) { border-color:var(--wb-line); }
+.catlas :is(.packet-review textarea,.delivery-panel select) { color:#33465c; background:#fff; border-color:#d5dee8; border-radius:5px; }
+.catlas :is(.packet-review button,.packet-history button,.local-storage button,.evaluation-history button,.delivery-panel button,.revision-controls button) { color:#326457; background:#f0f7f3; border-color:#bfd9cd; border-radius:5px; }
+.catlas :is(.packet-history,.local-storage,.evaluation-history,.revision-controls) { background:#fff; border:1px solid var(--wb-line); border-radius:8px; padding:20px 22px; }
+.catlas :is(.packet-history>div,.evaluation-history>div,.delivery-history article) { border-color:var(--wb-line); }
+.catlas .evaluation-history small,.catlas .delivery-panel label { color:var(--wb-muted); }
+.catlas .assessment-reasons { background:#fff8ec; border-color:#ecd9b5; }
+.catlas .assessment-reasons h3 { color:#8d6429; }
+.catlas .assessment-reasons ul { color:#7f6847; }
+.catlas footer { border-color:var(--wb-line); color:#7a899a; }
+.catlas :is(button,a,select,textarea,summary):focus-visible { outline:3px solid #397bd1; outline-offset:3px; }
+@media(max-width:1100px) { .catlas .workspace { grid-template-columns:minmax(0,1fr) 340px; } }
+@media(max-width:760px) { .catlas main { padding:24px 16px; } .catlas .workspace { grid-template-columns:minmax(0,1fr); } .catlas h1 { font-size:24px; } .catlas .inspector { padding:20px; } }

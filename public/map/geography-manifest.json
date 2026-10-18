@@ -1,0 +1,51 @@
+{
+  "naturalEarthCommit": "ca96624a56bd078437bca8184e78163e5039ad19",
+  "sources": [
+    {
+      "file": "ne_50m_land.geojson",
+      "source": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_50m_land.geojson",
+      "sourceSha256": "e874b27a51d146452be360cafb3cc50c86001074a67d534113e6534682f9826b"
+    },
+    {
+      "file": "ne_50m_admin_0_countries.geojson",
+      "source": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_50m_admin_0_countries.geojson",
+      "sourceSha256": "3e458fc036ad0a66411f2c1e6cac49c5d7bfb81cb1123bc513b22511a2b7fdeb"
+    },
+    {
+      "file": "ne_50m_admin_0_boundary_lines_land.geojson",
+      "source": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_50m_admin_0_boundary_lines_land.geojson",
+      "sourceSha256": "2faac4f6b34386f3d21b6e018cf151f241f00e5c936d44dd17d7d9bfb147fa48"
+    },
+    {
+      "file": "ne_10m_admin_1_states_provinces_lines.geojson",
+      "source": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_admin_1_states_provinces_lines.geojson",
+      "sourceSha256": "1a1f30ccaaf4cc9c4bde34266f0b8cbb955d3a4cf254b756912255f2ec7c75b6"
+    },
+    {
+      "file": "ne_10m_admin_1_label_points.geojson",
+      "source": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_admin_1_label_points.geojson",
+      "sourceSha256": "73b90ea0d39cbc081bb9d993510e1fc6410dcc7f07c945a2aa725b70427d6854"
+    },
+    {
+      "file": "ne_50m_populated_places.geojson",
+      "source": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_50m_populated_places.geojson",
+      "sourceSha256": "da4662b7bbfeb897d02f228c5839131dce27acff5717630f91ccff4f67828ee7"
+    }
+  ],
+  "fontCommit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+  "fontSources": [
+    "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
+    "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/LICENSE"
+  ],
+  "processing": "scripts/prepare-map-geography.py; boundary lines simplified at 0.005 degrees, rounded to five decimals; principal admin-1 label candidate selected by adm0_sr then scalerank. Context only.",
+  "files": {
+    "NotoSans-LICENSE.txt": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb",
+    "NotoSans-Regular.ttf": "b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5",
+    "city-labels.geojson": "2f7ac03856650f0c62aae1df41ce53fb7d3b889dcc3d326af09459020704e350",
+    "country-boundaries.geojson": "e324c3622668f3472565974702a58cd278b8ab76fcdddb6b89816777c26c3387",
+    "country-labels.geojson": "d698b51cde4472f94a4851760b6d45efd88a0adb5b1e0f4c4621919b9a02122a",
+    "land.geojson": "00fd41c15880c7e3d1a7358b324be75b19d34a0ec9900c482d9f7363daa7ddf6",
+    "state-boundaries.geojson": "7a50dfddfd1ac4c4ac01c68690b910afa4596104afdaac011dd1402c01fa4c8e",
+    "state-labels.geojson": "9b7fff0996e7799da4050ed1b5b769ba9479eb236dcb94a888ac64ba76d32a5d"
+  }
+}

@@ -15,3 +15,6 @@ Always use that same hostname and port. Changing to localhost, changing port (`-
 `dist/PRESENTER.md` describes all five walkthroughs. `dist/CREDITS.txt`, `dist/THIRD_PARTY_NOTICES.md`, and `dist/evidence/capture-manifest.json` retain source credits, redistributed license texts and genuine evidence metadata. `release-manifest.json` gives measured file digests and packaging time, separately from the original capture times. ZIP entry timestamps are normalized container metadata, not capture times.
 
 Core analysis, maps, review, downloads, retention and simulated delivery work without external networking. No satellite layer, real RAS service, financial approval/payment or customer validation is claimed. Browser storage must be enabled; private browsing/storage policies can limit retention.
+# Portfolio exposure investigation
+
+The extracted distribution also includes `exposure.html`. Follow **Exposure investigation** from the recovery page, or open `http://127.0.0.1:4178/exposure.html`. Frozen Ridgecrest investigation, local portfolio import, saved versions and complete case-bundle reopen work without external networking. Live earthquake discovery and new USGS evidence capture require connectivity. Case downloads contain the supplied insured-location portfolio; hosted and offline histories are separate. Read `dist/EXPOSURE.md` for the workflow and limits.

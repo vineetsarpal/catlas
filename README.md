@@ -2,6 +2,8 @@
 
 A browser-only earthquake workbench demonstrating provisional contractual recovery for fictional cedent Sierra Mutual. Captured Ridgecrest evidence produces Mojave $4.5m + Western $1.5m = $6m. Imported RAS terms, immutable reviewed packets, retained local history and simulated delivery/replacement workflows are implemented.
 
+The broader event-and-exposure workbench is available at `/exposure.html`: frozen and live USGS shaking evidence, consolidated portfolio CSV import (up to 1,000 locations), MMI screening, local version history, CSV/print summaries and self-contained offline case bundles. See [exposure workflow and data boundaries](docs/catlas-exposure.md). Open the [live exposure workbench](https://catlas-workbench.pages.dev/exposure.html) to try portfolio investigation, linked regional filters and offline country/state map context.
+
 [Open the live demonstration](https://catlas-workbench.pages.dev/) · [Download the verified offline bundle](https://catlas-workbench.pages.dev/catlas-offline.zip)
 
 ## Run and verify
