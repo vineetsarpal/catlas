@@ -2,6 +2,10 @@
 
 Retrieved from Linear for this implementation. Linear remains canonical. Superseding amendments take precedence over earlier resolutions. CAT-1 is unchanged.
 
+## Archived visual prototypes
+
+The obsolete `prototypes/catlas-visual/` directory has been removed from the active tree. Historical paths in the retrieved resolutions below refer to Git history, not runnable application files. The final prototype files and their README remain available at [commit `5f16013`](https://github.com/vineetsarpal/catlas/tree/5f16013b98022bf5803d8346f8c6391b99953e06/prototypes/catlas-visual), including the [portfolio-treaty prototype](https://github.com/vineetsarpal/catlas/blob/5f16013b98022bf5803d8346f8c6391b99953e06/prototypes/catlas-visual/portfolio-treaty.html). Earlier commit references below identify the versions used for each decision.
+
 ## CAT-2: Define the analyst journey and Catlas's authority
 
 https://linear.app/vineetsarpal/issue/CAT-2/define-the-analyst-journey-and-catlass-authority

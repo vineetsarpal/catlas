@@ -51,7 +51,7 @@ The demonstration uses public captured earthquake evidence, fictional RAS-origin
 - React, TypeScript and Vite; scoped CSS/CSS Modules; MapLibre GL JS; pure TypeScript/d3-geo geographic calculation; Dexie over IndexedDB; Vitest and Playwright. Pin compatible stable dependencies during implementation.
 - Separate validated event/contract inputs, deterministic assessment, review/packet lifecycle, local repository and simulated delivery adapter. Use one calculated assessment for UI explanations and packet generation.
 - Package versioned JSON with runtime validation. No application backend, shared database, sign-in, Dexie Cloud or real RAS connector.
-- Preserve the current portfolio-treaty prototype as UX evidence. Build the agreed behavior in modular code rather than promoting its imperative implementation or illustrative provenance.
+- Preserve the portfolio-treaty prototype as UX evidence in [Git history at commit `5f16013`](https://github.com/vineetsarpal/catlas/blob/5f16013b98022bf5803d8346f8c6391b99953e06/prototypes/catlas-visual/portfolio-treaty.html); obsolete prototype files are removed from the active tree. Build the agreed behavior in modular code rather than promoting its imperative implementation or illustrative provenance.
 - Package fictional RAS-origin contract imports and show their source/version; Catlas does not author contracts. Corrections arrive as new imported/input versions, not payout overrides.
 
 ### Contract and assessment
