@@ -35,13 +35,9 @@ test("reviewed positive download is immutable under presentation changes", async
   await page
     .getByRole("button", { name: "Western $1,500,000", exact: true })
     .click();
-  await page.getByRole("button", { name: "World", exact: true }).click();
-  await page.getByRole("button", { name: "Globe", exact: true }).click();
+  await page.getByRole("button", { name: "World globe", exact: true }).click();
+  await page.getByText('Layers & appearance',{exact:true}).click();
   await page.getByLabel("Treaty trigger zones", { exact: true }).uncheck();
-  await page.getByLabel("Synthetic locations", { exact: true }).uncheck();
-  await page
-    .getByLabel("Inspect synthetic location · 18 contextual sites")
-    .selectOption("DEMO-LOC-03");
   expect(await downloaded(page, "Download reviewed JSON")).toBe(content);
   await page
     .getByRole("combobox", { name: "Demonstration scenario", exact: true })

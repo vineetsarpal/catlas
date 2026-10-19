@@ -1,26 +1,29 @@
-import { eventSchema, contractSchema } from "./domain/types";
+import { sameRecoveryEvent } from './exposure/event-context';
+import type { EventInput } from "./domain/types";
+import type { EvaluationRecord } from "./domain/packets";
 import { StoragePanel, EvaluationHistory } from "./components/LocalHistory";
 import { usd } from "./format";
 import { EventEvidencePanel } from "./components/EventEvidencePanel";
 import { AreaExplanation } from "./components/AreaExplanation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { scenarios } from "./data/scenarios";
-import { mainContract } from "./data/fixtures";
-import { WorkbenchMap } from "./components/WorkbenchMap";
 import { RevisionControls } from "./components/RevisionControls";
 import { DeliveryPanel } from "./components/DeliveryPanel";
 import { DeliveryHistory } from "./components/DeliveryHistory";
 import { useEvaluationLifecycle } from "./hooks/useEvaluationLifecycle";
 import { ReplacementReview } from "./components/ReplacementReview";
 import { PacketHistory } from "./components/PacketReview";
-import { WorkbenchHeader } from "./components/WorkbenchHeader";
 import "./app.css";
 import "./workbench-theme.css";
 import "./recovery-theme.css";
-export default function App() {
+export type RecoveryContext = { evaluation?: EvaluationRecord; selectedArea: string; selectArea: (id: string) => void };
+export default function RecoveryWorkbench({ sharedEvent, onEventChange, onContextChange }: {
+  sharedEvent: EventInput | null;
+  onEventChange: (event: EventInput | null) => void;
+  onContextChange: (context: RecoveryContext) => void;
+}) {
   const [scenarioId, setScenarioId] = useState(""),
-    [selectedArea, setSelectedArea] = useState("mojave"),
-    [resetVersion, setResetVersion] = useState(0);
+    [selectedArea, setSelectedArea] = useState("mojave");
   const {
     lifecycle, evaluateInputs, clearSelection, reviewEvaluation, resumeEvaluation,
     resetDemo, storageStatus, storageError, actionError, repository,
@@ -29,44 +32,33 @@ export default function App() {
     const next = scenarios.find(scenario => scenario.id === id);
     if (next) {
       const saved = await evaluateInputs(next.event, next.contract);
-      if (saved) setScenarioId(id);
+      if (saved) { setScenarioId(id); onEventChange(next.event); }
     } else {
       clearSelection();
       setScenarioId("");
+      onEventChange(null);
     }
-  }, [evaluateInputs, clearSelection]);
+  }, [evaluateInputs, clearSelection, onEventChange]);
   const scenario = scenarios.find(scenario => scenario.id === scenarioId) ?? scenarios[0];
   const evaluation = lifecycle.evaluations.find(evaluation => evaluation.id === lifecycle.currentEvaluationId);
   const event = evaluation?.event ?? scenario.event;
   const contract = evaluation?.contract ?? scenario.contract;
-  const hasSelection = Boolean(evaluation);
+  const matches = Boolean(evaluation && sameRecoveryEvent(evaluation.event,sharedEvent));
+  const hasSelection = Boolean(evaluation && matches);
   const busy = storageStatus !== "ready";
-  const mapEvent = useMemo(() => {
-    const parsed = eventSchema.safeParse(event);
-    return hasSelection && parsed.success ? parsed.data : null;
-  }, [event, hasSelection]);
-  const mapContract = useMemo(() => {
-    const parsed = contractSchema.shape.areas.safeParse(contract.areas);
-    return { areas: hasSelection ? (parsed.success ? parsed.data : []) : mainContract.areas };
-  }, [contract, hasSelection]);
   const resume = (id: string) => {
     resumeEvaluation(id);
+    onEventChange(lifecycle.evaluations.find(item=>item.id===id)?.event ?? null);
     setScenarioId("__retained__");
   };
   const reset = () => {
     void resetDemo().then(saved => {
       if (!saved) return;
       setScenarioId("");
+      onEventChange(null);
       setSelectedArea("mojave");
-      setResetVersion(version => version + 1);
     });
   };
-  const selectEvent = useCallback(
-    (next: typeof scenario.event) =>
-      chooseScenario(next.id === "SIM-OUTER-01" ? "outer" : "ridgecrest"),
-    [chooseScenario],
-  );
-  const clearEvent = useCallback(() => chooseScenario(""), [chooseScenario]);
   const selectArea = useCallback((id: string) => setSelectedArea(id), []);
   const assessment = evaluation?.assessment;
   const packet = lifecycle.packets.find(
@@ -76,26 +68,12 @@ export default function App() {
     if (evaluation) reviewEvaluation(evaluation.id, notes);
   };
   const area = assessment?.areas.find((a) => a.areaId === selectedArea);
+  useEffect(()=>{onContextChange({evaluation,selectedArea,selectArea});},[evaluation,selectedArea,selectArea,onContextChange]);
   return (
-    <div className="catlas">
-      <WorkbenchHeader active="recovery" />
-      <main>
-        <section className="intro">
-          <div>
-            <p className="eyebrow">CEDENT INVESTIGATION / HISTORICAL REPLAY</p>
-            <h1>Parametric recovery</h1>
-            <p>
-              Explain a provisional contractual recovery from frozen evidence
-              and imported terms.
-            </p>
-          </div>
-          <div className="cedent">
-            <span>Fictional cedent</span>
-            <strong>{contract.cedent?.name ?? "Unidentified cedent"}</strong>
-            <small>{contract.cedent?.id ?? "Missing cedent identity"}</small>
-          </div>
-        </section>
-<p className="storage-summary" role="status">{storageStatus==="ready"?"Local history saved in this browser":storageStatus==="saving"?"Saving local history…":storageStatus==="loading"?"Loading local history…":"Local history requires attention below"}</p>
+    <div className="catlas recovery-controls">
+      <header className="recovery-panel-intro"><p className="eyebrow">CONTRACTUAL RECOVERY</p><h2>Parametric recovery</h2><p>Evaluate imported terms against the selected earthquake. Shaking exposure does not establish a recovery.</p></header>
+      {sharedEvent && !matches && <section className="recovery-handoff" aria-label="Selected earthquake recovery handoff"><strong>{sharedEvent.name ?? sharedEvent.id}</strong><p>{evaluation?'A retained recovery belongs to a different observation. Evaluate the selected earthquake to create its assessment.':'Use the selected observation with the packaged fictional contract.'}</p><button disabled={busy} onClick={()=>void evaluateInputs(sharedEvent,contract).then(saved=>{if(saved)setScenarioId('__retained__');})}>Evaluate selected earthquake</button></section>}
+      <p className="storage-summary" role="status">{storageStatus==="ready"?"Local history saved in this browser":storageStatus==="saving"?"Saving local history…":storageStatus==="loading"?"Loading local history…":"Local history requires attention below"}</p>
         <section
           className="scenario-picker"
           aria-label="Demonstration scenario"
@@ -118,37 +96,11 @@ export default function App() {
           <p>
             {hasSelection
               ? scenarioId==="__retained__" ? "Exact retained evaluation snapshot; no recalculation under current fixtures." : scenario.description
-              : "Discover an earthquake on the world map or choose a known walkthrough. No recovery is selected yet."}
+              : "Choose a packaged walkthrough, or evaluate the selected earthquake above."}
           </p>
         </section>
-        <div className="workspace">
-          <section className="map-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">SELECTED EVENT</p>
-                <h2>{hasSelection ? event.name : "World event discovery"}</h2>
-              </div>
-              {hasSelection && (
-                <span className="event-button">
-                  M{event.magnitude} {event.magnitudeType} ·{" "}
-                  {event.provenance?.kind === "historical"
-                    ? "historical evidence"
-                    : "labelled simulation"}
-                </span>
-              )}
-            </div>
-            <WorkbenchMap
-              key={resetVersion}
-              event={mapEvent}
-              contract={mapContract}
-              selectedArea={selectedArea}
-              onSelectArea={selectArea}
-              onSelectEvent={busy?undefined:selectEvent}
-              onClearEvent={clearEvent}
-            />
-            {hasSelection && <EventEvidencePanel event={event} />}
-            {hasSelection&&!mapEvent&&<p className="map-input-warning">Selected evidence is incomplete or unsupported. Its raw inputs and exceptions remain available; no invalid epicentre is drawn.</p>}
-          </section>
+        <div className="recovery-quick-events"><button disabled={busy} onClick={()=>void chooseScenario('ridgecrest')}>Ridgecrest historical replay · M7.1</button><button disabled={busy} onClick={()=>void chooseScenario('outer')}>Synthetic outer event · M7.1</button>{sharedEvent&&<button disabled={busy} onClick={()=>void chooseScenario('')}>Clear event selection</button>}</div>
+        {hasSelection && <EventEvidencePanel event={event} />}
           {hasSelection && assessment && evaluation ? (
             <aside className="inspector">
               <p className="eyebrow">IMPORTED CONTRACT · V{contract.version}</p>
@@ -273,7 +225,7 @@ export default function App() {
           ) : (
             <aside className="inspector">
               <p className="eyebrow">READY TO INVESTIGATE</p>
-              <h2>Select an earthquake</h2>
+              <h2>{sharedEvent?'Ready to evaluate':'Select an earthquake'}</h2>
               <p>
                 Choose Ridgecrest or the labelled synthetic outer event to
                 inspect the two scheduled area contributions and treaty total.
@@ -284,21 +236,14 @@ export default function App() {
               </p>
             </aside>
           )}
-        </div>
         <RevisionControls evaluation={evaluation} disabled={busy} onRevise={async (nextEvent,nextContract)=>{
           const saved=await evaluateInputs(nextEvent,nextContract);
-          if(saved)setScenarioId("__retained__");
+          if(saved){setScenarioId("__retained__");onEventChange(nextEvent);}
         }}/>
         <StoragePanel status={storageStatus} error={storageError} onReset={reset} repository={repository} />
         <EvaluationHistory lifecycle={lifecycle} onResume={resume} disabled={busy} />
         <PacketHistory packets={lifecycle.packets} />
         <DeliveryHistory repository={repository}/>
-      </main>
-      <footer>
-        Offline analytical map · Natural Earth public-domain land data ·
-        MapLibre GL JS (BSD-3-Clause) · Public USGS earthquake evidence ·
-        Customer validation deferred
-      </footer>
     </div>
   );
 }

@@ -9,6 +9,7 @@ export function EventEvidencePanel({ event }: { event: EventInput }) {
       )
     : [];
   const historical = provenance?.kind === 'historical';
+  const captured = provenance?.kind === 'captured';
   const text = (key: string) =>
     typeof provenance?.[key] === 'string' ? provenance[key] as string : 'Not supplied';
 
@@ -20,11 +21,11 @@ export function EventEvidencePanel({ event }: { event: EventInput }) {
         <div><span>Epicentre</span><strong>{event.latitude ?? 'Missing latitude'}, {event.longitude ?? 'Missing longitude'}</strong></div>
       </div>
       <details className="evidence">
-        <summary>{historical ? 'Inspect captured USGS evidence and provenance' : 'Inspect simulation provenance'}</summary>
+        <summary>{historical || captured ? 'Inspect captured USGS evidence and provenance' : 'Inspect simulation provenance'}</summary>
         <p>
           {historical
             ? 'Historical event evaluated from captured evidence. Capture was at preparation time; this is not a reconstruction of what was known at occurrence.'
-            : 'Explicit simulation or unsupported evidence. No historical USGS observation or capture is asserted.'}
+            : captured ? 'Selected USGS observation carried from the exposure investigation. Missing or unsupported magnitude types require review.' : 'Explicit simulation or unsupported evidence. No historical USGS observation or capture is asserted.'}
         </p>
         {historical && (
           <>
