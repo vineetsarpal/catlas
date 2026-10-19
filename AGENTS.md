@@ -14,3 +14,7 @@ See `docs/agents/triage-labels.md`.
 
 Single-context layout: root `CONTEXT.md` and `docs/adr/`.
 See `docs/agents/domain.md`.
+
+### Research notes
+
+Store research notes in `docs.local/research/`, which stays local and untracked through `.gitignore`.

@@ -1,6 +1,9 @@
 node_modules/
 .DS_Store
 /docs.local/
+/.playwright-cli/
+/.vite/
+/output/
 dist/
 test-results/
 playwright-report/
