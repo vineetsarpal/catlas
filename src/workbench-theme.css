@@ -18,6 +18,10 @@ body { margin: 0; }
 .workbench-header nav a { display: flex; align-items: center; border-bottom: 3px solid transparent; padding: 3px 0 0; font-size: 13px; font-weight: 550; color: #65758a; text-decoration: none; }
 .workbench-header nav a:hover { color: var(--wb-accent); }
 .workbench-header nav a[aria-current="page"] { color: var(--wb-accent); border-bottom-color: var(--wb-accent); }
+.workbench-header nav button { display:flex; align-items:center; border:0; border-bottom:3px solid transparent; border-radius:0; padding:3px 0 0; background:transparent; font-size:12px; font-weight:550; color:#65758a; }
+.workbench-header nav button:hover { color:var(--wb-accent); }
+.workbench-header nav button[aria-current="page"] { color:var(--wb-accent); border-bottom-color:var(--wb-accent); background:transparent; }
+.workbench-header .workbench-portfolio { font-size:11px; padding:6px 10px; min-height:30px; }
 .workbench-environment { display: flex; align-items: center; gap: 7px; margin-left: auto; white-space: nowrap; font-size: 11px; color: var(--wb-muted); }
 .workbench-environment>span { width: 6px; height: 6px; border-radius: 50%; background: #2c8a70; }
 @media(max-width:1050px) { .workbench-edition { display: none; } .workbench-header { gap: 28px; } }

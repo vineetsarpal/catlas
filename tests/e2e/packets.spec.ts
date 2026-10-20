@@ -35,8 +35,9 @@ test("reviewed positive download is immutable under presentation changes", async
   await page
     .getByRole("button", { name: "Western $1,500,000", exact: true })
     .click();
-  await page.getByRole("button", { name: "World globe", exact: true }).click();
-  await page.getByText('Layers & appearance',{exact:true}).click();
+  await page.getByText('Appearance',{exact:true}).click();
+  await page.getByRole("switch", { name: "Globe view", exact: true }).check();
+  await page.getByText('Layers',{exact:true}).click();
   await page.getByLabel("Treaty trigger zones", { exact: true }).uncheck();
   expect(await downloaded(page, "Download reviewed JSON")).toBe(content);
   await page

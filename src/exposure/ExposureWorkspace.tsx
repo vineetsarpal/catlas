@@ -3,7 +3,8 @@ import { WorkbenchHeader } from '../components/WorkbenchHeader';
 
 export type WorkspacePanel = 'filters' | 'regions' | 'inspection' | 'events' | 'portfolio' | 'history' | null;
 type ExposureWorkspaceProps = {
-  mode: 'exposure'|'recovery'; onModeChange: (mode:'exposure'|'recovery')=>void;
+  mode: 'monitor'|'exposure'|'recovery'; onModeChange: (mode:'monitor'|'exposure'|'recovery')=>void;
+  monitorPanel: ReactNode; monitorMetrics: ReactNode; monitorFocus:number;
   recoveryPanel: ReactNode; recoveryMetrics: ReactNode; hasSelectedEvent: boolean; onInvestigateSelected: ()=>void;
   panel: WorkspacePanel; onPanel: (value: WorkspacePanel) => void;
   map: ReactNode; filters: ReactNode; inspector: ReactNode; regions: ReactNode; locations: ReactNode;
@@ -21,6 +22,8 @@ function Icon({name}: {name: 'filters' | 'regions' | 'inspection' | 'table'}) {
 export function ExposureWorkspace(props: ExposureWorkspaceProps) {
   const {panel,onPanel} = props;
   const [recoveryOpen,setRecoveryOpen]=useState(true);
+  const [monitorOpen,setMonitorOpen]=useState(()=>window.innerWidth>760);
+  useEffect(()=>{if(props.mode==='monitor'&&props.monitorFocus>0)setMonitorOpen(true);},[props.monitorFocus]);
   const [tableOpen,setTableOpen] = useState(false), [tableHeight,setTableHeight] = useState(250);
   const modalRef = useRef<HTMLDivElement>(null);
   const modal = panel==='events'||panel==='portfolio'||panel==='history';
@@ -40,17 +43,17 @@ export function ExposureWorkspace(props: ExposureWorkspaceProps) {
   },[modal,panel]);
   const clampHeight = (height:number) => Math.max(160,Math.min(window.innerHeight*.5,height));
   return <div className={`exposure-page atlas-map-workspace is-${props.mode}`}>
-    <WorkbenchHeader active={props.mode}/>
+    <WorkbenchHeader active={props.mode} onModeChange={props.onModeChange} onPortfolio={()=>onPanel('portfolio')} portfolioName={props.portfolioName}/>
     <main>
       <header className="atlas-case-header">
-        <div className="atlas-case-title"><div className="atlas-title-eyebrow"><span className="exposure-eyebrow">{props.mode==='exposure'?'EXPOSURE INVESTIGATION':'PARAMETRIC RECOVERY'}</span><span className="atlas-case-version">{props.version}</span></div><h1>{props.eventName}{props.magnitude!=null&&<span> M{props.magnitude}</span>}</h1></div>
+        <div className="atlas-case-title"><div className="atlas-title-eyebrow"><span className="exposure-eyebrow">{props.mode==='monitor'?'LIVE MONITORING':props.mode==='exposure'?'EXPOSURE INVESTIGATION':'PARAMETRIC RECOVERY'}</span><span className="atlas-case-version">{props.version}</span></div><h1>{props.eventName}{props.magnitude!=null&&<span> M{props.magnitude}</span>}</h1></div>
         <div className="atlas-case-context"><span title={props.portfolioName}>{props.portfolioName}</span></div>
-        <div className="atlas-case-actions">{props.mode==='recovery'&&<button aria-expanded={recoveryOpen} aria-controls="atlas-recovery-panel" onClick={()=>setRecoveryOpen(value=>!value)}>{recoveryOpen?'Expand map':'Recovery details'}</button>}{props.mode==='exposure'&&props.hasRecord&&<button className="atlas-recovery-action" onClick={()=>props.onModeChange('recovery')}>Evaluate parametric recovery →</button>}<button onClick={()=>onPanel('events')}>Change event</button>{props.mode==='exposure'?<><button title={props.portfolioName} onClick={()=>onPanel('portfolio')}>Portfolio</button><button onClick={()=>onPanel('history')}>History</button></>:<button onClick={()=>{setRecoveryOpen(true);requestAnimationFrame(()=>document.querySelector('#atlas-recovery-panel [aria-label="Retained evaluation history"]')?.scrollIntoView({block:'start'}));}}>Recovery history</button>}</div>
+        <div className="atlas-case-actions">{props.mode==='monitor'&&<><button aria-expanded={monitorOpen} aria-controls="atlas-monitor-panel" onClick={()=>setMonitorOpen(v=>!v)}>{monitorOpen?'Expand map':'Monitor details'}</button></>}{props.mode==='recovery'&&<button aria-expanded={recoveryOpen} aria-controls="atlas-recovery-panel" onClick={()=>setRecoveryOpen(value=>!value)}>{recoveryOpen?'Expand map':'Recovery details'}</button>}{props.mode==='exposure'&&props.hasRecord&&<button className="atlas-recovery-action" onClick={()=>props.onModeChange('recovery')}>Evaluate parametric recovery →</button>}{props.mode!=='monitor'&&<button onClick={()=>onPanel('events')}>Change event</button>}{props.mode==='exposure'?<><button onClick={()=>onPanel('history')}>History</button></>:props.mode==='recovery'&&<button onClick={()=>{setRecoveryOpen(true);requestAnimationFrame(()=>document.querySelector('#atlas-recovery-panel [aria-label="Retained evaluation history"]')?.scrollIntoView({block:'start'}));}}>Recovery history</button>}</div>
       </header>
-      <nav className="atlas-mode-switch" aria-label="Investigation mode"><button aria-pressed={props.mode==='exposure'} onClick={()=>props.onModeChange('exposure')}>Exposure</button><button aria-pressed={props.mode==='recovery'} onClick={()=>props.onModeChange('recovery')}>Recovery</button><span>{props.mode==='exposure'?'Shaking evidence & insured locations':'Contractual references & distance bands'}</span></nav>
-      <div className="atlas-summary"><span className="atlas-summary-scope">{props.mode==='exposure'?'FULL PORTFOLIO':'CONTRACTUAL'}</span>{props.mode==='exposure'?props.metrics:props.recoveryMetrics}</div>
+      <div className="atlas-summary"><span className="atlas-summary-scope">{props.mode==='monitor'?'MONITOR':props.mode==='exposure'?'FULL PORTFOLIO':'CONTRACTUAL'}</span>{props.mode==='monitor'?props.monitorMetrics:props.mode==='exposure'?props.metrics:props.recoveryMetrics}</div>
       {!modal&&props.message&&<div className="atlas-message" role={props.isError?'alert':'status'}>{props.message}</div>}
       <div className="atlas-work-area">
+        <aside id="atlas-monitor-panel" hidden={props.mode!=='monitor'||!monitorOpen} className="atlas-side-panel atlas-monitor-panel" aria-label="Monitor details"><div className="atlas-panel-heading"><div><p className="exposure-eyebrow">MONITOR</p><h2>Hazards & portfolio</h2></div><button aria-label="Close monitor details" onClick={()=>setMonitorOpen(false)}>×</button></div><div className="atlas-panel-scroll">{props.mode==='monitor'&&props.monitorPanel}</div></aside>
         <nav hidden={props.mode!=='exposure'} className="atlas-tool-rail" aria-label="Investigation tools">{(['filters','regions','inspection'] as const).map(value=><button key={value} aria-label={panelNames[value]} aria-expanded={panel===value} aria-controls="atlas-side-panel" onClick={()=>onPanel(panel===value?null:value)}><Icon name={value}/><span>{value==='inspection'?'Details':value==='filters'?'Filters':'Regions'}</span></button>)}<div className="atlas-rail-spacer"/><button aria-label="Toggle location table" aria-expanded={tableOpen} aria-controls="atlas-location-table" onClick={()=>setTableOpen(value=>!value)}><Icon name="table"/><span>Table</span></button></nav>
         {props.mode==='exposure'&&drawer&&panel!=='inspection'&&<aside className="atlas-side-panel" id="atlas-side-panel" aria-label={panelNames[panel]}><div className="atlas-panel-heading"><div><p className="exposure-eyebrow">INVESTIGATE</p><h2>{panelNames[panel]}</h2></div><button aria-label="Close side panel" onClick={()=>onPanel(null)}>×</button></div><div className="atlas-panel-scroll">{panel==='filters'?props.filters:props.regions||<p className="atlas-panel-empty">Choose an earthquake to see regional exposure.</p>}</div></aside>}
         <div className="atlas-map-stage">

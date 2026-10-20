@@ -61,9 +61,9 @@ export function setGeographyTheme(map: Map, theme: MapTheme) {
 
 export function setGeographyVisibility(map: Map, visibility: GeographyVisibility) {
   for (const [id, visible] of [
-    ['country-boundaries', visibility.countries], ['state-boundaries', visibility.states],
-    ['country-labels', visibility.labels && visibility.countries],
-    ['state-labels', visibility.labels && visibility.states], ['city-labels', visibility.labels],
+    ['country-boundaries', visibility.countries], ['state-boundaries', visibility.countries && visibility.states],
+    ['country-labels', visibility.labels],
+    ['state-labels', visibility.labels], ['city-labels', visibility.labels],
   ] as const) map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
 }
 

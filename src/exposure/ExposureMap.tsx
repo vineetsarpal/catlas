@@ -6,6 +6,9 @@ import { contextMapStyle, renderedGeography, setGeographyTheme, setGeographyVisi
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Treaty } from '../domain/types';
 import { triggerPolygon } from '../domain/assessment';
+import { useMonitorMap, type MonitorMapProps } from '../monitor/map';
+import { LayerToggle } from '../monitor/LayerToggle';
+import { MonitorLayerControls } from '../monitor/MonitorLayerControls';
 import { geoInterpolate } from 'd3-geo';
 maplibre.setWorkerUrl(workerUrl);
 
@@ -21,19 +24,21 @@ function gridImage(evidence: CapturedEvidence): string {
   }
   context.putImageData(image,0,0); return canvas.toDataURL();
 }
-export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRequest = 0, mode = 'exposure', recoveryAreas = [], selectedArea = '', onSelectArea }: { evidence: CapturedEvidence | null; event: Earthquake | null; rows: ExposureRow[]; selected: string; onSelect: (id: string) => void; focusRequest?: number; mode?: 'exposure'|'recovery'; recoveryAreas?: Treaty['areas']; selectedArea?: string; onSelectArea?: (id:string)=>void }) {
+export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRequest = 0, mode = 'exposure', recoveryAreas = [], selectedArea = '', onSelectArea, monitor }: { monitor?: MonitorMapProps; evidence: CapturedEvidence | null; event: Earthquake | null; rows: ExposureRow[]; selected: string; onSelect: (id: string) => void; focusRequest?: number; mode?: 'monitor'|'exposure'|'recovery'; recoveryAreas?: Treaty['areas']; selectedArea?: string; onSelectArea?: (id:string)=>void }) {
   const element = useRef<HTMLDivElement>(null), mapRef = useRef<maplibre.Map | null>(null), callback = useRef(onSelect);
   const [ready,setReady] = useState(false), [error,setError] = useState(''), [show,setShow] = useState(true);
   const [showLocations,setShowLocations] = useState(true), [opacity,setOpacity] = useState(.75), [mapStyle,setMapStyle] = useState<'light'|'dark'>('light');
   const [geography,setGeography] = useState({countries:true,states:true,labels:true});
-  const [showZones,setShowZones]=useState(true);
+  const [showZones,setShowZones]=useState(true),[globe,setGlobe]=useState(true);
+  const [mapMenu,setMapMenu]=useState<'layers'|'appearance'|null>(null);
   const selectAreaRef=useRef(onSelectArea);selectAreaRef.current=onSelectArea;
   callback.current = onSelect;
+  const windStatus=useMonitorMap(mapRef,ready,mode==='monitor',monitor);
   useEffect(() => {
     if (!element.current) return;
     let map: maplibre.Map;
     try {
-      map = new maplibre.Map({ container: element.current, center:[-118,35.5], zoom:6, attributionControl:{}, style:contextMapStyle('light') });
+      map = new maplibre.Map({ container: element.current, renderWorldCopies:false, center:mode==='monitor'?[0,20]:[-118,35.5], zoom:mode==='monitor'?(element.current.clientWidth>=600?1.9:1.2):6, attributionControl:{}, style:{...contextMapStyle('light'),projection:{type:'globe'}} });
       mapRef.current = map; map.addControl(new maplibre.NavigationControl());
       map.on('movestart',()=>{if(element.current)element.current.dataset.settled='false';});
       map.on('idle',()=>{
@@ -44,6 +49,8 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
         element.current.dataset.geographicLabels=JSON.stringify(context.labels);
         element.current.dataset.landRendered=String(map.queryRenderedFeatures(undefined,{layers:['land']}).length>0);
         element.current.dataset.cameraZoom=String(map.getZoom());
+        element.current.dataset.cameraLongitude=String(map.getCenter().lng);
+        element.current.dataset.projection=String(map.getProjection()?.type??'mercator');
         element.current.dataset.zoneFeatures=String(new Set(map.queryRenderedFeatures({layers:map.getLayer('recovery-zone-line')?['recovery-zone-line']:[]}).map(feature=>`${feature.properties.areaId}:${feature.properties.radius}`)).size);
         element.current.dataset.shakingReady=String(Boolean(map.getSource('exposure-shaking')&&map.isSourceLoaded('exposure-shaking')));
       });
@@ -57,7 +64,10 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
       });
       map.on('error', e => setError(`Map display: ${e.error.message}. Numeric results remain in the location list.`));
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); return; }
-    const observer = new ResizeObserver(() => map.resize()); observer.observe(element.current);
+    const observer = new ResizeObserver(() => {
+      map.resize();
+      if(map.getProjection()?.type==='mercator')map.setMinZoom(Math.max(0,Math.log2(Math.hypot(map.getCanvas().clientWidth,map.getCanvas().clientHeight)/512)));
+    }); observer.observe(element.current);
     return () => { observer.disconnect(); map.remove(); mapRef.current = null; };
   },[]);
   useEffect(() => {
@@ -104,24 +114,67 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
     const markers=recoveryAreas.map(area=>{const button=document.createElement('button');button.className=`shared-reference-marker ${selectedArea===area.id?'is-selected':''}`;button.textContent=`◆ ${area.name}`;button.setAttribute('aria-label',`${area.name} fixed reference`);button.onclick=()=>selectAreaRef.current?.(area.id);return new maplibre.Marker({element:button}).setLngLat([area.longitude,area.latitude]).addTo(map);});
     return()=>markers.forEach(marker=>marker.remove());
   },[ready,recoveryAreas,event?.id,event?.latitude,event?.longitude,mode,showZones,selectedArea]);
+  function changeProjection(enabled:boolean){
+    const map=mapRef.current;if(!ready||!map)return;
+    // A flat viewport spans at most one world, while longitude stays free to wrap.
+    if(enabled)map.setProjection({type:'globe'});
+    map.setRenderWorldCopies(!enabled);
+    const minimum=enabled?0:Math.max(0,Math.log2(Math.hypot(map.getCanvas().clientWidth,map.getCanvas().clientHeight)/512));
+    map.setMinZoom(minimum);
+    if(!enabled)map.setProjection({type:'mercator'});
+    setGlobe(enabled);
+    if(enabled)map.easeTo({zoom:mode==='monitor'&&map.getCanvas().clientWidth>=600?1.9:1.2});
+  }
   function fitLocations(){
     const map=mapRef.current;if(!map||!(mode==='recovery'?recoveryAreas.length:rows.length))return;
-    map.setProjection({type:'mercator'});
+    changeProjection(false);
     const bounds=new maplibre.LngLatBounds();(mode==='recovery'?recoveryAreas:rows).forEach(row=>bounds.extend([row.longitude,row.latitude]));if(mode==='recovery'&&event)bounds.extend([event.longitude,event.latitude]);
     map.fitBounds(bounds,{padding:60,maxZoom:8,duration:350});
   }
   useEffect(()=>{
-    const map=mapRef.current;if(!ready||!map||!event)return;
+    const map=mapRef.current;if(!ready||!map||!event||mode==='monitor')return;
     const marker=new maplibre.Marker({color:'#ffffff'}).setLngLat([event.longitude,event.latitude]).setPopup(new maplibre.Popup().setText(`${event.name} · epicentre`)).addTo(map);
     map.easeTo({center:[event.longitude,event.latitude],zoom:6,duration:350});return()=>{marker.remove();};
-  },[ready,event?.id,event?.latitude,event?.longitude]);
+  },[ready,event?.id,event?.latitude,event?.longitude,mode==='monitor']);
   useEffect(()=>{const row=rows.find(r=>r.id===selected);if(ready&&row&&focusRequest>0)mapRef.current?.easeTo({center:[row.longitude,row.latitude],duration:350});},[ready,focusRequest]);
-  return <section className="exposure-spatial" data-testid={mode==='recovery'?'analytical-map':undefined} data-ready={ready} aria-label={mode==='exposure'?'Shaking and portfolio map':'Treaty trigger zone map'}>
-    <div className="exposure-map-toolbar"><strong>{mode==='exposure'?'Estimated shaking · MMI':'Contractual distance bands'}</strong><button onClick={()=>{if(event){mapRef.current?.setProjection({type:'mercator'});mapRef.current?.easeTo({center:[event.longitude,event.latitude],zoom:6});}}}>Regional</button><button onClick={()=>{mapRef.current?.setProjection({type:'globe'});mapRef.current?.easeTo({center:[event?.longitude??0,event?.latitude??15],zoom:1.2});}}>World globe</button><button disabled={!(mode==='recovery'?recoveryAreas.length:rows.length)||!ready} onClick={fitLocations}>{mode==='recovery'?'Fit treaty references':'Fit visible locations'}</button></div>
-    <details className="exposure-layer-menu"><summary>Layers & appearance</summary>    <div className="exposure-map-layers" aria-label="Map display controls"><div className="exposure-map-style" role="group" aria-label="Basemap appearance"><button aria-pressed={mapStyle==='light'} onClick={()=>setMapStyle('light')}>Light map</button><button aria-pressed={mapStyle==='dark'} onClick={()=>setMapStyle('dark')}>Dark map</button></div>{mode==='exposure'&&<><label><input type="checkbox" checked={showLocations} onChange={e=>setShowLocations(e.target.checked)}/> Insured locations</label><label><input type="checkbox" checked={show} onChange={e=>setShow(e.target.checked)}/> Shaking layer</label></>} {mode==='recovery'&&<label><input type="checkbox" checked={showZones} onChange={event=>setShowZones(event.target.checked)}/> Treaty trigger zones</label>}{(Object.keys(geography) as (keyof typeof geography)[]).map(key=><label key={key}><input type="checkbox" checked={geography[key]} onChange={e=>setGeography({...geography,[key]:e.target.checked})}/>{{countries:'Country borders',states:'State / province borders',labels:'Place labels'}[key]}</label>)}<label className="exposure-opacity">Opacity<input aria-label="Shaking opacity" type="range" min="0" max="100" step="5" value={Math.round(opacity*100)} disabled={!show} onChange={e=>setOpacity(Number(e.target.value)/100)}/><output>{Math.round(opacity*100)}%</output></label></div></details>
-    <div ref={element} className="exposure-map" data-testid="exposure-map" data-ready={ready} aria-label="Interactive portfolio map; locations also available in the keyboard-accessible table"/>
+  return <section className="exposure-spatial" data-testid={mode==='recovery'?'analytical-map':undefined} data-ready={ready} aria-label={mode==='monitor'?'Live hazards and portfolio map':mode==='exposure'?'Shaking and portfolio map':'Treaty trigger zone map'}>
+    <div className="exposure-map-menus" aria-label="Map controls">
+      <details className="exposure-layer-menu" open={mapMenu==='layers'}>
+        <summary onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='layers'?null:'layers');}}>Layers</summary>
+        <div className="exposure-map-layers" aria-label="Map layers">
+          {mode==='recovery'&&<button disabled={!recoveryAreas.length||!ready} onClick={fitLocations}>Fit treaty references</button>}
+          {mode==='exposure'&&<>
+            <label><input type="checkbox" checked={showLocations} onChange={e=>setShowLocations(e.target.checked)}/> Insured locations</label>
+            {showLocations&&<button className="monitor-layer-action" disabled={!rows.length||!ready} onClick={fitLocations}>Fit visible locations</button>}
+            <label><input type="checkbox" checked={show} onChange={e=>setShow(e.target.checked)}/> Shaking layer</label>
+            {show&&<label className="exposure-opacity">Opacity<input aria-label="Shaking opacity" type="range" min="0" max="100" step="5" value={Math.round(opacity*100)} onChange={e=>setOpacity(Number(e.target.value)/100)}/><output>{Math.round(opacity*100)}%</output></label>}
+          </>}
+          {mode==='recovery'&&<label><input type="checkbox" checked={showZones} onChange={e=>setShowZones(e.target.checked)}/> Treaty trigger zones</label>}
+          {mode==='monitor'&&monitor&&<MonitorLayerControls state={monitor.state} onFitPortfolio={fitLocations} canFitPortfolio={ready&&rows.length>0}/>}
+        </div>
+      </details>
+      <details className="exposure-layer-menu" open={mapMenu==='appearance'}>
+        <summary onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='appearance'?null:'appearance');}}>Appearance</summary>
+        <div className="exposure-map-layers" aria-label="Map appearance">
+          <div className="exposure-map-style" role="group" aria-label="Basemap appearance"><button aria-pressed={mapStyle==='light'} onClick={()=>setMapStyle('light')}>Light map</button><button aria-pressed={mapStyle==='dark'} onClick={()=>setMapStyle('dark')}>Dark map</button></div>
+          <LayerToggle label="Globe view" checked={globe} onChange={changeProjection}/>
+          <label><input type="checkbox" checked={geography.countries} onChange={e=>setGeography({...geography,countries:e.target.checked})}/> Country borders</label>
+          {geography.countries&&<label className="exposure-sub-option"><input type="checkbox" checked={geography.states} onChange={e=>setGeography({...geography,states:e.target.checked})}/> State / province borders</label>}
+          <label><input type="checkbox" checked={geography.labels} onChange={e=>setGeography({...geography,labels:e.target.checked})}/> Place labels</label>
+        </div>
+      </details>
+    </div>
+    <div ref={element} className="exposure-map" data-testid="exposure-map" data-ready={ready} aria-label={mode==='monitor'?'Interactive hazard map; items also available in Monitor details':'Interactive portfolio map; locations also available in the keyboard-accessible table'}/>
     {error&&<p role="status" className="exposure-warning">{error}</p>}
-    <div className="exposure-legend">{mode==='recovery'?<span>◆ Fixed references · 25 km inner / 100 km outer bands</span>:[3,4,5,6,7,null].map((value,i)=><span key={i}><i style={{background:intensityColor(value)}}/>{['<4','4–<5','5–<6','6–<7','7+','Unknown'][i]}</span>)}</div>
-    <p className="exposure-map-note">{mode==='exposure'?'USGS shaking evidence · Shaking estimates do not establish property damage.':'Contractual fixed-reference distance bands · Not shaking contours or damage radii.'} Natural Earth geographic context.</p>
+    {mode==='monitor'&&<div className="monitor-map-status" role="status">{!monitor?.state.online?'Offline · observations may be stale':monitor.state.prefs.wind?windStatus:'Latest source reports · see Feeds for freshness'}</div>}
+    {(mode!=='monitor'||monitor?.state.prefs.locations||monitor?.state.prefs.earthquakes||monitor?.state.prefs.cyclones)&&<div className="exposure-legend" aria-label="Map legend">
+      {mode==='monitor'?<>
+        {monitor?.state.prefs.locations&&<span><i style={{background:'#287d69'}}/>Insured locations</span>}
+        {monitor?.state.prefs.earthquakes&&<span><i style={{background:'#bc7545'}}/>Earthquakes</span>}
+        {monitor?.state.prefs.cyclones&&<span><i style={{background:'#7858a1'}}/>Cyclones / tracks</span>}
+      </>:mode==='recovery'?<span>◆ Fixed references · 25 km inner / 100 km outer bands</span>:[3,4,5,6,7,null].map((value,i)=><span key={i}><i style={{background:intensityColor(value)}}/>{['<4','4–<5','5–<6','6–<7','7+','Unknown'][i]}</span>)}
+    </div>}
+
+    <p className="exposure-map-note">{mode==='monitor'?'USGS · NOAA NHC/CPHC · GFS. Context only; no exposure assessment.':mode==='exposure'?'USGS shaking evidence · Shaking estimates do not establish property damage.':'Contractual fixed-reference distance bands · Not shaking contours or damage radii.'} Natural Earth geographic context.</p>
   </section>;
 }
