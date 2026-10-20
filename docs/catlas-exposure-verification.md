@@ -14,7 +14,7 @@ Verified 2026-10-17 America/Toronto (2026-10-18 UTC), macOS arm64, Node v24.10.0
 
 Browser runs used `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`. Acceptance covers invalid/partial imports and acknowledgement, duplicate IDs, missing values and intensity, currency separation, supported-size pagination, keyboard selection, long event labels, explicit source/threshold revisions, saved-history refresh, portable-case roundtrip in fresh history, altered-case rejection and offline operation. Render checks require loaded shaking and rendered land; settled map and mobile layout were visually inspected. Mobile document width remained 375px at a 375px viewport.
 
-Replay result: 18 synthetic locations; 11 meet MMI≥4, five below, two unknown. Screened known value is USD116m and CAD12m separately; one screened location has unknown value. These are exposure-screening results, not damage or loss.
+Replay result: 18 synthetic locations; 11 meet MMI≥4, five below, two unknown. Screened known value is USD128m; one screened location has unknown value. These are exposure-screening results, not damage or loss.
 
 ## Live source smoke
 

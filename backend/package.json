@@ -1,0 +1,22 @@
+{
+  "name": "@catlas/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --import tsx --env-file-if-exists=.env src/index.ts",
+    "build": "tsc --noEmit",
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@meri-imperiumi/eccodes-wasm": "2.48.2",
+    "fastify": "^5.12.7",
+    "ws": "^8.22.0",
+    "tsx": "^4.23.15",
+    "@catlas/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2"
+  }
+}

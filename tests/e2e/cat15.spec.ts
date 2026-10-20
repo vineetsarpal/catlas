@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('distinguish known zeros from incomplete assessments in each walkthrough',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('/');
+ await page.goto('/?mode=recovery');
  const picker=page.getByRole('combobox',{name:'Demonstration scenario',exact:true});
  await picker.selectOption('high-threshold');
  await expect(page.getByTestId('treaty-total')).toHaveText('$0');

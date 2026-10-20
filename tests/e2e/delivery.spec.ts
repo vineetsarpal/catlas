@@ -42,7 +42,7 @@ test("offline send/retry preserves downloaded bytes and one durable receiver rec
       ? route.continue()
       : route.abort(),
   );
-  await page.goto("/");
+  await page.goto("/?mode=recovery");
   await select(page);
   await expect(
     page.getByRole("button", { name: "Send reviewed packet", exact: true }),
@@ -89,7 +89,7 @@ test("offline send/retry preserves downloaded bytes and one durable receiver rec
 test("rejection gives reason; retry accepts once; initial zero/incomplete stay blocked", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?mode=recovery");
   await select(page);
   await review(page);
   await page
@@ -133,7 +133,7 @@ test("rejection gives reason; retry accepts once; initial zero/incomplete stay b
 test("incompatible operational rows are preserved and block send until explicit reset", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?mode=recovery");
   await select(page);
   await review(page);
   await page.evaluate(async () => {
@@ -162,7 +162,7 @@ test("incompatible operational rows are preserved and block send until explicit 
 test("atomic concurrent sends deduplicate and altered retained content cannot reuse identity", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?mode=recovery");
   await select(page);
   await review(page);
   const result = await page.evaluate(async () => {

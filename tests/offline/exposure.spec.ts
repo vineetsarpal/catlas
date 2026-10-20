@@ -15,7 +15,7 @@ test('extracted exposure build reproduces replay, supported portfolio and frozen
  await openHistory(page);await page.getByRole('button',{name:'Save this investigation locally',exact:true}).click();await expect(page.getByRole('button',{name:'Saved in this browser',exact:true})).toBeDisabled();
  await openLocations(page);const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();const bytes=await fs.readFile((await (await pending).path())!);const bundle=JSON.parse(gunzipSync(bytes).toString());
  expect(bundle.record.summary.meetingThreshold).toBe(11);expect(bundle.rawEventJson).toContain('ci38457511');
- await openPortfolio(page);await page.getByRole('button',{name:'Use 1,000 synthetic locations',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('590');
+ await openPortfolio(page);await page.getByText('Demo portfolios',{exact:true}).click();await page.getByRole('button',{name:'Use 1,000 synthetic locations',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.getByRole('button',{name:'Investigate latest portfolio',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('590');
  await page.reload();await openHistory(page);await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('11');
  await page.screenshot({path:`offline-test-results/exposure-${info.project.name}.png`,fullPage:true});
  const context=await browser.newContext({viewport:{width:375,height:812}}),fresh=await context.newPage();

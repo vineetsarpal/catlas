@@ -12,7 +12,7 @@ async function download(page: Page, button: string | RegExp) {
     return fs.readFile((await file.path())!, 'utf8');
 }
 test('real IndexedDB retains reviewed bytes, unreviewed snapshots, selection clear and explicit reset', async ({ page, context }, testInfo) => {
-    await page.goto('/');
+    await page.goto('/?mode=recovery');
     await choose(page, 'ridgecrest');
     await page.getByLabel('Review notes', { exact: true }).fill('Exact retained review.');
     await page.getByRole('button', { name: 'Review evaluation v1', exact: true }).click();
@@ -36,7 +36,7 @@ test('real IndexedDB retains reviewed bytes, unreviewed snapshots, selection cle
     });
     // Reopen a tab on the same origin, not just React's current in-memory state.
     const reopened = await context.newPage();
-    await reopened.goto('/');
+    await reopened.goto('/?mode=recovery');
     await expect(reopened.getByTestId('retained-evaluation')).toHaveCount(2);
     const unreviewed = reopened.getByTestId('retained-evaluation').filter({ hasText: 'Retained custom simulation' });
     await expect(unreviewed).toContainText('Unreviewed / no packet');
@@ -63,7 +63,7 @@ test('real IndexedDB retains reviewed bytes, unreviewed snapshots, selection cle
     await expect(reopened.getByTestId('treaty-total')).toHaveText('$6,000,000');
 });
 test('exception packet remains null and byte-identical after reload', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?mode=recovery');
     await choose(page, 'incomplete');
     await page.getByRole('button', { name: 'Prepare exception packet', exact: true }).click();
     const original = await download(page, 'Download exception JSON');
@@ -76,7 +76,7 @@ test('exception packet remains null and byte-identical after reload', async ({ p
     expect(await download(page, 'Download exception JSON')).toBe(original);
 });
 test('incompatible history remains raw and requires explicit reset', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?mode=recovery');
     await choose(page, 'ridgecrest');
     await page.getByRole('button', { name: 'Review evaluation v1', exact: true }).click();
     const packet = JSON.parse(await download(page, 'Download reviewed JSON'));
@@ -93,14 +93,14 @@ test('incompatible history remains raw and requires explicit reset', async ({ pa
 });
 test('storage opening failure is visible and never claims successful retention', async ({ page }) => {
     await page.addInitScript(() => { indexedDB.open = () => { throw new DOMException('Simulated storage denied', 'SecurityError'); }; });
-    await page.goto('/');
+    await page.goto('/?mode=recovery');
     await expect(page.getByRole('alert')).toContainText('Storage unavailable');
     await expect(page.getByRole('region', { name: 'Local history storage' })).toContainText('Simulated storage denied');
     await expect(page.getByRole('combobox', { name: 'Demonstration scenario', exact: true })).toBeDisabled();
     await expect(page.getByText('Saved locally in this browser · IndexedDB', { exact: true })).toHaveCount(0);
 });
 test('failed atomic save keeps previous retained content and displays error', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?mode=recovery');
     await choose(page, 'ridgecrest');
     await page.evaluate(async () => { const url = '/src/persistence/repository.ts'; const { demoRepository } = await import(url); demoRepository.mutateLifecycle = async () => { throw new DOMException('Simulated quota exhausted', 'QuotaExceededError'); }; });
     await page.getByRole('button', { name: 'Review evaluation v1', exact: true }).click();
@@ -112,7 +112,7 @@ test('failed atomic save keeps previous retained content and displays error', as
 });
 
 test('incomplete scheduled reference survives evaluation, exception export and reload',async({page})=>{
- await page.goto('/');await choose(page,'ridgecrest');
+ await page.goto('/?mode=recovery');await choose(page,'ridgecrest');
  await page.evaluate(async()=>{
   const repoUrl='/src/persistence/repository.ts',packetUrl='/src/domain/packets.ts',fixtureUrl='/src/data/fixtures.ts';
   const {demoRepository}=await import(repoUrl),{evaluate}=await import(packetUrl),{ridgecrest,mainContract}=await import(fixtureUrl);

@@ -3,26 +3,26 @@ import fs from 'node:fs/promises';
 import { openFilters, openHistory, openLocations, openPortfolio } from '../helpers/exposure-workspace';
 import { gunzipSync, gzipSync } from 'node:zlib';
 async function replay(page:Page){await page.getByRole('button',{name:'Investigate Ridgecrest replay',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('11',{timeout:30_000});await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-shaking-ready','true');await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-land-rendered','true');}
-test.beforeEach(async({page})=>{await page.goto('/exposure.html');});
+test.beforeEach(async({page})=>{await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolios',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();});
 
 test('portfolio screening, unknowns, acknowledged imports, supported size and keyboard layout',async({page})=>{
  await replay(page);await expect(page.getByTestId('exposure-unknown')).toHaveText('2');
- const summary=page.getByRole('region',{name:'Portfolio exposure summary'});await expect(summary).toContainText('$116,000,000');await expect(summary).toContainText('CA$12,000,000');
+ const summary=page.getByRole('region',{name:'Portfolio exposure summary'});await expect(summary).toContainText('$128,000,000');await expect(summary).not.toContainText('CA$');
  await openFilters(page);await page.getByRole('combobox',{name:'Show',exact:true}).selectOption('unknown');await expect(page.locator('.exposure-table-scroll tbody tr')).toHaveCount(2);
  await page.getByRole('combobox',{name:'Show',exact:true}).selectOption('all');
- await openPortfolio(page);await page.getByRole('button',{name:'Use 1,000 synthetic locations',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('590');await expect(page.getByTestId('exposure-unknown')).toHaveText('110');
+ await openPortfolio(page);await page.getByText('Demo portfolios',{exact:true}).click();await page.getByRole('button',{name:'Use 1,000 synthetic locations',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.getByRole('button',{name:'Investigate latest portfolio',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('590');await expect(page.getByTestId('exposure-unknown')).toHaveText('110');
  await openLocations(page);await expect(page.locator('.exposure-pagination')).toContainText('1–100 of 1000');await page.getByRole('button',{name:'Next locations',exact:true}).click();await expect(page.locator('.exposure-pagination')).toContainText('101–200 of 1000');
  const header='location_id,name,longitude,latitude,total_insured_value,currency,region,business_line\n';
  await openPortfolio(page);await page.getByLabel('Preview portfolio CSV').setInputFiles({name:'duplicate.csv',mimeType:'text/csv',buffer:Buffer.from(header+'X,First,0,0,100,USD,R,B\nX,Second,0,0,100,USD,R,B\n')});
  await expect(page.getByRole('alert')).toContainText('duplicate location ID');
  await page.getByLabel('Preview portfolio CSV').setInputFiles({name:'partial.csv',mimeType:'text/csv',buffer:Buffer.from(header+'ONE,One,-117.67,35.62,1000000,USD,Kern,Commercial\nTWO,Two,-117.67,35.62,,CAD,Kern,Commercial\nBAD,Bad,,35,100,USD,Kern,Commercial\n')});
- await expect(page.locator('.exposure-import-preview')).toContainText('2 usable rows of 3; 1 excluded');
- await expect(page.getByRole('button',{name:'Import acknowledged portfolio',exact:true})).toBeDisabled();
- await page.getByLabel('Portfolio source',{exact:true}).fill('Test PAS export');await page.getByLabel('Portfolio as of',{exact:true}).fill('2019-07-05');
- await page.getByLabel('I have reviewed the imported locations and exclusions.').check();await page.getByRole('button',{name:'Import acknowledged portfolio',exact:true}).click();
+ await expect(page.getByRole('region',{name:'CSV import preview'})).toContainText('2 usable rows of 3; 1 excluded');
+ await expect(page.getByRole('button',{name:'Apply import',exact:true})).toBeDisabled();
+ await page.getByLabel('Import behavior').selectOption('replace');
+ await page.getByLabel('I have reviewed the changes and excluded rows.').check();await page.getByRole('button',{name:'Apply import',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.getByRole('button',{name:'Investigate latest portfolio',exact:true}).click();
  await expect(page.getByTestId('exposure-count')).toHaveText('2');await expect(page.getByRole('region',{name:'Portfolio exposure summary'})).toContainText('1 screened locations have unknown value');
- await expect(page.getByRole('button',{name:'Portfolio',exact:true})).toHaveAttribute('title','Test PAS export');
- await page.getByRole('button',{name:'One',exact:true}).focus();await page.keyboard.press('Enter');await expect(page.getByRole('complementary',{name:'Selected insured location'})).toContainText('One');
+ await expect(page.getByLabel('Active portfolio',{exact:true}).locator('option:checked')).toContainText('Demo · 1,000 locations');
+ await openLocations(page);await page.getByRole('button',{name:'One',exact:true}).focus();await page.keyboard.press('Enter');await expect(page.getByRole('complementary',{name:'Selected insured location'})).toContainText('One');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 

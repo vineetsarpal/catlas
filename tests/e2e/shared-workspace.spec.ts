@@ -40,7 +40,7 @@ test('recovery changes invalidate exposure results until the selected observatio
  await page.getByRole('button',{name:'Exposure',exact:true}).click();
  await expect(page.getByRole('heading',{level:1})).toContainText('outer');
  await expect(page.getByTestId('exposure-count')).toHaveText('—');
- await openPortfolio(page);await page.getByRole('button',{name:'Use 1,000 synthetic locations',exact:true}).click();await closeDialog(page);
+ await openPortfolio(page);await page.getByText('Demo portfolios',{exact:true}).click();await page.getByRole('button',{name:'Use 1,000 synthetic locations',exact:true}).click();await closeDialog(page);
  await expect(page.getByRole('heading',{level:1})).toContainText('outer');
  await page.getByRole('button',{name:'Investigate selected earthquake',exact:true}).click();
  await expect(page.getByTestId('exposure-unknown')).toHaveText('1000');

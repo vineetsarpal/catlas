@@ -10,7 +10,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
-DIST = ROOT / 'dist'
+DIST = ROOT / 'frontend/dist'
 OUT = ROOT / 'release'
 if not (DIST / 'index.html').exists():
     raise SystemExit('Run npm run build first.')
@@ -18,13 +18,37 @@ if not (DIST / 'index.html').exists():
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
-# Include all installed runtime dependencies and transitive dependencies from the
-# pinned lockfile, conservatively including packages a bundler might tree-shake.
-notices = ['# Third-party notices\n\nVerbatim installed runtime license and notice texts. Generated from package-lock.json and the installed packages.\n']
+# Follow the frontend's declared runtime dependency graph. Backend tooling is
+# installed in the same workspace but is not redistributed in the static ZIP.
+notices = ['# Third-party notices\n\nVerbatim installed frontend/runtime license and notice texts. Generated from package-lock.json and the installed packages.\n']
 lock = json.loads((ROOT / 'package-lock.json').read_text())
-for name, package in sorted(lock['packages'].items()):
-    if not name or package.get('dev'):
-        continue
+packages = lock['packages']
+visited = set()
+redistributed = set()
+def visit(name):
+    if name in visited:
+        return
+    visited.add(name)
+    package = packages[name]
+    if package.get('link'):
+        visit(package['resolved'])
+        return
+    if name not in ('frontend', 'shared'):
+        redistributed.add(name)
+    for dep in dict(package.get('dependencies', {}), **package.get('optionalDependencies', {})):
+        candidates = [str(parent / 'node_modules' / dep) for parent in (Path(name), *Path(name).parents)]
+        target = next((candidate for candidate in candidates if candidate in packages), None)
+        optional = dep in package.get('optionalDependencies', {})
+        if target is None:
+            if optional:
+                continue
+            raise SystemExit(f'Runtime dependency missing from lockfile: {name} -> {dep}')
+        if optional and not (ROOT / target).exists():
+            continue
+        visit(target)
+visit('frontend')
+for name in sorted(redistributed):
+    package = packages[name]
     directory = ROOT / name
     licenses = sorted(f for f in directory.iterdir() if f.is_file() and re.match(r'^(license|licence|copying|notice)(\.|$)', f.name, re.I))
     if not licenses and name.endswith('/murmurhash-js'):
@@ -35,7 +59,7 @@ for name, package in sorted(lock['packages'].items()):
     for file in licenses:
         notices.extend([f'\n### {file.name}\n\n', file.read_text(), '\n'])
 (DIST / 'THIRD_PARTY_NOTICES.md').write_text(''.join(notices))
-manifest = json.loads((ROOT / 'src/data/evidence-manifest.json').read_text())
+manifest = json.loads((ROOT / 'frontend/src/data/evidence-manifest.json').read_text())
 (DIST / 'evidence/capture-manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
 for file in manifest['files']:
     path = DIST / 'evidence' / file['file']

@@ -1,0 +1,50 @@
+# Local monitoring backend
+
+CAT-35 adds a Node.js 24+ / TypeScript / Fastify service. This stage is localhost only; no VPS, public tunnel, authentication service or paid infrastructure has been provisioned. The standalone build remains the default; wind forecasts and vessels require the backend. Wind acquisition, decoding, validation and caching run on the backend, while the browser receives and renders vector grids.
+
+## Run
+
+Install dependencies with `npm ci`. In one terminal:
+
+```sh
+cp backend/.env.example backend/.env
+# Optionally edit backend/.env and set AISSTREAM_API_KEY.
+npm run backend
+```
+
+In another terminal:
+
+```sh
+VITE_CATLAS_BACKEND=true npm run dev -- --port 4174
+```
+
+Open http://127.0.0.1:4174/?mode=monitor. Alternatively copy `frontend/.env.example` to `frontend/.env` and restart Vite. Credentials belong only in `backend/.env` (ignored by Git), never a `VITE_` variable. Without a key, wind works and the vessel feed explicitly reports unconfigured. No sample positions are presented as live observations.
+
+The API binds to `127.0.0.1:3001`. Vite proxies `/api/monitor` to it. The backend rejects non-local Host and Origin headers, has no cross-origin browser access and applies a per-IP request limit. This is not the public deployment access gate: authentication, trusted proxy configuration and routing must be designed before exposing it. Existing Funnel routing is untouched. A production frontend using the backend will need a same-origin reverse proxy; Vite's development proxy is not bundled into static Pages output.
+
+## Behavior and limits
+
+- **Wind:** `/api/monitor/wind` discovers a recent NOAA GFS run; `/api/monitor/wind/grid?runAt=...&validAt=...` returns a little-endian float32 U grid followed by V, with JSON `X-Wind-Metadata` including source URL, model run, forecast valid time and acquisition timestamp. Only fixed NOAA URLs and recent six-hour runs / three-hour forecast steps through 48 hours are accepted. Range reads, component geometry, units and forecast timestamps are validated. No arbitrary URL proxy exists.
+- Discovery metadata lives 30 minutes. Four immutable run/time grids (~2.1 MB total vector payload) are cached in memory. Concurrent identical requests share work. At most four distinct jobs queue and one decoder runs at a time. A worker thread owns ecCodes WASM, with a 45-second decoding timeout; it is terminated on completion. A cache miss can be slower; the measured first request is not a guarantee. Failed requests do not cache an invented or mismatched grid. The browser reports unavailable and can retry; it does not silently substitute a different forecast time.
+- **Vessels:** `/api/monitor/vessels?viewer=...&bbox=west,south,east,north` leases a viewer for 45 seconds. The UI polls every ten seconds while visible and online. One compressed upstream AISStream connection subscribes to the union of active viewport boxes, with at most one subscription update per 1.1 seconds. Maximum 20 viewers, 5,000 latest vessel records and 5,000 static identities, 30-minute retention, 32 trail points per vessel, maximum 1,000 returned rows. Date-line bounds and trail splits are supported.
+- Upstream reconnects back off from five seconds to five minutes. Provider rejection waits five minutes. A quiet feed is reported stale after two minutes and recycled after ten minutes; sparse coverage may legitimately produce no traffic. Disabling vessels or leaving Monitor releases the viewer; a closed/hidden browser expires automatically. No collection occurs without active viewers after the grace period.
+- Each accepted position retains provider report time and server receive time separately. Invalid coordinates, AIS unavailable speed/course sentinels, old/out-of-order positions and malformed frames are rejected or represented as unknown. A report older than five minutes is labelled stale in details. Silence or no match is not proof of no vessels.
+- Portfolio membership is browser-local, distinct from insured coverage. CSV accepts `name,mmsi,imo` headers with at least one identity per row, at most 200 rows / 100 KB. IMO matches require a static identity observed from the provider. The fictional sample list demonstrates import and supplies no simulated positions. Portfolio filtering operates on reports received in the subscribed map area; global portfolio tracking and historical voyage lookup are not implemented. No portfolio file is sent to AISStream.
+- Trails and caches reset on restart. No database or durable observation archive is used. Memory includes the WASM decoder, Node runtime and vessel objects, beyond the small vector-grid payload. Application request logging is disabled; credentials/provider frames are not returned in errors.
+
+## Verify
+
+```sh
+npm run check:backend
+npm run test:backend
+npm test
+npm run build
+```
+
+Backend tests open only a local AIS stand-in and inject HTTP requests; they do not require credentials. The live NOAA smoke check exercises the real ecCodes decoder. Live AIS acceptance still requires your own provider key and cannot be inferred from stand-in tests.
+
+Design references: God's Eye View checkout `e8b3a10a07f3f7b31feb0ecea146a01c6fa2e36b` (provider acquisition / polling / bounded-cache patterns), NOAA GFS and AISStream. This backend implementation does not copy the upstream application or renderer. Existing wind-rendering attribution remains in `frontend/public/monitor-sources.md`.
+
+## Workspace ownership
+
+Run the commands above from the repository root. `npm run backend` delegates to `@catlas/backend`, so its environment file is resolved within `backend/`. Source and tests are in `backend/src/` and `backend/tests/`. The backend imports only `@catlas/shared` for shared contracts/acquisition, never frontend modules. Root `npm test` runs all workspace tests; `npm run test:backend` selects just backend tests.

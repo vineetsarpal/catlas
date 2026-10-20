@@ -1,0 +1,33 @@
+import { test, expect } from '@playwright/test';
+
+test('locations divider resizes the map and table, supports keyboard bounds, and retains size when reopened', async ({ page }, info) => {
+  await page.goto('/?mode=portfolios');
+  await page.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
+  await page.getByRole('button', { name: /Show locations/ }).click();
+  const divider = page.getByRole('separator', { name: 'Resize map and locations table' });
+  const table = page.locator('#portfolio-location-table');
+  const map = page.locator('.portfolio-map-surface');
+  await expect(divider).toBeVisible();
+  const before = (await table.boundingBox())!;
+  const mapBefore = (await map.boundingBox())!;
+  const handle = (await divider.boundingBox())!;
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 - 60, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => (await table.boundingBox())!.height).toBeGreaterThan(before.height + 20);
+  expect((await map.boundingBox())!.height).toBeLessThan(mapBefore.height - 20);
+  await divider.press('Home');
+  await expect.poll(async () => Number(await divider.getAttribute('aria-valuenow'))).toBe(Number(await divider.getAttribute('aria-valuemin')));
+  await divider.press('ArrowUp');
+  const resized = (await table.boundingBox())!.height;
+  await page.getByRole('button', { name: /Hide locations/ }).click();
+  await expect(divider).toBeHidden();
+  await page.getByRole('button', { name: /Show locations/ }).click();
+  await expect.poll(async () => (await table.boundingBox())!.height).toBeCloseTo(resized, 0);
+  await divider.press('End');
+  await expect.poll(async () => Number(await divider.getAttribute('aria-valuenow'))).toBe(Number(await divider.getAttribute('aria-valuemax')));
+  expect((await map.boundingBox())!.height).toBeGreaterThanOrEqual(99);
+  await divider.dblclick();
+  await page.screenshot({ path: `docs.local/verification/portfolio-resize-${info.project.name}.png` });
+});

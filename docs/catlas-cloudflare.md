@@ -19,3 +19,7 @@ The packaged application has no Functions, backend, bindings, authentication cre
 Verify each release over HTTPS: world opening, Ridgecrest $6m and both geodesic areas, genuine evidence and notices, all five cases, reviewed download, unconfirmed reconciliation, full replacements and correction to zero, reload/reset, and 375px usability. Download and validate the offline ZIP against its sidecar and per-file release manifest. Preserve the lockfile and run the extracted release checks for changed runtime assets.
 
 Official documentation: [Git integration](https://developers.cloudflare.com/pages/configuration/git-integration/), [Direct Upload limitation](https://developers.cloudflare.com/pages/get-started/direct-upload/), [build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/).
+
+## Workspace layout requirement
+
+The npm workspace layout keeps the build root at the repository root, command `npm run package:offline`, and publication directory `release/pages`. Frontend build output is now `frontend/dist`, which the packaging script reads. A future deployment must update `NODE_VERSION` to a supported Node 24+ release to match package engines and ecCodes. The earlier Node 22 setting above records the previous deployed configuration; no Cloudflare settings have been changed by the local migration.

@@ -3,6 +3,7 @@ import { type Page } from '@playwright/test';
 export async function closeDialog(page: Page) {
   const close = page.getByRole('button', { name: 'Close dialog', exact: true });
   if (await close.isVisible()) await close.click();
+  if(await page.getByRole('button',{name:'Portfolios',exact:true}).getAttribute('aria-pressed')==='true')await page.getByRole('button',{name:'Exposure',exact:true}).click();
 }
 export async function openHistory(page: Page) {
   await closeDialog(page);
@@ -10,7 +11,9 @@ export async function openHistory(page: Page) {
 }
 export async function openPortfolio(page: Page) {
   await closeDialog(page);
-  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
+  await page.getByRole('button', { name: 'Portfolios', exact: true }).click();
+  const details=page.getByRole('button',{name:'Portfolio details',exact:true});
+  if(await details.getAttribute('aria-expanded')==='false')await details.click();
 }
 export async function openFilters(page: Page) {
   await closeDialog(page);

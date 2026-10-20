@@ -12,7 +12,7 @@ async function choose(page: Page) {
   ).toContainText("Saved locally");
 }
 async function prepare(page: Page) {
-  await page.goto("/");
+  await page.goto("/?mode=recovery");
   await choose(page);
   await page
     .getByRole("button", { name: "Review evaluation v1", exact: true })

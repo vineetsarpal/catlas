@@ -58,3 +58,15 @@ Fourteen relevant desktop/mobile browser checks passed, including new assertions
 ## Header workspace navigation — 2026-10-20
 
 Moved Monitor, Exposure and Recovery into the top header beside the Catlas brand. The active workspace is underlined; the shared Portfolio action is on the right. Removed the secondary mode row and duplicate case-header Portfolio actions. Navigation still uses the existing mode transition and preserves the shared map/investigation state. Build passed and 14 relevant desktop/mobile exposure and shared-workspace browser checks passed, including portfolio access and mobile overflow checks. Browser switching back to Monitor was visually verified. Screenshot: `output/playwright/top-workspace-navigation.jpg`.
+
+## Backend-only wind (20 October 2026)
+
+Supersedes the browser-decoder observations above. Wind discovery, NOAA acquisition and ecCodes decoding now require the Catlas backend. Removed the browser worker, decoder asset plugin and frontend ecCodes dependency. The browser still validates the returned grid, samples it and renders streamlines. A standalone build keeps Wind disabled with “Wind requires the Catlas backend.” Retained wind preferences make no wind requests in that build. Backend failures report unavailable and can retry without direct NOAA fallback.
+
+Validation: workspace type checks and production build passed; 130 frontend tests passed (one optional diagnostic skipped), two shared tests and five backend tests passed. Desktop/mobile browser checks passed for standalone wind, metadata/grid failure, retry, successful rendering, disabling flow and persistent-map exposure/recovery transitions (eight checks across both build modes). The offline archive built successfully, contains no wind decoder or WASM assets, and passed all eight extracted-offline acceptance checks. Browser checks used installed Chrome and controlled backend responses; no live NOAA acquisition or client performance measurement was performed for this change.
+
+### Live NOAA follow-up (20 October 2026, 11:09 EDT)
+
+Verified the running localhost backend against real NOAA GFS data. Discovery selected the 2026-10-20 06:00 UTC run with 15:00 UTC default valid time. The default grid returned 65,160 finite U/V pairs (521,280 bytes); a repeat returned identical bytes. An additional uncached 48-hour forecast, valid 2026-10-22 06:00 UTC, was acquired and decoded successfully: 919 ms observed request time, including 285 ms decoding. Its acquisition timestamp confirmed fresh work, rather than a cache-only check. These are single local observations, not latency guarantees.
+
+A backend-enabled frontend on localhost:4184 then rendered the real default forecast in the in-app browser: 660 wind paths and advancing painted frames, with the matching model-run and valid-time attributes. No provider mocks were used. Browser decoder assets remain absent. Machine-local check output and screenshot are `/tmp/catlas-live-noaa-wind-check.json` and `/tmp/catlas-live-noaa-wind.png`.

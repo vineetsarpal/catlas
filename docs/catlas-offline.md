@@ -18,3 +18,5 @@ Core analysis, maps, review, downloads, retention and simulated delivery work wi
 # Portfolio exposure investigation
 
 The extracted distribution also includes `exposure.html`. Follow **Exposure investigation** from the recovery page, or open `http://127.0.0.1:4178/exposure.html`. Frozen Ridgecrest investigation, local portfolio import, saved versions and complete case-bundle reopen work without external networking. Live earthquake discovery and new USGS evidence capture require connectivity. Case downloads contain the supplied insured-location portfolio; hosted and offline histories are separate. Read `dist/EXPOSURE.md` for the workflow and limits.
+
+Wind forecasts require the Catlas backend. The offline build keeps the Wind switch visible but disabled with “Wind requires the Catlas backend.” It includes no wind decoder or WASM assets. Other offline workflows remain available.

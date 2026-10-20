@@ -11,3 +11,7 @@ playwright-report/
 release/
 offline-test-results/
 offline-report/
+
+.env
+.env.local
+.env.backend

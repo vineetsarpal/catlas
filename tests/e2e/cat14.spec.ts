@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 test('select the synthetic outer observation and clear both modes safely',async({page})=>{
- await page.goto('/');
+ await page.goto('/?mode=recovery');
  await expect(page.getByTestId('treaty-total')).toHaveCount(0);
  await page.getByRole('button',{name:'Synthetic outer event · M7.1',exact:true}).click();
  await expect(page.getByTestId('treaty-total')).toHaveText('$3,750,000');
@@ -13,7 +13,7 @@ test('select the synthetic outer observation and clear both modes safely',async(
  await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
 });
 test('map presentation controls preserve recovery and area inspection',async({page})=>{
- await page.goto('/');await page.getByRole('button',{name:'Ridgecrest historical replay · M7.1',exact:true}).click();
+ await page.goto('/?mode=recovery');await page.getByRole('button',{name:'Ridgecrest historical replay · M7.1',exact:true}).click();
  await expect(page.getByTestId('analytical-map')).toHaveAttribute('data-ready','true');
  await page.getByText('Appearance',{exact:true}).click();
  await expect(page.getByRole('switch',{name:'Globe view',exact:true})).toBeChecked();
@@ -42,7 +42,7 @@ test('map presentation controls preserve recovery and area inspection',async({pa
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 test('map reference markers select the contractual area without changing the assessment',async({page})=>{
- await page.goto('/');await page.getByRole('combobox',{name:'Demonstration scenario',exact:true}).selectOption('ridgecrest');
+ await page.goto('/?mode=recovery');await page.getByRole('combobox',{name:'Demonstration scenario',exact:true}).selectOption('ridgecrest');
  await expect(page.getByRole('button',{name:'Western fixed reference',exact:true})).toBeInViewport();
  await page.getByRole('button',{name:'Western fixed reference',exact:true}).click();
  await expect(page.getByRole('region',{name:'Western contribution explanation'})).toContainText('68.107 km');

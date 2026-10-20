@@ -6,7 +6,7 @@ async function download(page:Page, button:Locator) {
 }
 test('simulated evidence and imported terms require fresh review and preserve downloaded history',async({page})=>{
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
- await page.goto('/');
+ await page.goto('/?mode=recovery');
  const revisions=page.getByRole('region',{name:'Versioned input revisions'});
  await revisions.getByRole('button',{name:/Start simulated M6.9/}).click();
  await expect(page.getByTestId('treaty-total')).toHaveText('$4,000,000');

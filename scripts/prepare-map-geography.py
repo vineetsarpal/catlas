@@ -11,7 +11,7 @@ import shutil
 import sys
 
 source = Path(sys.argv[1])
-out = Path(__file__).resolve().parent.parent / 'public/map'
+out = Path(__file__).resolve().parent.parent / 'frontend/public/map'
 manifest = json.loads((source / 'sources.json').read_text())
 
 def read(name):

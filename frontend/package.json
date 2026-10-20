@@ -1,0 +1,31 @@
+{
+  "name": "@catlas/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "check": "tsc --noEmit",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "d3-geo": "3.1.1",
+    "dexie": "4.2.0",
+    "maplibre-gl": "6.14.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "zod": "4.1.5",
+    "@catlas/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/d3-geo": "3.1.0",
+    "@types/geojson": "7946.0.16",
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.9",
+    "@vitejs/plugin-react": "5.0.2",
+    "vite": "7.3.7",
+    "vitest": "4.1.11"
+  }
+}

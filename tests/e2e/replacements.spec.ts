@@ -8,7 +8,7 @@ async function send(page: Page) { await panel(page).getByRole('combobox', { name
 async function resume(page: Page, version: number) { await page.getByTestId('retained-evaluation').filter({ hasText: `evaluation v${version}` }).getByRole('button', { name: /Resume evaluation/ }).click(); }
 test('full $4m → $6m → zero linked replacements retain exact bytes and one receiving case offline', async ({ page }) => {
     await page.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
-    await page.goto('/');
+    await page.goto('/?mode=recovery');
     await page.getByRole('combobox', { name: 'Demonstration scenario', exact: true }).selectOption('sensitivity');
     await expect(page.getByTestId('treaty-total')).toHaveText('$4,000,000');
     const firstBytes = await review(page, 1), first = JSON.parse(firstBytes);
@@ -51,7 +51,7 @@ test('full $4m → $6m → zero linked replacements retain exact bytes and one r
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test('current revision reconciles earlier uncertainty before immutable replacement review', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?mode=recovery');
     await page.getByRole('button', { name: /Start simulated M6.9 exercise/ }).click();
     await review(page, 1);
     await panel(page).getByRole('combobox', { name: 'Simulated receiver outcome' }).selectOption('unconfirmed');
@@ -71,7 +71,7 @@ test('current revision reconciles earlier uncertainty before immutable replaceme
     expect(raw.deliveryAttempts.map((a: any) => a.action)).toContain('check');
 });
 test('already frozen initial revision requires a fresh version after earlier delivery', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?mode=recovery');
     await page.getByRole('button', { name: /Start simulated M6.9 exercise/ }).click();
     await review(page, 1);
     await page.getByRole('button', { name: /Apply captured M7.1 reference/ }).click();
@@ -91,7 +91,7 @@ test('already frozen initial revision requires a fresh version after earlier del
     expect((await archive(page)).receiverRecords).toHaveLength(1);
 });
 test('receiver rejects stale racing replacement base without changing the accepted full amount', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?mode=recovery');
     await page.getByRole('button', { name: /Start simulated M6.9 exercise/ }).click();
     await review(page, 1);
     await send(page);

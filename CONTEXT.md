@@ -72,3 +72,6 @@ The pre-agreed maximum payout contribution for a scheduled portfolio area before
 
 **Treaty event cap**:
 The contractual maximum recovery for one evaluated event, applied to the sum of scheduled area contributions.
+
+**Wind forecast**:
+A numerical prediction of wind vectors at an identified model run and forecast valid time. It provides weather context, distinct from an observed wind report or a location-level hazard assessment.

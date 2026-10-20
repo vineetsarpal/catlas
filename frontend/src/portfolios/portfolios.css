@@ -1,0 +1,131 @@
+/* Portfolio uses the same viewport shell, panels and map controls as the analytical modes. */
+.atlas-map-workspace>main.portfolios-page { display:flex; flex-direction:column; padding:0; overflow:hidden; min-height:0; }
+.atlas-map-workspace>main[hidden] { display:none; }
+.portfolios-page { color:var(--wb-ink); background:#f5f7fa; }
+.portfolios-page button { cursor:pointer; border:1px solid var(--wb-line); background:white; border-radius:5px; min-height:32px; padding:6px 10px; color:var(--wb-ink); font:inherit; font-size:11px; }
+.portfolios-page button:disabled { opacity:.5; cursor:default; }
+.portfolios-page .exposure-primary { background:var(--wb-accent); color:white; border-color:var(--wb-accent); }
+.portfolios-page p { font-size:12px; line-height:1.6; color:var(--wb-muted); }
+.portfolios-page h2 { font-size:17px; margin:4px 0; }
+.portfolios-page h3 { font-size:15px; margin:6px 0 12px; overflow-wrap:anywhere; }
+.portfolios-page label { display:flex; flex-direction:column; gap:5px; font-size:11px; font-weight:550; }
+.portfolios-page input,.portfolios-page select { box-sizing:border-box; width:100%; min-width:0; border:1px solid #cbd5e1; border-radius:5px; background:white; padding:7px 9px; color:var(--wb-ink); font:inherit; font-size:12px; }
+.portfolios-page :focus-visible { outline:3px solid #397bd1; outline-offset:2px; }
+.portfolio-summary>div { min-width:0; padding-right:28px; }
+.portfolio-summary>div>span { display:block; font-size:10px; color:var(--wb-muted); }
+.portfolio-summary strong { display:block; font-size:21px; line-height:1.35; margin-top:4px; }
+.portfolio-summary strong>span { display:inline-block; margin-right:12px; font-size:15px; }
+.portfolio-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:7px 14px; background:white; border-bottom:1px solid var(--wb-line); gap:6px; }
+.portfolio-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.atlas-map-workspace .portfolio-sidebar { width:260px; border-right:1px solid var(--wb-line); }
+.portfolio-sidebar-content { padding:14px; }
+.portfolio-list { display:flex; flex-direction:column; gap:8px; }
+.portfolio-list>button { text-align:left; padding:12px; }
+.portfolio-list>button[aria-pressed=true] { background:var(--wb-accent-soft); border-color:#84b8aa; }
+.portfolio-list strong,.portfolio-list span,.portfolio-list small,.portfolio-table small { display:block; overflow-wrap:anywhere; }
+.portfolio-list span,.portfolio-list small { font-size:10px; color:var(--wb-muted); margin-top:6px; }
+.portfolio-provenance { margin:20px 0; padding:14px 0; border-top:1px solid var(--wb-line); border-bottom:1px solid var(--wb-line); }
+.portfolio-local-note { border-top:1px solid var(--wb-line); padding-top:12px; margin-top:20px; }
+.portfolio-sidebar details .portfolio-actions { margin-top:12px; }
+.atlas-map-workspace .portfolio-inspector { width:340px; border-left:1px solid var(--wb-line); border-right:0; }
+.portfolio-inspector-content { padding:16px; overflow-wrap:anywhere; }
+.portfolio-inspector .portfolio-actions { margin-top:14px; }
+.portfolio-inspector .portfolio-actions button { flex:1; }
+.portfolio-inspector dl { font-size:12px; }
+.portfolio-inspector dt { color:var(--wb-muted); margin-top:12px; }
+.portfolio-inspector dd { margin:4px 0; }
+.portfolio-card { padding:0; margin:12px 0; }
+.portfolio-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:12px 0 20px; }
+.portfolio-inspector .portfolio-fields { grid-template-columns:1fr; }
+.portfolio-file { margin:16px 0; }
+.portfolios-page .portfolio-check { flex-direction:row; align-items:center; margin:14px 0; }
+.portfolio-check input { width:18px; }
+.portfolios-page summary { cursor:pointer; font-size:12px; }
+.portfolios-page li { font-size:11px; line-height:1.7; }
+.portfolio-preview-changes { max-height:220px; overflow:auto; }
+.portfolio-results-drawer { flex:none; display:flex; flex-direction:column; background:white; border-top:1px solid var(--wb-line); overflow:hidden; }
+.portfolio-table-divider { flex:0 0 14px; display:flex; align-items:center; justify-content:center; cursor:row-resize; touch-action:none; user-select:none; background:#f2f6f5; border-top:1px solid var(--wb-line); box-sizing:border-box; }
+.portfolio-table-divider span { width:48px; height:4px; border-radius:3px; background:#9bafa7; pointer-events:none; }
+.portfolio-table-divider:hover,.portfolio-table-divider:focus-visible { background:#e0eee8; }
+.portfolio-table-divider:hover span,.portfolio-table-divider:focus-visible span { background:var(--wb-accent); }
+.portfolio-table-divider[hidden],.portfolio-results-drawer[hidden] { display:none; }
+.portfolio-table-tools { display:flex; align-items:center; gap:16px; padding:8px 14px; border-bottom:1px solid var(--wb-line); flex:none; }
+.portfolio-table-tools label { flex:1; max-width:360px; }
+.portfolio-table { overflow:auto; flex:1; min-height:0; }
+.portfolio-table table { width:100%; border-collapse:collapse; font-size:11px; }
+.portfolio-table caption { text-align:left; font-size:10px; padding:8px 14px; color:var(--wb-muted); }
+.portfolio-table th { position:sticky; top:0; background:#eef3f6; text-align:left; }
+.portfolio-table th,.portfolio-table td { padding:9px 14px; border-bottom:1px solid var(--wb-line); }
+.portfolio-table small { margin-top:3px; color:var(--wb-muted); }
+.portfolio-table td button { margin:2px; }
+.portfolio-table td:first-child button { border:0; padding:0; text-align:left; font-weight:600; color:var(--wb-accent); }
+.portfolio-place-search { position:absolute; z-index:3; top:14px; left:14px; width:min(420px,calc(100% - 78px)); background:#fffffff5; border:1px solid #cbd8d2; border-radius:8px; padding:10px; box-shadow:0 3px 15px #23473818; box-sizing:border-box; }
+.portfolio-place-search form { display:flex; gap:6px; align-items:end; }
+.portfolio-place-search label { flex:1; min-width:0; }
+.portfolio-place-search form button { min-height:36px; }
+.portfolio-place-search>p { font-size:9px; margin:6px 0 0; }
+.portfolio-place-search a { color:var(--wb-accent); }
+.portfolio-place-results { display:flex; flex-direction:column; gap:4px; max-height:220px; overflow:auto; margin-top:8px; }
+.portfolio-place-results button { text-align:left; }
+.portfolio-place-results strong,.portfolio-place-results span { display:block; }
+.portfolio-place-results span { font-size:10px; color:var(--wb-muted); margin-top:3px; }
+.atlas-map-workspace .portfolio-work-area .exposure-map-menus { top:115px; left:14px; }
+.portfolio-placement-hint { position:absolute; top:148px; left:14px; z-index:2; max-width:calc(100% - 55px); background:#fff8e6; border:1px solid #e1c781; border-radius:6px; padding:10px; pointer-events:none; }
+.portfolio-empty-map { position:absolute; left:50%; top:58%; transform:translate(-50%,-50%); background:#fffffff0; border:1px solid var(--wb-line); border-radius:8px; padding:16px; max-width:calc(100% - 55px); pointer-events:none; }
+.portfolio-map-center { position:absolute; z-index:3; bottom:65px; left:14px; }
+.portfolio-selection { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--wb-muted); }
+.portfolio-selection select { max-width:210px; min-width:0; padding:7px; border:1px solid var(--wb-line); border-radius:5px; background:white; color:var(--wb-ink); }
+.portfolio-snapshot-notice { padding:12px 24px; background:#fff8e6; border-bottom:1px solid #e5d7a8; font-size:12px; display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+.atlas-map-workspace.exposure-page>.workbench-header .portfolio-selection { margin-left:auto; min-width:0; }
+.atlas-map-workspace.exposure-page>.workbench-header .portfolio-selection select { width:210px; max-width:100%; font-size:11px; }
+@media(max-width:1200px) { .atlas-map-workspace.exposure-page .workbench-environment { display:none; } .atlas-map-workspace .portfolio-sidebar { width:230px; } .atlas-map-workspace .portfolio-inspector { width:310px; } .portfolio-summary>div { padding-right:12px; } }
+@media(max-width:760px) {
+  .atlas-map-workspace.exposure-page>.workbench-header { height:auto; min-height:98px; flex-wrap:wrap; padding:10px 12px 0; }
+  .atlas-map-workspace.exposure-page .workbench-header nav { order:3; width:100%; justify-content:space-between; gap:12px; }
+  .atlas-map-workspace.exposure-page .workbench-header nav button { min-height:40px; }
+  .atlas-map-workspace.exposure-page>.workbench-header .portfolio-selection { max-width:55%; flex:1; font-size:0; }
+  .portfolio-summary { min-height:60px; overflow-x:auto; }
+  .portfolio-summary>div { flex:none; padding:0 10px; }
+  .portfolio-summary strong { font-size:19px; }
+  .portfolio-summary strong>span { font-size:12px; }
+  .atlas-map-workspace .portfolio-sidebar { left:0; width:280px; z-index:5; }
+  .atlas-map-workspace .portfolio-inspector { top:auto; bottom:0; right:0; left:0; width:100%; max-height:70%; border-top:1px solid var(--wb-line); z-index:6; }
+  .portfolio-toolbar { padding:6px 8px; }
+  .portfolio-toolbar .portfolio-actions { gap:4px; }
+  .portfolio-toolbar button { font-size:10px; padding:5px 7px; min-height:29px; }
+  .portfolio-table-divider { flex-basis:20px; }
+  .portfolio-table-tools { padding:5px 8px; gap:8px; }
+  .portfolio-table-tools label { font-size:9px; }
+  .portfolio-table-tools button { font-size:9px; }
+  .portfolio-place-search { top:8px; left:8px; width:calc(100% - 55px); padding:7px; }
+  .portfolio-place-search label { font-size:10px; }
+  .portfolio-place-search form button { font-size:10px; padding:5px; }
+  .portfolio-place-results { max-height:150px; }
+  .atlas-map-workspace .portfolio-work-area .exposure-map-menus { top:105px; left:8px; }
+  .portfolio-placement-hint { top:138px; left:8px; font-size:10px!important; padding:7px; margin-top:0; }
+  .portfolio-inspector .portfolio-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+.atlas-map-workspace .portfolio-work-area .search-closed .exposure-map-menus { top:14px; }
+.search-closed .portfolio-placement-hint { top:56px; }
+@media(max-width:760px) {
+  .atlas-map-workspace .portfolio-inspector { max-height:55%; }
+  .atlas-map-workspace .portfolio-inspector.is-editing { max-height:70%; }
+  .atlas-map-workspace .portfolio-work-area .search-closed .exposure-map-menus { top:8px; }
+  .search-closed .portfolio-placement-hint { top:48px; }
+}
+/* Result rows must never flex-shrink: addresses can wrap independently of the scroll container. */
+.atlas-map-workspace .portfolio-place-search { z-index:5; background:#fff; }
+.portfolio-place-dropdown { position:absolute; left:0; right:0; top:calc(100% + 6px); background:#fff; border:1px solid #cbd8d2; border-radius:8px; box-shadow:0 8px 24px #183a3326; overflow:hidden; }
+.portfolio-place-dropdown>p { padding:14px; margin:0; font-size:12px; }
+.atlas-map-workspace .portfolio-place-results { display:flex; flex-direction:column; gap:0; margin:0; max-height:min(340px,45dvh); overflow-y:auto; overscroll-behavior:contain; }
+.atlas-map-workspace .portfolio-place-results>button { flex:0 0 auto; display:flex; gap:10px; align-items:flex-start; width:100%; min-height:66px; height:auto; padding:12px; margin:0; border:0; border-bottom:1px solid #e5ece8; border-radius:0; text-align:left; white-space:normal; line-height:1.45; background:white; }
+.atlas-map-workspace .portfolio-place-results>button:last-child { border-bottom:0; }
+.atlas-map-workspace .portfolio-place-results>button:hover,.atlas-map-workspace .portfolio-place-results>button[aria-selected=true] { background:#edf6f3; }
+.atlas-map-workspace .portfolio-place-results .place-option-icon { flex:0 0 20px; color:#2c7565; font-size:20px; margin:0; line-height:1.1; }
+.atlas-map-workspace .portfolio-place-results .place-option-copy { flex:1; min-width:0; display:block; margin:0; }
+.atlas-map-workspace .portfolio-place-results strong { display:block; font-size:12px; line-height:1.45; color:#243e36; overflow-wrap:anywhere; }
+.atlas-map-workspace .portfolio-place-results .place-option-address { display:block; margin-top:4px; font-size:11px; line-height:1.5; color:#61756e; overflow-wrap:anywhere; }
+@media(max-width:760px) { .atlas-map-workspace .portfolio-place-results { max-height:min(260px,34dvh); } .atlas-map-workspace .portfolio-place-results>button { min-height:66px; padding:11px; } }
+
+.portfolio-table tr.portfolio-location-selected { background:#edf6f3; }
+.portfolio-table tr.portfolio-location-selected td:first-child { box-shadow:inset 3px 0 #145e50; }

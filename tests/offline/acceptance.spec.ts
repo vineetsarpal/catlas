@@ -16,7 +16,7 @@ test.beforeEach(async({page})=>{
   if(url.origin!=='http://127.0.0.1:4178'||url.pathname.startsWith('/src/'))return route.abort();
   return route.continue();
  });
- await page.goto('/');
+ await page.goto('/?mode=recovery');
  await expect(page.getByRole('combobox',{name:'Demonstration scenario',exact:true})).toBeEnabled();
 });
 

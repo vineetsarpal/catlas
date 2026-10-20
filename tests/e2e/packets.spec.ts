@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
-import { packetSchema } from "../../src/domain/packets";
+import { packetSchema } from "../../frontend/src/domain/packets";
 async function downloaded(page: Page, buttonName: string) {
   const promise = page.waitForEvent("download");
   await page.getByRole("button", { name: buttonName, exact: true }).click();
@@ -11,7 +11,7 @@ async function downloaded(page: Page, buttonName: string) {
 test("reviewed positive download is immutable under presentation changes", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?mode=recovery");
   await expect(
     page.getByRole("button", { name: "Download reviewed JSON", exact: true }),
   ).toHaveCount(0);
@@ -53,7 +53,7 @@ test("reviewed positive download is immutable under presentation changes", async
 test("real zero and exception JSON downloads preserve zero versus null", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?mode=recovery");
   await page
     .getByRole("combobox", { name: "Demonstration scenario", exact: true })
     .selectOption("high-threshold");
