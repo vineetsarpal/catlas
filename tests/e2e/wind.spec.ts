@@ -14,7 +14,7 @@ test('standalone wind is disabled even with a retained enabled preference',async
   await expect(wind).toBeDisabled();await expect(wind).not.toBeChecked();
   await expect(page.getByRole('region',{name:'Wind display'})).toContainText('Wind requires the Catlas backend.');
   await expect(page.locator('.monitor-wind-flow')).toHaveCount(0);
-  if(!await page.getByRole('button',{name:'Feeds',exact:true}).isVisible())await page.getByRole('button',{name:'Monitor details',exact:true}).click();
+  if(!await page.getByRole('button',{name:'Feeds',exact:true}).isVisible())await page.getByRole('button',{name:'Monitor options',exact:true}).click();
   await page.getByRole('button',{name:'Feeds',exact:true}).click();
   await expect(page.getByRole('region',{name:'Live monitoring controls'})).toContainText('Wind requires the Catlas backend.');
   expect(requests.filter(url=>/\/api\/monitor\/wind|wind-decoder|wind\.worker|noaa-gfs/.test(url))).toEqual([]);

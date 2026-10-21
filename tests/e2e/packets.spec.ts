@@ -1,7 +1,9 @@
+import { openRecoveryAssessment, openRecoveryHistory, openRecoveryDetails, closeRecoveryPanels } from '../helpers/recovery-workspace';
 import { test, expect, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 import { packetSchema } from "../../frontend/src/domain/packets";
 async function downloaded(page: Page, buttonName: string) {
+  await openRecoveryDetails(page);
   const promise = page.waitForEvent("download");
   await page.getByRole("button", { name: buttonName, exact: true }).click();
   const download = await promise;
@@ -11,56 +13,56 @@ async function downloaded(page: Page, buttonName: string) {
 test("reviewed positive download is immutable under presentation changes", async ({
   page,
 }) => {
-  await page.goto("/?mode=recovery");
-  await expect(
+  await page.goto("/?mode=recovery&recovery=parametric");
+  await openRecoveryDetails(page); await expect(
     page.getByRole("button", { name: "Download reviewed JSON", exact: true }),
   ).toHaveCount(0);
-  await page
+  await openRecoveryAssessment(page); await page
     .getByRole("combobox", { name: "Demonstration scenario", exact: true })
     .selectOption("ridgecrest");
-  await expect(
+  await openRecoveryDetails(page); await expect(
     page.getByRole("button", { name: "Download reviewed JSON", exact: true }),
   ).toBeDisabled();
-  await page
+  await openRecoveryDetails(page); await page
     .getByLabel("Review notes", { exact: true })
     .fill("Checked both contributions.");
-  await page
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Review evaluation v1", exact: true })
     .click();
   const content = await downloaded(page, "Download reviewed JSON"),
     packet = packetSchema.parse(JSON.parse(content));
   expect(packet.aggregation.totalRecovery).toBe(6000000);
   expect(packet.review?.notes).toBe("Checked both contributions.");
-  await expect(page.getByLabel("Review notes", { exact: true })).toBeDisabled();
-  await page
+  await openRecoveryDetails(page); await expect(page.getByLabel("Review notes", { exact: true })).toBeDisabled();
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Western $1,500,000", exact: true })
     .click();
-  await page.getByText('Appearance',{exact:true}).click();
+  await closeRecoveryPanels(page); await page.getByText('Appearance',{exact:true}).click();
   await page.getByRole("switch", { name: "Globe view", exact: true }).check();
   await page.getByText('Layers',{exact:true}).click();
   await page.getByLabel("Treaty trigger zones", { exact: true }).uncheck();
   expect(await downloaded(page, "Download reviewed JSON")).toBe(content);
-  await page
+  await openRecoveryAssessment(page); await page
     .getByRole("combobox", { name: "Demonstration scenario", exact: true })
     .selectOption("outer");
-  await expect(
+  await openRecoveryDetails(page); await expect(
     page.getByRole("button", { name: "Download reviewed JSON", exact: true }),
   ).toBeDisabled();
-  await expect(
+  await openRecoveryHistory(page); await expect(
     page.getByRole("region", { name: "Retained packet history" }),
   ).toContainText("DEMO-CA-PARAMETRIC");
 });
 test("real zero and exception JSON downloads preserve zero versus null", async ({
   page,
 }) => {
-  await page.goto("/?mode=recovery");
-  await page
+  await page.goto("/?mode=recovery&recovery=parametric");
+  await openRecoveryAssessment(page); await page
     .getByRole("combobox", { name: "Demonstration scenario", exact: true })
     .selectOption("high-threshold");
-  await expect(
+  await openRecoveryDetails(page); await expect(
     page.getByRole("button", { name: "Download reviewed JSON", exact: true }),
   ).toBeDisabled();
-  await page
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Review evaluation v1", exact: true })
     .click();
   const zero = packetSchema.parse(
@@ -68,11 +70,11 @@ test("real zero and exception JSON downloads preserve zero versus null", async (
   );
   expect(zero.aggregation.totalRecovery).toBe(0);
   expect(zero.review).not.toBeNull();
-  await page
+  await openRecoveryAssessment(page); await page
     .getByRole("combobox", { name: "Demonstration scenario", exact: true })
     .selectOption("incomplete");
-  await expect(page.getByLabel("Review notes", { exact: true })).toHaveCount(0);
-  await page
+  await openRecoveryDetails(page); await expect(page.getByLabel("Review notes", { exact: true })).toHaveCount(0);
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Prepare exception packet", exact: true })
     .click();
   const exception = packetSchema.parse(

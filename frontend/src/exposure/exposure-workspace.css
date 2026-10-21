@@ -213,3 +213,30 @@
  .atlas-map-workspace.is-recovery .atlas-work-area { flex-direction:column; }
  .atlas-map-workspace.is-recovery .atlas-recovery-panel { position:static; top:auto; left:auto; right:auto; bottom:auto; flex:0 0 46%; width:100%; }
 }
+
+.recovery-summary strong,.recovery-summary b { overflow-wrap:anywhere; }
+@media(max-width:760px) {
+ .recovery-summary { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,.85fr); }
+}
+
+/* Shared module shell: options on the left, selected-item details on the right. */
+.atlas-tool-rail { overflow-y:auto; }
+.atlas-map-workspace.is-monitor .atlas-monitor-panel { position:static; width:300px; border-left:0; border-right:1px solid #dbe5df; }
+.atlas-map-workspace.is-recovery .atlas-work-area { flex-direction:row; }
+.atlas-map-workspace.is-recovery .atlas-recovery-panel { position:static; display:flex; flex-direction:column; flex:0 0 300px; width:300px; max-height:none; overflow:hidden; border:0; border-right:1px solid #dbe5df; border-radius:0; }
+.atlas-recovery-inspection { width:340px; }
+.atlas-monitor-inspection > .monitor-inspector { position:static; display:flex; flex:1; width:100%; max-width:none; max-height:none; border:0; border-radius:0; box-shadow:none; }
+.atlas-monitor-inspection .monitor-inspector-body { flex:1; }
+.atlas-monitor-panel .monitor-layer-toggle { display:flex; align-items:center; justify-content:space-between; gap:12px; font-weight:600; color:#285b46; cursor:pointer; }
+.atlas-monitor-panel .monitor-layer-action { margin:8px 0; font-size:11px; }
+@media(max-width:1000px) and (min-width:761px) {
+ .atlas-map-workspace.is-monitor .atlas-monitor-panel,.atlas-map-workspace.is-recovery .atlas-recovery-panel { width:270px; flex-basis:270px; }
+ .atlas-monitor-inspection,.atlas-recovery-inspection { width:290px; }
+}
+@media(max-width:760px) {
+ .atlas-map-workspace.is-monitor .atlas-monitor-panel,.atlas-map-workspace.is-recovery .atlas-recovery-panel { position:absolute; top:0; bottom:0; left:48px; right:auto; width:min(300px,calc(100% - 48px)); max-height:none; flex:none; z-index:5; }
+ .atlas-map-workspace .atlas-monitor-inspection,.atlas-map-workspace .atlas-recovery-inspection { position:absolute; top:0; bottom:0; left:auto; right:0; width:min(320px,calc(100% - 48px)); z-index:5; }
+ .atlas-monitor-inspection > .monitor-inspector { position:static; width:100%; max-height:none; }
+}
+
+.atlas-side-panel .exposure-map-layers { width:100%; max-height:none; border:0; border-radius:0; background:transparent; }

@@ -129,3 +129,21 @@
 
 .portfolio-table tr.portfolio-location-selected { background:#edf6f3; }
 .portfolio-table tr.portfolio-location-selected td:first-child { box-shadow:inset 3px 0 #145e50; }
+
+/* The rail opens task options on the left; only location inspection uses the right. */
+.portfolio-work-area>.portfolio-options { width:310px; }
+.portfolio-options>section { display:flex; flex:1; flex-direction:column; min-height:0; overflow:hidden; }
+.portfolio-options>section[hidden],.portfolio-options[hidden],.portfolio-inspector[hidden] { display:none; }
+.portfolio-options .portfolio-fields { grid-template-columns:1fr; }
+.portfolio-options .portfolio-actions { margin:14px 0; }
+.atlas-map-workspace .portfolio-options .portfolio-place-search { position:relative; inset:auto; width:100%; padding:0; border:0; border-radius:0; box-shadow:none; }
+.portfolio-options .portfolio-place-search form { align-items:stretch; flex-direction:column; }
+.portfolio-options .portfolio-place-search form button { align-self:flex-start; }
+.portfolio-options .portfolio-place-dropdown { position:relative; top:auto; margin-top:12px; box-shadow:none; }
+.portfolio-rail-details { margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:4px; }
+.portfolio-rail-details span { font-size:9px; }
+@media(max-width:760px) {
+  .atlas-map-workspace .portfolio-work-area>.portfolio-options { left:48px; top:0; bottom:0; width:min(310px,calc(100% - 48px)); max-height:100%; z-index:7; }
+  .atlas-map-workspace .portfolio-work-area>.portfolio-inspector { left:48px; right:0; top:0; bottom:0; width:auto; max-height:100%; z-index:7; border-top:0; }
+  .portfolio-work-area .portfolio-inspector .portfolio-fields { grid-template-columns:1fr; }
+}

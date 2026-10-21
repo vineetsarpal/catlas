@@ -11,6 +11,7 @@ async function create(page: Page, name: string) {
   await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
 }
 async function add(page: Page, id: string, name: string) {
+  if (!await page.getByRole('button',{name:'Add location',exact:true}).isVisible()) await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Add locations',exact:true}).click();
   await page.getByRole('button',{name:'Add location',exact:true}).click();
   const form=page.getByRole('form',{name:'Add location',exact:true});
   await form.getByLabel('Location ID',{exact:true}).fill(id);
@@ -58,6 +59,7 @@ test('named portfolios, manual edits, active selection and CSV backups survive r
 
 test('CSV merge and replace show changes, exclude invalid rows and reject duplicate IDs',async({page})=>{
   await page.goto('/'); await create(page,'Imported book'); await add(page,'OLD','Original');
+  await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Import CSV',exact:true}).click();
   const upload=page.getByLabel('Preview portfolio CSV',{exact:true});
   await upload.setInputFiles({name:'duplicate.csv',mimeType:'text/csv',buffer:Buffer.from(csvHeader+'A,One,0,0,1,USD,R,B\nA,Two,1,1,2,USD,R,B\n')});
   await expect(page.getByRole('alert')).toContainText('duplicate location ID');
@@ -107,7 +109,7 @@ test('editing or deleting inventory never rewrites saved investigations or repla
   await expect(page.getByLabel('Active portfolio',{exact:true}).locator('option:checked')).toContainText('Current book');
   await page.getByRole('button',{name:'Portfolios',exact:true}).click();await openInventory(page);
   await expect(page.getByRole('table')).toContainText('Current location');
-  page.on('dialog',dialog=>dialog.accept()); await page.getByRole('button',{name:'Delete portfolio',exact:true}).click();
+  page.on('dialog',dialog=>dialog.accept()); await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Edit portfolio details',exact:true}).click(); await page.getByRole('button',{name:'Delete portfolio',exact:true}).click();
   await page.getByRole('button',{name:'Exposure',exact:true}).click();
   await expect(page.getByTestId('exposure-count')).toHaveText('11');
 });

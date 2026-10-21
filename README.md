@@ -1,8 +1,19 @@
 # Catlas
 
-A browser-only earthquake workbench demonstrating provisional contractual recovery for fictional cedent Sierra Mutual. Captured Ridgecrest evidence produces Mojave $4.5m + Western $1.5m = $6m. Imported RAS terms, immutable reviewed packets, retained local history and simulated delivery/replacement workflows are implemented.
+A map-first catastrophe workbench for managing insured locations, monitoring hazards, investigating earthquake exposure and reviewing provisional contractual recovery. The default application runs in the browser with local storage; an optional localhost backend supplies wind forecasts and AIS vessel monitoring.
 
-The broader event-and-exposure workbench is available at `/exposure.html`: frozen and live USGS shaking evidence, consolidated portfolio CSV import (up to 1,000 locations), MMI screening, local version history, CSV/print summaries and self-contained offline case bundles. See [exposure workflow and data boundaries](docs/catlas-exposure.md). Open the [live exposure workbench](https://catlas-workbench.pages.dev/exposure.html) to try portfolio investigation, linked regional filters and offline country/state map context.
+The main URL opens **Portfolios**. The shared navigation connects **Portfolios → Monitor → Exposure → Recovery**:
+
+1. **Portfolios** — create a named inventory, add insured locations through place search, map pins or manual coordinates, or preview and import a CSV. Select the active portfolio for investigation.
+2. **Monitor** — view earthquakes, cyclone context and optional US fire/weather attention alongside active insured locations, then capture an earthquake for investigation.
+3. **Exposure** — compare a frozen portfolio snapshot with captured USGS shaking evidence, screen locations by MMI, inspect regional totals and export an impact summary or self-contained case bundle. Revisions create new investigation versions.
+4. **Recovery** — evaluate the selected earthquake against imported reinsurance contract terms, review the explanation and prepare an immutable reviewed recovery packet. Delivery, acknowledgements and replacements are simulated.
+
+All workspaces use the same map-first layout: a left tool rail opens workspace options, the map remains in the center, and selected location or item details appear on the right. Portfolios keeps search, imports and settings on the left; Monitor keeps attention, locations, watchlist, feeds and layers there; Recovery separates assessment/history options from the selected recovery explanation. **Layers** lives in the left sidebar in every workspace; **Appearance**, zoom and map navigation remain on the map. On mobile, options and details open one at a time.
+
+Exposure screening identifies potentially affected insured value; contractual recovery uses the imported treaty terms. Insured value, physical loss and provisional recovery are distinct measures. The fictional Sierra Mutual Ridgecrest recovery demonstration produces Mojave $4.5m + Western $1.5m = $6m.
+
+Open a workspace directly with `/?mode=portfolios`, `/?mode=monitor`, `/?mode=exposure` or `/?mode=recovery`. `/exposure.html` remains an Exposure entry point. See [exposure workflow and data boundaries](docs/catlas-exposure.md) and [Monitor workflow and source boundaries](docs/catlas-monitor.md).
 
 [Open the live demonstration](https://catlas-workbench.pages.dev/) · [Download the verified offline bundle](https://catlas-workbench.pages.dev/catlas-offline.zip)
 
@@ -13,6 +24,12 @@ Use Node 24+, Python 3.9+, and an installed Playwright Chromium or Chrome browse
 ```sh
 npm ci
 npm run dev
+```
+
+Open the localhost URL printed by Vite. Run verification commands in another terminal:
+
+```sh
+npm run check
 npm test
 npm run test:e2e
 npm run package:offline
@@ -27,7 +44,7 @@ Read [presenter walkthrough](docs/catlas-presenter.md), [offline instructions](d
 
 `release/pages/` is the static Cloudflare Pages upload directory after packaging, including the downloadable `/catlas-offline.zip`. No backend, sign-in, paid imagery, satellite service or live USGS/RAS dependency is required. Treaty rings are fixed-reference trigger zones, not damage radii or property coverage. Historical evidence capture is distinct from actual event time and from simulated sensitivity observations. Receipt confirms simulated delivery only; no financial approval/payment, vendor compatibility or customer validation is claimed.
 
-Monitor is available at `/?mode=monitor` and through the shared mode switch: live USGS earthquakes, NOAA NHC/CPHC cyclone context, optional animated NOAA GFS wind forecasts, location overlays and browser-local watchlists. See [Monitor workflow and source boundaries](docs/catlas-monitor.md). Wind forecasts and local vessel monitoring require the optional backend (CAT-35). Standalone builds show wind as unavailable; no browser decoder is shipped.
+Monitor is available at `/?mode=monitor` and through the shared mode switch: live USGS earthquakes, NOAA NHC/CPHC cyclone context, optional animated NOAA GFS wind forecasts, location overlays and browser-local watchlists. See [Monitor workflow and source boundaries](docs/catlas-monitor.md). US fire perimeters, satellite fire detections and selected NWS weather alerts add portfolio attention flags with source evidence, separate map visibility and browser-local watches. Fire/weather feeds require the optional backend; FIRMS detections also require `FIRMS_MAP_KEY` in `backend/.env`. Wind forecasts and local vessel monitoring require the optional backend (CAT-35). Standalone builds show wind as unavailable; no browser decoder is shipped.
 
 ## Local monitoring backend
 
@@ -62,8 +79,18 @@ Offline packaging explicitly disables the backend integration, regardless of loc
 
 ## Portfolio workspace
 
-The main URL opens **Portfolios** (`/?mode=portfolios`). Use the shared map-first workspace to manage multiple named insured-location portfolios. Search a place/address, review and adjust an unsaved pin, then add its insurance details and save. You can also drop a pin, enter coordinates manually, edit/delete existing locations, or import CSV with an acknowledged add/update-by-ID or replace-all preview. The active portfolio selector is shared across workspaces. Portfolios and the active selection persist in this browser's IndexedDB; there is no shared team storage. Export portfolio CSV to back up current locations. Use the labeled demo portfolio to explore without supplying data.
+Use **Portfolios** (`/?mode=portfolios`) to manage multiple named insured-location portfolios. The workspace has a portfolio list, central inventory map, location inspector and collapsible locations table.
+
+- **Search a location:** type at least three characters and pause for suggestions, or submit immediately. Use arrow keys and Enter to choose a result; Escape dismisses suggestions. Review the unsaved pin, drag it to adjust the position, then add insurance details and save.
+- **Drop a pin / Add location:** place a point on the map, choose **Use map center**, or enter coordinates manually. An unsaved preview does not add a location; saving the location form does.
+- **Import CSV:** download the template, preview usable/excluded rows and choose add/update by location ID or replace all. Review and acknowledge the changes before applying them. Each location needs an ID, name, coordinates and currency; blank insured value means unknown.
+- **Inspect and edit:** select a map dot or a location name in the table to open its details. The selected table row is highlighted. Selecting from the table plays one brief expanding pulse on the map; selecting a map dot does not pulse. Reduced-motion preferences suppress the animation. Edits require an explicit save.
+- **Resize the table:** choose **Show locations**, then drag the divider between map and table. Arrow keys adjust the split, Home/End move to its limits and double-click resets it. Hiding and reopening the table retains the split while that portfolio workspace remains mounted.
+
+New manual locations default to **USD**, and the synthetic demo inventory uses USD throughout. Imported amounts retain their supplied currencies; totals remain separate by currency, with no automatic exchange-rate conversion. Existing saved investigations retain their original values and currencies.
+
+The active portfolio selector is shared across workspaces. Portfolios and the active selection persist in this browser's IndexedDB; there is no shared team storage. Export portfolio CSV to back up current locations. Use the labeled demo portfolio to explore without supplying data.
 
 Monitor uses the active inventory. Exposure retains the portfolio snapshot used for its current investigation: editing, switching or deleting a working portfolio never rewrites that snapshot. Choose **Investigate latest portfolio** explicitly to create a new version from active holdings. Opening saved history or a portable case does not change the active inventory. Threshold and source-evidence revisions continue to use the investigation's frozen portfolio until the analyst explicitly investigates the latest one. Empty portfolios can be maintained but cannot be assessed; the supported limit remains 1,000 locations per portfolio and 2 MB per imported CSV. The vessel watch portfolio and imported reinsurance terms remain separate.
 
-Place/address search uses the public Photon/OpenStreetMap geocoder with suggestions after a short typing pause (or immediate submission) and requires connectivity. Set the public `VITE_CATLAS_GEOCODER_URL` frontend variable to use another HTTPS Photon-compatible endpoint. The map shows packaged geographic context; street imagery is not added. Pin placement, manual entries and CSV work without geocoding or connectivity. See [portfolio search behavior and source limits](docs/catlas-exposure.md#map-first-portfolio-workspace).
+Place/address search uses the public Photon/OpenStreetMap geocoder and requires connectivity; no API key or local backend is needed for the default endpoint. Suggestions start after a 450 ms typing pause, with requests spaced by at least one second. Only the typed search text and fixed query options are sent to the geocoder. Set the public `VITE_CATLAS_GEOCODER_URL` frontend variable to use another HTTPS Photon-compatible endpoint. The map shows packaged geographic context; street imagery is not added. Pin placement, manual entries and CSV work without geocoding or connectivity. See [portfolio search behavior and source limits](docs/catlas-exposure.md#map-first-portfolio-workspace).

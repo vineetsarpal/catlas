@@ -48,3 +48,9 @@ Design references: God's Eye View checkout `e8b3a10a07f3f7b31feb0ecea146a01c6fa2
 ## Workspace ownership
 
 Run the commands above from the repository root. `npm run backend` delegates to `@catlas/backend`, so its environment file is resolved within `backend/`. Source and tests are in `backend/src/` and `backend/tests/`. The backend imports only `@catlas/shared` for shared contracts/acquisition, never frontend modules. Root `npm test` runs all workspace tests; `npm run test:backend` selects just backend tests.
+
+## Fire and weather warning feeds
+
+Set `FIRMS_MAP_KEY` in `backend/.env` for NASA FIRMS detections. Obtain a free key from [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/map_key/); restart the backend after changing environment settings. The key is never sent to the browser. Missing credentials leave perimeters and warnings usable and show FIRMS as unavailable.
+
+The frontend uses `GET /api/monitor/fires`, `/api/monitor/perimeters`, and `/api/monitor/alerts`. Each returns a validated snapshot with acquisition time, source rows, stale/partial warning and rejected-record count. No portfolio coordinates or values are sent to upstream providers. The fixed regional FIRMS request, nationwide WFIGS request and NWS alerts/official zones are independent of the portfolio. Cached evidence is bounded and memory-only; restart loses it. Requests are on demand. No background notifications, persistent event archive or new Exposure/Recovery assessment is provided.

@@ -68,3 +68,23 @@
 }
 
 .terrain-map-status { position:absolute; left:14px; bottom:112px; z-index:2; max-width:calc(100% - 28px); padding:7px 10px; border:1px solid #d7e1dd; border-radius:5px; font-size:10px; background:#fffffff2; }
+
+.monitor-hazard-control { padding:12px 0; border-bottom:1px solid #e1e8e4; }
+.monitor-hazard-control .monitor-check { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:11px; }
+.monitor-fire-distance { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; font-size:11px; }
+.monitor-fire-distance input { width:70px; min-height:32px; padding:5px; border:1px solid #cbdad2; border-radius:4px; }
+.monitor-hazard-relevance { padding:2px 0; }
+.monitor-hazard-relevance p { margin:4px 0; font-size:10px; }
+.monitor-alert-description { white-space:pre-line; overflow-wrap:anywhere; }
+.monitor-flagged-locations { list-style:none; padding:0; font-size:11px; }
+.monitor-flagged-locations li { display:flex; flex-direction:column; gap:4px; padding:8px 0; border-bottom:1px solid #e1e8e4; }
+.monitor-inspector-body h3 { margin:16px 0 8px; font-size:12px; }
+
+.monitor-layer-group { border-top:1px solid #d7e1dd; padding-top:14px; }
+.monitor-layer-group:first-child { border-top:0; padding-top:0; }
+.monitor-layer-group > h3.exposure-eyebrow { margin:0 0 12px; font-size:9px; line-height:1.6; }
+.monitor-layer-group > .monitor-map-layer:first-of-type { border-top:0; padding-top:0; }
+.monitor-layer-group > .monitor-map-layer + .monitor-map-layer { margin-top:12px; }
+.monitor-location-facts { margin:16px 0; font-size:11px; }
+.monitor-location-facts dt { color:#788a82; margin-top:12px; }
+.monitor-location-facts dd { margin:4px 0; overflow-wrap:anywhere; }

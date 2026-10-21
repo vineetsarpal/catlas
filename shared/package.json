@@ -17,6 +17,7 @@
   "exports": {
     "./http": "./src/http.ts",
     "./wind": "./src/wind.ts",
-    "./vessels": "./src/vessels.ts"
+    "./vessels": "./src/vessels.ts",
+    "./hazards": "./src/hazards.ts"
   }
 }

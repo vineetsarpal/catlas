@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-async function open(page:Page){await page.goto('/');await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await expect(page.getByLabel('Search places or addresses')).toBeVisible();}
+async function open(page:Page){await page.goto('/');await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Add locations',exact:true}).click();await expect(page.getByLabel('Search places or addresses')).toBeVisible();}
 const payload={type:'FeatureCollection',features:Array.from({length:5},(_,i)=>({type:'Feature',geometry:{type:'Point',coordinates:[-79.38+i*.01,43.65]},properties:{name:`Toronto location ${i+1}`,street:'A very long street name that wraps across multiple lines',housenumber:String(100+i),city:'Toronto',state:'Ontario',country:'Canada'}}))};
 test('suggestions appear after typing and each result contains its full address without overlap',async({page},info)=>{
  await page.route('https://photon.komoot.io/api/**',route=>route.fulfill({json:payload}));await open(page);

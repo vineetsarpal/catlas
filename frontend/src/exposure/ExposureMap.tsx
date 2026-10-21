@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import * as maplibre from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
@@ -25,7 +26,7 @@ function gridImage(evidence: CapturedEvidence): string {
   }
   context.putImageData(image,0,0); return canvas.toDataURL();
 }
-export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRequest = 0, pulseRequest = 0, mode = 'exposure', recoveryAreas = [], selectedArea = '', onSelectArea, monitor, placement }: { placement?: { point: MapPoint | null; enabled: boolean; onChange: (point: MapPoint) => void };  monitor?: MonitorMapProps; evidence: CapturedEvidence | null; event: Earthquake | null; rows: ExposureRow[]; selected: string; onSelect: (id: string) => void; focusRequest?: number; pulseRequest?: number; mode?: 'monitor'|'exposure'|'recovery'|'portfolio'; recoveryAreas?: Treaty['areas']; selectedArea?: string; onSelectArea?: (id:string)=>void }) {
+export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRequest = 0, pulseRequest = 0, mode = 'exposure', recoveryAreas = [], selectedArea = '', onSelectArea, monitor, placement, controlsInSidebar=false, layersTarget }: { layersTarget?:HTMLElement|null; controlsInSidebar?:boolean; placement?: { point: MapPoint | null; enabled: boolean; onChange: (point: MapPoint) => void };  monitor?: MonitorMapProps; evidence: CapturedEvidence | null; event: Earthquake | null; rows: ExposureRow[]; selected: string; onSelect: (id: string) => void; focusRequest?: number; pulseRequest?: number; mode?: 'monitor'|'exposure'|'recovery'|'portfolio'; recoveryAreas?: Treaty['areas']; selectedArea?: string; onSelectArea?: (id:string)=>void }) {
   const element = useRef<HTMLDivElement>(null), mapRef = useRef<maplibre.Map | null>(null), callback = useRef(onSelect);
   const [ready,setReady] = useState(false), [error,setError] = useState(''), [show,setShow] = useState(true);
   const [showLocations,setShowLocations] = useState(true), [opacity,setOpacity] = useState(.75), [mapStyle,setMapStyle] = useState<'light'|'dark'>('light');
@@ -236,10 +237,8 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
     map.easeTo({center:[event.longitude,event.latitude],zoom:6,duration:350});return()=>{marker.remove();};
   },[ready,event?.id,event?.latitude,event?.longitude,mode==='monitor']);
   useEffect(()=>{const row=rows.find(r=>r.id===selected);if(ready&&row&&focusRequest>0)mapRef.current?.easeTo({center:[row.longitude,row.latitude],duration:350});},[ready,focusRequest]);
-  return <section className="exposure-spatial" data-testid={mode==='recovery'?'analytical-map':undefined} data-ready={ready} aria-label={mode==='monitor'?'Live hazards and portfolio map':mode==='portfolio'?'Portfolio inventory map':mode==='exposure'?'Shaking and portfolio map':'Treaty trigger zone map'}>
-    <div className="exposure-map-menus" aria-label="Map controls">
-      <details className="exposure-layer-menu" open={mapMenu==='layers'}>
-        <summary onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='layers'?null:'layers');}}>Layers</summary>
+  useEffect(()=>{if(mode==='monitor'&&monitor?.fitRequest)fitLocations();},[monitor?.fitRequest]);
+  const layerControls = (
         <div className="exposure-map-layers" aria-label="Map layers">
           {mode==='recovery'&&<button disabled={!recoveryAreas.length||!ready} onClick={fitLocations}>Fit treaty references</button>}
           {(mode==='exposure'||mode==='portfolio')&&<>
@@ -251,7 +250,14 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
           {mode==='recovery'&&<label><input type="checkbox" checked={showZones} onChange={e=>setShowZones(e.target.checked)}/> Treaty trigger zones</label>}
           {mode==='monitor'&&monitor&&<MonitorLayerControls state={monitor.state} onFitPortfolio={fitLocations} canFitPortfolio={ready&&rows.length>0}/>}
         </div>
-      </details>
+  );
+  return <section className="exposure-spatial" data-testid={mode==='recovery'?'analytical-map':undefined} data-ready={ready} aria-label={mode==='monitor'?'Live hazards and portfolio map':mode==='portfolio'?'Portfolio inventory map':mode==='exposure'?'Shaking and portfolio map':'Treaty trigger zone map'}>
+    {controlsInSidebar&&layersTarget&&createPortal(layerControls,layersTarget)}
+    <div className="exposure-map-menus" aria-label="Map controls">
+      {!controlsInSidebar&&<details className="exposure-layer-menu" open={mapMenu==='layers'}>
+        <summary onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='layers'?null:'layers');}}>Layers</summary>
+        {layerControls}
+      </details>}
       <details className="exposure-layer-menu" open={mapMenu==='appearance'}>
         <summary onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='appearance'?null:'appearance');}}>Appearance</summary>
         <div className="exposure-map-layers" aria-label="Map appearance">
@@ -269,15 +275,18 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
     {terrainStatus&&<div className="terrain-map-status" role="status">{terrainStatus}</div>}
     {error&&<p role="status" className="exposure-warning">{error}</p>}
     {mode==='monitor'&&<div className="monitor-map-status" role="status">{monitor?.state.vessels.demo?'DEMO FLEET · Fictional positions and trails · Not live AIS':!monitor?.state.online?'Offline · observations may be stale':monitor.state.prefs.wind?windStatus:'Latest source reports · see Feeds for freshness'}</div>}
-    {(mode!=='monitor'||monitor?.state.prefs.locations||monitor?.state.prefs.earthquakes||monitor?.state.prefs.cyclones||monitor?.state.prefs.vessels)&&<div className="exposure-legend" aria-label="Map legend">
+    {(mode!=='monitor'||monitor?.state.prefs.locations||monitor?.state.prefs.earthquakes||monitor?.state.prefs.cyclones||monitor?.state.prefs.vessels||monitor?.state.prefs.fires||monitor?.state.prefs.perimeters||monitor?.state.prefs.alerts)&&<div className="exposure-legend" aria-label="Map legend">
       {mode==='monitor'?<>
         {monitor?.state.prefs.locations&&<span><i style={{background:'#287d69'}}/>Insured locations</span>}
         {monitor?.state.prefs.earthquakes&&<span><i style={{background:'#bc7545'}}/>Earthquakes</span>}
         {monitor?.state.prefs.vessels&&<>{(monitor.state.vessels.scope==='all'?[true,false]:[true]).map(inPortfolio=><span key={String(inPortfolio)}><svg width="12" height="16" viewBox="0 0 24 32" aria-hidden="true"><path d="M12 2 20 12 18 29H6L4 12Z" fill={inPortfolio?'#287d69':'#2674bb'}/><path d="M8 16h8v4H8z" fill="white"/></svg>{inPortfolio?'Portfolio vessels':'Other vessels'}</span>)}</>}
+        {monitor?.state.prefs.fires&&monitor.state.prefs.showFires&&<span><i style={{background:'#d35827'}}/>Fire detections</span>}
+        {monitor?.state.prefs.perimeters&&monitor.state.prefs.showPerimeters&&<span><i style={{background:'#c75132'}}/>Fire perimeters</span>}
+        {monitor?.state.prefs.alerts&&monitor.state.prefs.showAlerts&&<span><i style={{background:'#b59424'}}/>Weather warnings</span>}
         {monitor?.state.prefs.cyclones&&<span><i style={{background:'#7858a1'}}/>Cyclones</span>}
       </>:mode==='recovery'?<span>◆ Fixed references · 25 km inner / 100 km outer bands</span>:mode==='portfolio'?<span>● Insured locations · unassessed</span>:[3,4,5,6,7,null].map((value,i)=><span key={i}><i style={{background:intensityColor(value)}}/>{['<4','4–<5','5–<6','6–<7','7+','Unknown'][i]}</span>)}
     </div>}
 
-    <p className="exposure-map-note">{mode==='monitor'?'USGS · NOAA NHC/CPHC · GFS. Context only; no exposure assessment.':mode==='portfolio'?'Insured location inventory · No hazard assessment.':mode==='exposure'?'USGS shaking evidence · Shaking estimates do not establish property damage.':'Contractual fixed-reference distance bands · Not shaking contours or damage radii.'} Natural Earth geographic context.</p>
+    <p className="exposure-map-note">{mode==='monitor'?'USGS · NOAA · NASA FIRMS · NIFC. Portfolio attention only; no damage or loss assessment.':mode==='portfolio'?'Insured location inventory · No hazard assessment.':mode==='exposure'?'USGS shaking evidence · Shaking estimates do not establish property damage.':'Contractual fixed-reference distance bands · Not shaking contours or damage radii.'} Natural Earth geographic context.</p>
   </section>;
 }

@@ -21,6 +21,7 @@ test('packaged map placement saves a location while offline without a geocoder',
   await page.route('**/*',route=>new URL(route.request().url()).origin==='http://127.0.0.1:4178'?route.continue():route.abort());
   await page.goto('/');await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();
   await expect(page.getByRole('region',{name:'Portfolio inventory map'}).getByTestId('exposure-map')).toHaveAttribute('data-ready','true');
+  await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Add locations',exact:true}).click();
   await context.setOffline(true);
   await page.getByRole('button',{name:'Drop a pin',exact:true}).click();await page.getByRole('button',{name:'Use map center',exact:true}).click();
   await page.getByRole('button',{name:'Add to portfolio',exact:true}).click();

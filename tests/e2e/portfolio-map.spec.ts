@@ -3,6 +3,7 @@ async function setup(page:Page){
   await page.goto('/');await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();
   await expect(page.getByRole('heading',{level:1})).toHaveText('Demo · Ridgecrest locations');
   await expect(page.getByRole('region',{name:'Portfolio inventory map'}).getByTestId('exposure-map')).toHaveAttribute('data-ready','true');
+  await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Add locations',exact:true}).click();
 }
 const rows=(page:Page)=>page.locator('#portfolio-location-table tbody tr');
 const response={type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:[-79.384,43.6536]},properties:{name:'Toronto City Hall',city:'Toronto',country:'Canada'}},{type:'Feature',geometry:{type:'Point',coordinates:[999,999]},properties:{name:'Invalid position'}}]};

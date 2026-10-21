@@ -1,10 +1,15 @@
 import Fastify from 'fastify';
+import { HazardService } from './hazards';
 import { WindService } from './wind';
 import { VesselRelay, validBounds } from './vessels';
 
-export function createApp(options:{wind?:WindService;relay?:VesselRelay;apiKey?:string}={}) {
+export function createApp(options:{wind?:WindService;relay?:VesselRelay;apiKey?:string;hazards?:HazardService;firmsKey?:string}={}) {
   const app=Fastify({logger:false,bodyLimit:1024});
   const wind=options.wind??new WindService(), relay=options.relay??new VesselRelay(options.apiKey??'');
+  const hazards=options.hazards??new HazardService({firmsKey:options.firmsKey});
+  app.get('/api/monitor/fires',()=>hazards.fires());
+  app.get('/api/monitor/perimeters',()=>hazards.perimeters());
+  app.get('/api/monitor/alerts',()=>hazards.alerts());
   const viewers=new Map<string,{at:number;count:number}>();
   app.addHook('onRequest',async(req,reply)=>{
     const host=req.headers.host??'';

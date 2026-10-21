@@ -1,3 +1,5 @@
+import { RecoveryInspector, RecoveryOptionsTabs, type RecoveryView } from "./recovery/RecoveryInspector";
+import { SimpleRecovery, type SimpleRecoveryContext } from "./recovery/SimpleRecovery";
 import { sameRecoveryEvent } from './exposure/event-context';
 import type { EventInput } from "./domain/types";
 import type { EvaluationRecord } from "./domain/packets";
@@ -16,11 +18,14 @@ import { PacketHistory } from "./components/PacketReview";
 import "./app.css";
 import "./workbench-theme.css";
 import "./recovery-theme.css";
-export type RecoveryContext = { evaluation?: EvaluationRecord; selectedArea: string; selectArea: (id: string) => void };
-export default function RecoveryWorkbench({ sharedEvent, onEventChange, onContextChange }: {
+export type RecoveryContext = { evaluation?: EvaluationRecord; selectedArea: string; selectArea: (id: string) => void; kind?: "simple" | "parametric"; simple?: SimpleRecoveryContext | null };
+function ParametricRecoveryWorkbench({ sharedEvent, onEventChange, onContextChange, inspectorTarget, view = "assessment", onViewChange }: {
   sharedEvent: EventInput | null;
   onEventChange: (event: EventInput | null) => void;
   onContextChange: (context: RecoveryContext) => void;
+  inspectorTarget?: HTMLElement | null;
+  view?: RecoveryView;
+  onViewChange?: (view: RecoveryView) => void;
 }) {
   const [scenarioId, setScenarioId] = useState(""),
     [selectedArea, setSelectedArea] = useState("mojave");
@@ -50,6 +55,7 @@ export default function RecoveryWorkbench({ sharedEvent, onEventChange, onContex
     resumeEvaluation(id);
     onEventChange(lifecycle.evaluations.find(item=>item.id===id)?.event ?? null);
     setScenarioId("__retained__");
+    onViewChange?.("assessment");
   };
   const reset = () => {
     void resetDemo().then(saved => {
@@ -72,6 +78,7 @@ export default function RecoveryWorkbench({ sharedEvent, onEventChange, onContex
   return (
     <div className="catlas recovery-controls">
       <header className="recovery-panel-intro"><p className="eyebrow">CONTRACTUAL RECOVERY</p><h2>Parametric recovery</h2><p>Evaluate imported terms against the selected earthquake. Shaking exposure does not establish a recovery.</p></header>
+      <div hidden={view !== "assessment"} className="recovery-assessment-options">
       {sharedEvent && !matches && <section className="recovery-handoff" aria-label="Selected earthquake recovery handoff"><strong>{sharedEvent.name ?? sharedEvent.id}</strong><p>{evaluation?'A retained recovery belongs to a different observation. Evaluate the selected earthquake to create its assessment.':'Use the selected observation with the packaged fictional contract.'}</p><button disabled={busy} onClick={()=>void evaluateInputs(sharedEvent,contract).then(saved=>{if(saved)setScenarioId('__retained__');})}>Evaluate selected earthquake</button></section>}
       <p className="storage-summary" role="status">{storageStatus==="ready"?"Local history saved in this browser":storageStatus==="saving"?"Saving local history…":storageStatus==="loading"?"Loading local history…":"Local history requires attention below"}</p>
         <section
@@ -101,7 +108,7 @@ export default function RecoveryWorkbench({ sharedEvent, onEventChange, onContex
         </section>
         <div className="recovery-quick-events"><button disabled={busy} onClick={()=>void chooseScenario('ridgecrest')}>Ridgecrest historical replay · M7.1</button><button disabled={busy} onClick={()=>void chooseScenario('outer')}>Synthetic outer event · M7.1</button>{sharedEvent&&<button disabled={busy} onClick={()=>void chooseScenario('')}>Clear event selection</button>}</div>
         {hasSelection && <EventEvidencePanel event={event} />}
-          {hasSelection && assessment && evaluation ? (
+          <RecoveryInspector target={inspectorTarget}>{hasSelection && assessment && evaluation ? (
             <aside className="inspector">
               <p className="eyebrow">IMPORTED CONTRACT · V{contract.version}</p>
               <h2>{contract.name}</h2>
@@ -235,15 +242,43 @@ export default function RecoveryWorkbench({ sharedEvent, onEventChange, onContex
                 conditions.
               </p>
             </aside>
-          )}
+          )}</RecoveryInspector>
         <RevisionControls evaluation={evaluation} disabled={busy} onRevise={async (nextEvent,nextContract)=>{
           const saved=await evaluateInputs(nextEvent,nextContract);
           if(saved){setScenarioId("__retained__");onEventChange(nextEvent);}
         }}/>
+      </div>
+      <div hidden={view !== "history"} className="recovery-history-options">
         <StoragePanel status={storageStatus} error={storageError} onReset={reset} repository={repository} />
         <EvaluationHistory lifecycle={lifecycle} onResume={resume} disabled={busy} />
         <PacketHistory packets={lifecycle.packets} />
         <DeliveryHistory repository={repository}/>
+      </div>
     </div>
   );
+}
+
+
+export default function RecoveryWorkbench(props: {
+  sharedEvent: EventInput | null;
+  onEventChange: (event: EventInput | null) => void;
+  onContextChange: (context: RecoveryContext) => void;
+  inspectorTarget?: HTMLElement | null;
+  view?: RecoveryView;
+  onViewChange?: (view: RecoveryView) => void;
+}) {
+  const [localView,setLocalView] = useState<RecoveryView>("assessment");
+  const view = props.view ?? localView;
+  const changeView = props.onViewChange ?? setLocalView;
+  const [kind,setKind] = useState<'simple'|'parametric'>(()=>new URLSearchParams(location.search).get('recovery')==='parametric'?'parametric':'simple');
+  const simpleContext = useCallback((simple:SimpleRecoveryContext|null)=>props.onContextChange({kind:'simple',simple,selectedArea:'',selectArea:()=>{}}),[props.onContextChange]);
+  const parametricContext = useCallback((context:RecoveryContext)=>props.onContextChange({...context,kind:'parametric'}),[props.onContextChange]);
+  return <>
+    {props.view===undefined&&<RecoveryOptionsTabs view={view} onChange={changeView}/>}
+    <div className="recovery-kind" hidden={view !== "assessment"}><label>Assessment type<select value={kind} onChange={e=>{
+      const next=e.target.value as typeof kind;setKind(next);
+      const url=new URL(location.href);if(next==='parametric')url.searchParams.set('recovery',next);else url.searchParams.delete('recovery');window.history.replaceState(null,'',url);
+    }}><option value="simple">Event loss · excess-of-loss layer</option><option value="parametric">Parametric demonstration</option></select></label></div>
+    {kind==='simple'?<div className="catlas recovery-controls"><SimpleRecovery event={props.sharedEvent} onEventChange={props.onEventChange} onContextChange={simpleContext} inspectorTarget={props.inspectorTarget} view={view} onViewChange={changeView}/></div>:<ParametricRecoveryWorkbench {...props} view={view} onViewChange={changeView} onContextChange={parametricContext}/>}
+  </>;
 }

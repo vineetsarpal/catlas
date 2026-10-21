@@ -1,8 +1,9 @@
+import { openRecoveryAssessment, openRecoveryHistory, openRecoveryDetails } from '../helpers/recovery-workspace';
 import { test, expect } from '@playwright/test';
 import { closeDialog, openFilters, openPortfolio } from '../helpers/exposure-workspace';
 
 test('modes retain the earthquake, camera, map instance and exposure filters',async({page})=>{
- await page.goto('/exposure.html');
+ await page.goto('/exposure.html?recovery=parametric');
  await page.getByRole('button',{name:'Investigate Ridgecrest replay',exact:true}).click();
  await expect(page.getByTestId('exposure-count')).toHaveText('11');
  await openFilters(page);await page.getByRole('combobox',{name:'Show',exact:true}).selectOption('meeting');
@@ -13,11 +14,11 @@ test('modes retain the earthquake, camera, map instance and exposure filters',as
  const title=await page.getByRole('heading',{level:1}).textContent();
  await page.getByRole('button',{name:'Recovery',exact:true}).click();
  await expect(page.getByRole('heading',{level:1})).toHaveText(title!);
- await expect(page.getByRole('button',{name:'Evaluate selected earthquake',exact:true})).toBeVisible();
+ await openRecoveryAssessment(page); await expect(page.getByRole('button',{name:'Evaluate selected earthquake',exact:true})).toBeVisible();
  await expect(page.getByTestId('treaty-total')).toHaveCount(0);
  await expect(map).toHaveAttribute('data-camera-zoom',zoom!);
  expect(await canvas!.evaluate(element=>element.isConnected)).toBe(true);
- await page.getByRole('button',{name:'Evaluate selected earthquake',exact:true}).click();
+ await openRecoveryAssessment(page); await page.getByRole('button',{name:'Evaluate selected earthquake',exact:true}).click();
  await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
  await expect(page.getByTestId('retained-evaluation')).toHaveCount(1);
  await page.getByRole('button',{name:'Exposure',exact:true}).click();
@@ -31,11 +32,11 @@ test('modes retain the earthquake, camera, map instance and exposure filters',as
 });
 
 test('recovery changes invalidate exposure results until the selected observation is investigated',async({page})=>{
- await page.goto('/exposure.html');
+ await page.goto('/exposure.html?recovery=parametric');
  await page.getByRole('button',{name:'Investigate Ridgecrest replay',exact:true}).click();
  await expect(page.getByTestId('exposure-count')).toHaveText('11');
  await page.getByRole('button',{name:'Recovery',exact:true}).click();
- await page.getByRole('combobox',{name:'Demonstration scenario',exact:true}).selectOption('outer');
+ await openRecoveryAssessment(page); await page.getByRole('combobox',{name:'Demonstration scenario',exact:true}).selectOption('outer');
  await expect(page.getByTestId('treaty-total')).toHaveText('$3,750,000');
  await page.getByRole('button',{name:'Exposure',exact:true}).click();
  await expect(page.getByRole('heading',{level:1})).toContainText('outer');

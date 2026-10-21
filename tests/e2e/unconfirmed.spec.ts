@@ -1,23 +1,24 @@
+import { openRecoveryAssessment, openRecoveryHistory, openRecoveryDetails } from '../helpers/recovery-workspace';
 import { test, expect, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 async function choose(page: Page) {
-  await expect(
+  await openRecoveryAssessment(page); await expect(
     page.getByRole("combobox", { name: "Demonstration scenario", exact: true }),
   ).toBeEnabled();
-  await page
+  await openRecoveryAssessment(page); await page
     .getByRole("combobox", { name: "Demonstration scenario", exact: true })
     .selectOption("ridgecrest");
-  await expect(
+  await openRecoveryHistory(page); await expect(
     page.getByRole("region", { name: "Local history storage" }),
   ).toContainText("Saved locally");
 }
 async function prepare(page: Page) {
-  await page.goto("/?mode=recovery");
+  await page.goto("/?mode=recovery&recovery=parametric");
   await choose(page);
-  await page
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Review evaluation v1", exact: true })
     .click();
-  await expect(
+  await openRecoveryDetails(page); await expect(
     page.getByRole("button", { name: "Download reviewed JSON", exact: true }),
   ).toBeEnabled();
 }
@@ -30,7 +31,7 @@ async function rows(page: Page) {
 }
 async function download(page: Page) {
   const pending = page.waitForEvent("download");
-  await page
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Download reviewed JSON", exact: true })
     .click();
   return fs.readFile((await (await pending).path())!, "utf8");
@@ -38,15 +39,15 @@ async function download(page: Page) {
 const panel = (page: Page) =>
   page.getByRole("region", { name: "Simulated RAS delivery", exact: true });
 async function loseAck(page: Page) {
-  await page
+  await openRecoveryDetails(page); await page
     .getByLabel("Simulated receiver outcome", { exact: true })
     .selectOption("unconfirmed");
-  await page
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Send reviewed packet", exact: true })
     .click();
-  await expect(panel(page)).toContainText("Delivery unconfirmed");
-  await expect(panel(page)).not.toContainText("MOCK-RAS-");
-  await expect(page.getByTestId("receiver-count")).toHaveText(
+  await openRecoveryDetails(page); await expect(panel(page)).toContainText("Delivery unconfirmed");
+  await openRecoveryDetails(page); await expect(panel(page)).not.toContainText("MOCK-RAS-");
+  await openRecoveryHistory(page); await expect(page.getByTestId("receiver-count")).toHaveText(
     "1 simulated receiving record",
   );
 }
@@ -66,20 +67,20 @@ test("lost acknowledgement survives refresh and repeated checks reconcile origin
   expect(before.deliveryAttempts[0].reference).toBeNull();
   expect(before.submissions[0].payload).toBe(bytes);
   await page.reload();
-  await expect(page.getByTestId("delivery-attempt")).toHaveCount(1);
-  await expect(page.getByTestId("delivery-attempt")).toContainText(
+  await openRecoveryHistory(page); await expect(page.getByTestId("delivery-attempt")).toHaveCount(1);
+  await openRecoveryHistory(page); await expect(page.getByTestId("delivery-attempt")).toContainText(
     "Delivery unconfirmed",
   );
   await choose(page);
-  await expect(panel(page)).toContainText("Delivery unconfirmed");
-  await expect(panel(page)).not.toContainText("MOCK-RAS-");
-  await page
+  await openRecoveryDetails(page); await expect(panel(page)).toContainText("Delivery unconfirmed");
+  await openRecoveryDetails(page); await expect(panel(page)).not.toContainText("MOCK-RAS-");
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Check delivery status", exact: true })
     .click();
-  await expect(panel(page)).toContainText(
+  await openRecoveryDetails(page); await expect(panel(page)).toContainText(
     `Received by simulated RAS · ${before.receiverRecords[0].reference}`,
   );
-  await expect(page.getByTestId("delivery-attempt")).toHaveCount(2);
+  await openRecoveryHistory(page); await expect(page.getByTestId("delivery-attempt")).toHaveCount(2);
   await page.evaluate(async () => {
     const repo = "/src/persistence/repository.ts",
       service = "/src/delivery/service.ts";
@@ -88,7 +89,7 @@ test("lost acknowledgement survives refresh and repeated checks reconcile origin
     const archive = await demoRepository.exportArchive();
     await checkPacketStatus(demoRepository, archive.packets[0].value);
   });
-  await expect(page.getByTestId("delivery-attempt")).toHaveCount(3);
+  await openRecoveryHistory(page); await expect(page.getByTestId("delivery-attempt")).toHaveCount(3);
   const after = await rows(page);
   expect(after.receiverRecords).toEqual(before.receiverRecords);
   expect(after.submissions[0].id).toBe(before.submissions[0].id);
@@ -108,23 +109,23 @@ test("repeated lost acknowledgements and successful retry produce one receiving 
   await prepare(page);
   await loseAck(page);
   const first = await rows(page);
-  await page
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Retry same reviewed packet", exact: true })
     .click();
-  await expect(page.getByTestId("delivery-attempt")).toHaveCount(2);
-  await expect(panel(page)).toContainText("Delivery unconfirmed");
-  await expect(panel(page)).not.toContainText("MOCK-RAS-");
-  await page
+  await openRecoveryHistory(page); await expect(page.getByTestId("delivery-attempt")).toHaveCount(2);
+  await openRecoveryDetails(page); await expect(panel(page)).toContainText("Delivery unconfirmed");
+  await openRecoveryDetails(page); await expect(panel(page)).not.toContainText("MOCK-RAS-");
+  await openRecoveryDetails(page); await page
     .getByLabel("Simulated receiver outcome", { exact: true })
     .selectOption("accept");
-  await page
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Retry same reviewed packet", exact: true })
     .click();
-  await expect(panel(page)).toContainText(
+  await openRecoveryDetails(page); await expect(panel(page)).toContainText(
     `Received by simulated RAS · ${first.receiverRecords[0].reference}`,
   );
-  await expect(page.getByTestId("delivery-attempt")).toHaveCount(3);
-  await expect(page.getByTestId("receiver-count")).toHaveText(
+  await openRecoveryHistory(page); await expect(page.getByTestId("delivery-attempt")).toHaveCount(3);
+  await openRecoveryHistory(page); await expect(page.getByTestId("receiver-count")).toHaveText(
     "1 simulated receiving record",
   );
   const after = await rows(page);
@@ -161,14 +162,14 @@ test("unknown receiver status remains unconfirmed and changed content cannot reu
   expect(result.failure).toContain("exact retained reviewed packet");
   expect(result.archive.submissions[0].state).toBe("unconfirmed");
   expect(result.archive.receiverRecords).toHaveLength(0);
-  await expect(panel(page)).toContainText("Delivery unconfirmed");
-  await page
+  await openRecoveryDetails(page); await expect(panel(page)).toContainText("Delivery unconfirmed");
+  await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Check delivery status", exact: true })
     .click();
-  await expect(page.getByTestId("delivery-attempt")).toHaveCount(2);
-  await expect(page.getByTestId("receiver-count")).toHaveText(
+  await openRecoveryHistory(page); await expect(page.getByTestId("delivery-attempt")).toHaveCount(2);
+  await openRecoveryHistory(page); await expect(page.getByTestId("receiver-count")).toHaveText(
     "0 simulated receiving records",
   );
-  await expect(panel(page)).toContainText("Delivery unconfirmed");
-  await expect(panel(page)).not.toContainText("Rejected by simulated RAS");
+  await openRecoveryDetails(page); await expect(panel(page)).toContainText("Delivery unconfirmed");
+  await openRecoveryDetails(page); await expect(panel(page)).not.toContainText("Rejected by simulated RAS");
 });
