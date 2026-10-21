@@ -41,7 +41,10 @@ describe('alert continuity and preference migration',()=>{
   it('preserves analyst settings and old watches when introducing new feeds',async()=>{
     const {monitorPreferencesSchema}=await import('./useMonitor');
     const old={earthquakes:false,cyclones:true,wind:true,locations:false,nearPortfolio:true,watchedOnly:true,watchlist:[{key:'earthquake:existing',name:'Existing'}]};
-    expect(monitorPreferencesSchema.parse(old)).toMatchObject({...old,fires:true,perimeters:true,alerts:true,showFires:false,showPerimeters:true,showAlerts:true,fireDistanceKm:10});
+    expect(monitorPreferencesSchema.parse(old)).toMatchObject({...old,fires:true,perimeters:true,alerts:true,fireDistanceKm:10});
+    expect(monitorPreferencesSchema.parse({...old,fires:true,showFires:false})).not.toHaveProperty('showFires');
+    expect(monitorPreferencesSchema.parse({...old,perimeters:true,showPerimeters:false})).not.toHaveProperty('showPerimeters');
+    expect(monitorPreferencesSchema.parse({...old,alerts:true,showAlerts:false})).not.toHaveProperty('showAlerts');
     expect(monitorPreferencesSchema.safeParse({...old,fireDistanceKm:101}).success).toBe(false);
   });
   it('follows transitive updates across snapshots and retains ended references',async()=>{

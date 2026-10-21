@@ -12,7 +12,7 @@ async function snapshot<T>(path:keyof typeof limits,schema:z.ZodType<T>,signal:A
   if(!response.ok){
     let detail='';
     try{const body=JSON.parse(await readTextResponse(new Response(response.body),64*1024));if(typeof body.error==='string')detail=body.error;}catch{/* HTTP status remains useful when the body is not JSON. */}
-    throw new Error(`${path==='fires'?'FIRMS':path==='perimeters'?'Fire perimeter':'Weather warning'} feed unavailable (${response.status}). ${detail||'Check that the Catlas backend is running.'}`);
+    throw new Error(`${path==='fires'?'Fire detection':path==='perimeters'?'Fire perimeter':'Weather warning'} feed unavailable (${response.status}). ${detail||'Check that the Catlas backend is running.'}`);
   }
   const payload=JSON.parse(await readTextResponse(response,limits[path]));
   signal.throwIfAborted();

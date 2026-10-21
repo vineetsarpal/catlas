@@ -23,26 +23,36 @@ export function MonitorLayerControls({state,onFitPortfolio,canFitPortfolio}:{sta
       <VesselControls state={state}/>
     </section>
     <section className="monitor-layer-group" aria-labelledby="monitor-event-heading">
-      <h3 id="monitor-event-heading" className="exposure-eyebrow">HAZARDS & WEATHER</h3>
+      <h3 id="monitor-event-heading" className="exposure-eyebrow">HAZARDS</h3>
       {layers.map(({key,label,detail})=><section key={key} className="monitor-map-layer" aria-label={`${label} display`}>
         <LayerToggle label={label} checked={state.prefs[key]} onChange={checked=>state.setPrefs({[key]:checked})}/>
         {state.prefs[key]&&<p className="monitor-layer-details">{detail}</p>}
       </section>)}
-      <WindControls state={state}/>
-      <section className="monitor-map-layer" aria-label="Catastrophe feed controls">
-        <p className="monitor-layer-details">US regional fire and weather feeds</p>
-        {!backendEnabled&&<p role="status">Fire and weather warning feeds require the Catlas backend.</p>}
+      <section className="monitor-map-layer monitor-fire-group" aria-labelledby="monitor-fires-heading">
+        <h4 id="monitor-fires-heading">Fires</h4>
+        <p className="monitor-layer-details">Fire feeds: US & Canada</p>
+        {!backendEnabled&&<p role="status">Fire feeds require the Catlas backend.</p>}
         {([
-          {key:'alerts',show:'showAlerts',label:'Weather warnings',detail:'NWS · watches, warnings and advisories. Published polygons or official forecast zones.'},
-          {key:'perimeters',show:'showPerimeters',label:'Fire perimeters',detail:'NIFC WFIGS · published incident boundaries. Source age is shown separately from feed checks.'},
-          {key:'fires',show:'showFires',label:'Fire detections',detail:'NASA FIRMS · past 24 hours. Satellite hotspots can indicate fire activity; they are not incident boundaries.'},
-        ] as const).map(({key,show,label,detail})=><div className="monitor-hazard-control" key={key}>
+          {key:'perimeters',label:'Fire perimeters',detail:'NIFC WFIGS (US) · CWFIS (Canada). Includes Canadian reported fire locations and satellite-estimated areas with activity in the past seven days. Estimates are distinct from published incident boundaries.'},
+          {key:'fires',label:'Fire detections',detail:'NASA FIRMS (US region) · CWFIS (Canada) · past 24 hours. Satellite hotspots can indicate fire activity; they are not incident boundaries.'},
+        ] as const).map(({key,label,detail})=><div className="monitor-hazard-control" key={key}>
           <LayerToggle label={label} checked={backendEnabled&&state.prefs[key]} disabled={!backendEnabled} onChange={checked=>state.setPrefs({[key]:checked})}/>
-          {state.prefs[key]&&<><p className="monitor-layer-details">{detail}</p><label className="monitor-check"><input type="checkbox" disabled={!backendEnabled} checked={state.prefs[show]} onChange={e=>state.setPrefs({[show]:e.target.checked})}/> Show {label.toLowerCase()} on map</label></>}
+          {state.prefs[key]&&<p className="monitor-layer-details">{detail}</p>}
         </div>)}
-        <label className="monitor-fire-distance">Fire proximity (km)<input aria-label="Fire proximity (km)" type="number" min="0" max="100" step="1" value={state.prefs.fireDistanceKm} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))state.setPrefs({fireDistanceKm:Math.max(0,Math.min(100,value))});}}/></label>
-        <p className="monitor-layer-details">Map visibility does not change portfolio attention. Disabling monitoring stops that feed and removes its current attention items.</p>
+        {backendEnabled&&(state.prefs.fires||state.prefs.perimeters)&&<label className="monitor-fire-distance"><span>Flag locations within</span><span><input aria-label="Fire activity distance (km)" type="number" min="0" max="100" step="1" value={state.prefs.fireDistanceKm} onChange={e=>{const value=e.currentTarget.valueAsNumber;if(Number.isFinite(value))state.setPrefs({fireDistanceKm:Math.max(0,Math.min(100,value))});}}/> km of fire activity</span></label>}
       </section>
+    </section>
+    <section className="monitor-layer-group" aria-labelledby="monitor-weather-heading">
+      <h3 id="monitor-weather-heading" className="exposure-eyebrow">WEATHER</h3>
+      <section className="monitor-map-layer" aria-label="Weather warnings display">
+        <p className="monitor-layer-details">Weather alerts: US & Canada</p>
+        {!backendEnabled&&<p role="status">Weather warning feeds require the Catlas backend.</p>}
+        <div className="monitor-hazard-control">
+          <LayerToggle label="Weather warnings" checked={backendEnabled&&state.prefs.alerts} disabled={!backendEnabled} onChange={alerts=>state.setPrefs({alerts})}/>
+          {state.prefs.alerts&&<p className="monitor-layer-details">NWS (US) · ECCC (Canada). Official alert areas, including watches, warnings and advisories.</p>}
+        </div>
+      </section>
+      <WindControls state={state}/>
     </section>
   </div>;
 }

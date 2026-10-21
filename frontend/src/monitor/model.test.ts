@@ -10,7 +10,7 @@ const alert:WeatherAlert={id:'new',references:['old'],name:'Warning',event:'Torn
 const fire:FireDetection={id:'detection',longitude:0,latitude:0,detectedAt:time,source:'FIRMS',confidence:80};
 function state(fires:FireDetection[]=[fire],perimeters:FirePerimeter[]=[perimeter],alerts:WeatherAlert[]=[alert]):MonitorState {
   // The model consumes only these fields; fixture explicitly leaves hook actions out.
-  return {prefs:{earthquakes:false,cyclones:false,locations:false,fires:true,perimeters:true,alerts:true,showFires:false,showPerimeters:true,showAlerts:true,fireDistanceKm:10,nearPortfolio:false,watchedOnly:false,watchlist:[]},now,vessels:{rows:[],portfolio:[]},fires:{data:{rows:fires}},perimeters:{data:{rows:perimeters}},alerts:{data:{rows:alerts}}} as unknown as MonitorState;
+  return {prefs:{earthquakes:false,cyclones:false,locations:false,fires:true,perimeters:true,alerts:true,fireDistanceKm:10,nearPortfolio:false,watchedOnly:false,watchlist:[]},now,vessels:{rows:[],portfolio:[]},fires:{data:{rows:fires}},perimeters:{data:{rows:perimeters}},alerts:{data:{rows:alerts}}} as unknown as MonitorState;
 }
 describe('Monitor hazard attention',()=>{
   it('expires cached hotspots and cancelled/expired alerts against the current time',()=>{
@@ -26,7 +26,7 @@ describe('Monitor hazard attention',()=>{
     expect(items.find(i=>i.kind==='fire')?.nearby).toBe(1);
     expect(items.find(i=>i.kind==='alert')).toMatchObject({hasPosition:false,relevance:{screeningUnavailable:true}});
     expect(attentionMonitorItems(items,current).map(i=>i.kind)).toEqual(['perimeter','fire','alert']);
-    expect(visibleMonitorItems(items,current).map(i=>i.kind)).toEqual(['perimeter']);
+    expect(visibleMonitorItems(items,current).map(i=>i.kind)).toEqual(['fire','perimeter']);
     current.prefs.fires=false;
     expect(monitorItems(current,portfolio).some(i=>i.kind==='fire')).toBe(false);
   });
@@ -37,7 +37,6 @@ describe('Monitor hazard attention',()=>{
   });
   it('draws raw hotspot coordinates rather than portfolio grouping positions',()=>{
     const current=state([{...fire,longitude:0.05},{...fire,id:'distant',longitude:50}],[],[]);
-    current.prefs.showFires=true;
     const items=monitorItems(current,portfolio);
     expect(visibleMonitorItems(items,current).map(i=>i.longitude)).toEqual([0.05,50]);
     expect(attentionMonitorItems(items,current)).toHaveLength(1);
@@ -62,6 +61,23 @@ describe('Monitor hazard attention',()=>{
       }
       for(const item of items.filter(item=>item.mapOnly))expect(item.nearby).toBe(locations.filter(site=>distanceKm(item.fire!,site)<=radius).length);
     }
+  });
+  it('screens Canadian incident points by proximity and estimates by polygon without inventing containment',()=>{
+    const incident:FirePerimeter={...perimeter,id:'cwfis:incident:BC1',provider:'CWFIS',evidence:'reported-incident',geometry:null,position:{longitude:0,latitude:0},cwfis:{agency:'BC',status:'OC',recordStart:time,recordEnd:new Date(now+3600000).toISOString()}};
+    const estimate:FirePerimeter={...perimeter,id:'cwfis:estimate:1',provider:'CWFIS',evidence:'estimated-perimeter',updatedAt:null,cwfis:{agency:'',status:'',lastDetectedAt:time}};
+    const current=state([], [incident,estimate], []),items=monitorItems(current,portfolio);
+    expect(items[0]).toMatchObject({hasPosition:true,longitude:0,latitude:0,relevance:{inside:0,nearby:1,screeningUnavailable:false,reasons:['Near reported fire location · boundary not supplied']}});
+    expect(items[1]).toMatchObject({relevance:{inside:1,reasons:['Inside estimated fire area']}});
+    const canadianPortfolio={...portfolio,locations:[{...portfolio.locations[0],currency:'CAD',value:2500000}]};
+    const canadianItems=monitorItems(current,canadianPortfolio);
+    expect(canadianItems.every(item=>item.relevance?.totals.length===1&&item.relevance.totals[0].currency==='CAD'&&item.relevance.totals[0].value===2500000)).toBe(true);
+    expect(visibleMonitorItems(items,current)).toHaveLength(2);
+    current.prefs.nearPortfolio=true;
+    expect(attentionMonitorItems(items,current)).toHaveLength(2);
+    current.now+=2*3600000;
+    expect(monitorItems(current,portfolio).map(item=>item.perimeter?.id)).toEqual(['cwfis:estimate:1']);
+    current.now=now+7*86400000;
+    expect(monitorItems(current,portfolio)).toEqual([]);
   });
   it('follows alert identity references and preserves unavailable screening under portfolio filtering',()=>{
     const current=state(),items=monitorItems(current,portfolio),warning=items.find(i=>i.kind==='alert')!;

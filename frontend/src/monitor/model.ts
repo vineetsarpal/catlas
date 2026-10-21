@@ -1,4 +1,4 @@
-import type { FireDetection, FirePerimeter, WeatherAlert } from '@catlas/shared/hazards';
+import { currentFireEvidence, type FireDetection, type FirePerimeter, type WeatherAlert } from '@catlas/shared/hazards';
 import type { Earthquake, Portfolio } from '../exposure/model';
 import type { MonitorState } from './useMonitor';
 import { inVesselPortfolio, type Vessel } from '@catlas/shared/vessels';
@@ -49,8 +49,14 @@ export function monitorItems(state:MonitorState,portfolio:Portfolio):MonitorItem
     const relevance=locationRelevance([],[site],['Near detected fire activity']);
     return [{key:`fire:location:${site.id}`,name:`Nearby fire detections — ${site.name}`,kind:'fire',longitude:site.longitude,latitude:site.latitude,nearby:1,fire:detections[0],fireDetections:detections,relevance}];
   });
-  const perimeters:MonitorItem[]=(state.prefs.perimeters?state.perimeters.data?.rows??[]:[]).map(perimeter=>{
-    const position=geometryPosition(perimeter.geometry),relevance=screenGeometry(portfolio.locations,perimeter.geometry,fireDistance,'Inside published fire perimeter');
+  const perimeters:MonitorItem[]=(state.prefs.perimeters?state.perimeters.data?.rows??[]:[]).filter(row=>currentFireEvidence(row,state.now)).map(perimeter=>{
+    const position=perimeter.position??geometryPosition(perimeter.geometry);
+    let relevance:HazardRelevance;
+    if(perimeter.evidence==='reported-incident'&&position) {
+      const nearby=portfolio.locations.filter(site=>distanceKm(position,site)<=fireDistance);
+      relevance=locationRelevance([],nearby,nearby.length?['Near reported fire location · boundary not supplied']:[]);
+    } else relevance=screenGeometry(portfolio.locations,perimeter.geometry,fireDistance,perimeter.evidence==='estimated-perimeter'?'Inside estimated fire area':'Inside published fire perimeter');
+    if(perimeter.evidence==='estimated-perimeter')relevance.reasons=relevance.reasons.map(reason=>reason.replace('published fire perimeter','estimated fire area'));
     return {key:`perimeter:${perimeter.id}`,name:perimeter.name,kind:'perimeter',longitude:position?.longitude??0,latitude:position?.latitude??0,hasPosition:position!==null,nearby:relevance.locationIds.length,perimeter,relevance};
   });
   const alerts:MonitorItem[]=(state.prefs.alerts?state.alerts.data?.rows??[]:[]).filter(alert=>alert.active&&Date.parse(alert.expiresAt)>state.now).map(alert=>{
@@ -71,5 +77,5 @@ export function attentionMonitorItems(items:MonitorItem[],state:MonitorState) {
 export function visibleMonitorItems(items:MonitorItem[],state:MonitorState) {
   const watchedDetectionIds=new Set<string>();
   if(state.prefs.watchedOnly)for(const group of items)if(!group.mapOnly&&isMonitorItemWatched(group,state.prefs.watchlist))for(const detection of group.fireDetections??[])watchedDetectionIds.add(detection.id);
-  return items.filter(item=>(item.kind!=='fire'||item.mapOnly)&&(!state.prefs.nearPortfolio||item.kind==='location'||item.kind==='vessel'||item.nearby>0)&&(!state.prefs.watchedOnly||isMonitorItemWatched(item,state.prefs.watchlist)||(item.fire!==undefined&&watchedDetectionIds.has(item.fire.id)))&&item.hasPosition!==false&&(item.kind!=='fire'||state.prefs.showFires)&&(item.kind!=='perimeter'||state.prefs.showPerimeters)&&(item.kind!=='alert'||state.prefs.showAlerts));
+  return items.filter(item=>(item.kind!=='fire'||item.mapOnly)&&(!state.prefs.nearPortfolio||item.kind==='location'||item.kind==='vessel'||item.nearby>0)&&(!state.prefs.watchedOnly||isMonitorItemWatched(item,state.prefs.watchlist)||(item.fire!==undefined&&watchedDetectionIds.has(item.fire.id)))&&item.hasPosition!==false&&(item.kind!=='fire'||state.prefs.fires)&&(item.kind!=='perimeter'||state.prefs.perimeters)&&(item.kind!=='alert'||state.prefs.alerts));
 }

@@ -5,7 +5,7 @@ A map-first catastrophe workbench for managing insured locations, monitoring haz
 The main URL opens **Portfolios**. The shared navigation connects **Portfolios → Monitor → Exposure → Recovery**:
 
 1. **Portfolios** — create a named inventory, add insured locations through place search, map pins or manual coordinates, or preview and import a CSV. Select the active portfolio for investigation.
-2. **Monitor** — view earthquakes, cyclone context and optional US fire/weather attention alongside active insured locations, then capture an earthquake for investigation.
+2. **Monitor** — view earthquakes, cyclone context and optional US/Canadian fire and weather attention alongside active insured locations, then capture an earthquake for investigation.
 3. **Exposure** — compare a frozen portfolio snapshot with captured USGS shaking evidence, screen locations by MMI, inspect regional totals and export an impact summary or self-contained case bundle. Revisions create new investigation versions.
 4. **Recovery** — evaluate the selected earthquake against imported reinsurance contract terms, review the explanation and prepare an immutable reviewed recovery packet. Delivery, acknowledgements and replacements are simulated.
 
@@ -44,7 +44,7 @@ Read [presenter walkthrough](docs/catlas-presenter.md), [offline instructions](d
 
 `release/pages/` is the static Cloudflare Pages upload directory after packaging, including the downloadable `/catlas-offline.zip`. No backend, sign-in, paid imagery, satellite service or live USGS/RAS dependency is required. Treaty rings are fixed-reference trigger zones, not damage radii or property coverage. Historical evidence capture is distinct from actual event time and from simulated sensitivity observations. Receipt confirms simulated delivery only; no financial approval/payment, vendor compatibility or customer validation is claimed.
 
-Monitor is available at `/?mode=monitor` and through the shared mode switch: live USGS earthquakes, NOAA NHC/CPHC cyclone context, optional animated NOAA GFS wind forecasts, location overlays and browser-local watchlists. See [Monitor workflow and source boundaries](docs/catlas-monitor.md). US fire perimeters, satellite fire detections and selected NWS weather alerts add portfolio attention flags with source evidence, separate map visibility and browser-local watches. Fire/weather feeds require the optional backend; FIRMS detections also require `FIRMS_MAP_KEY` in `backend/.env`. Wind forecasts and local vessel monitoring require the optional backend (CAT-35). Standalone builds show wind as unavailable; no browser decoder is shipped.
+Monitor is available at `/?mode=monitor` and through the shared mode switch: live USGS earthquakes, NOAA NHC/CPHC cyclone context, optional animated NOAA GFS wind forecasts, location overlays and browser-local watchlists. See [Monitor workflow and source boundaries](docs/catlas-monitor.md). US NIFC fire perimeters, Canadian CWFIS incidents and estimated fire areas, FIRMS/CWFIS satellite detections and US NWS and Canadian ECCC weather alerts add portfolio attention flags with source evidence and browser-local watches. Each fire/weather toggle controls both monitoring and map display. Fire/weather feeds require the optional backend; FIRMS detections also require `FIRMS_MAP_KEY` in `backend/.env`. Wind forecasts and local vessel monitoring require the optional backend (CAT-35). Standalone builds show wind as unavailable; no browser decoder is shipped.
 
 ## Local monitoring backend
 

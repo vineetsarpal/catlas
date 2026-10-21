@@ -9,6 +9,7 @@ import type { Treaty } from '../domain/types';
 import { triggerPolygon } from '../domain/assessment';
 import { useMonitorMap, type MonitorMapProps } from '../monitor/map';
 import { LayerToggle } from '../monitor/LayerToggle';
+import { FireMapCard, FirePerimeterLegend } from '../monitor/FireMapCard';
 import { MonitorLayerControls } from '../monitor/MonitorLayerControls';
 import type { MapPoint } from '../portfolios/geocoding';
 import { geoInterpolate } from 'd3-geo';
@@ -38,7 +39,7 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
   const selectAreaRef=useRef(onSelectArea);selectAreaRef.current=onSelectArea;
   callback.current = onSelect;
   const placementRef=useRef(placement); placementRef.current=placement;
-  const windStatus=useMonitorMap(mapRef,ready,mode==='monitor',monitor);
+  const {windStatus,fireCardTarget}=useMonitorMap(mapRef,ready,mode==='monitor',monitor);
   useEffect(() => {
     if (!element.current) return;
     let map: maplibre.Map;
@@ -61,6 +62,10 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
         element.current.dataset.projection=String(map.getProjection()?.type??'mercator');
         element.current.dataset.zoneFeatures=String(new Set(map.queryRenderedFeatures({layers:map.getLayer('recovery-zone-line')?['recovery-zone-line']:[]}).map(feature=>`${feature.properties.areaId}:${feature.properties.radius}`)).size);
         element.current.dataset.shakingReady=String(Boolean(map.getSource('exposure-shaking')&&map.isSourceLoaded('exposure-shaking')));
+        if(map.getLayer('monitor-fire-clusters')) {
+          for(const [name,layer] of [['fireClusters','monitor-fire-clusters'],['fireDetections','monitor-fire-dots'],['selectedFires','monitor-fire-selected']] as const)
+            element.current.dataset[name]=String(map.queryRenderedFeatures({layers:[layer]}).length);
+        }
       });
       map.on('click',e=>{if(placementRef.current?.enabled){const point=e.lngLat.wrap();placementRef.current.onChange({longitude:point.lng,latitude:point.lat});}});
       map.once('load', () => {
@@ -272,6 +277,7 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
     </div>
     {placement?.enabled&&<button className="portfolio-map-center" onClick={()=>{const point=mapRef.current?.getCenter().wrap();if(point)placement.onChange({longitude:point.lng,latitude:point.lat});}}>Use map center</button>}
     <div ref={element} className="exposure-map" data-testid="exposure-map" data-ready={ready} aria-label={mode==='monitor'?'Interactive hazard map; items also available in Monitor details':'Interactive portfolio map; locations also available in the keyboard-accessible table'}/>
+    {mode==='monitor'&&monitor&&fireCardTarget&&monitor.selectedItem&&createPortal(<FireMapCard item={monitor.selectedItem} state={monitor.state}/>,fireCardTarget)}
     {terrainStatus&&<div className="terrain-map-status" role="status">{terrainStatus}</div>}
     {error&&<p role="status" className="exposure-warning">{error}</p>}
     {mode==='monitor'&&<div className="monitor-map-status" role="status">{monitor?.state.vessels.demo?'DEMO FLEET · Fictional positions and trails · Not live AIS':!monitor?.state.online?'Offline · observations may be stale':monitor.state.prefs.wind?windStatus:'Latest source reports · see Feeds for freshness'}</div>}
@@ -280,13 +286,13 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
         {monitor?.state.prefs.locations&&<span><i style={{background:'#287d69'}}/>Insured locations</span>}
         {monitor?.state.prefs.earthquakes&&<span><i style={{background:'#bc7545'}}/>Earthquakes</span>}
         {monitor?.state.prefs.vessels&&<>{(monitor.state.vessels.scope==='all'?[true,false]:[true]).map(inPortfolio=><span key={String(inPortfolio)}><svg width="12" height="16" viewBox="0 0 24 32" aria-hidden="true"><path d="M12 2 20 12 18 29H6L4 12Z" fill={inPortfolio?'#287d69':'#2674bb'}/><path d="M8 16h8v4H8z" fill="white"/></svg>{inPortfolio?'Portfolio vessels':'Other vessels'}</span>)}</>}
-        {monitor?.state.prefs.fires&&monitor.state.prefs.showFires&&<span><i style={{background:'#d35827'}}/>Fire detections</span>}
-        {monitor?.state.prefs.perimeters&&monitor.state.prefs.showPerimeters&&<span><i style={{background:'#c75132'}}/>Fire perimeters</span>}
-        {monitor?.state.prefs.alerts&&monitor.state.prefs.showAlerts&&<span><i style={{background:'#b59424'}}/>Weather warnings</span>}
+        {monitor?.state.prefs.fires&&<span><i style={{background:'#d35827'}}/>Fire detections</span>}
+        {monitor?.state.prefs.perimeters&&<FirePerimeterLegend/>}
+        {monitor?.state.prefs.alerts&&<span><i style={{background:'#b59424'}}/>Weather warnings</span>}
         {monitor?.state.prefs.cyclones&&<span><i style={{background:'#7858a1'}}/>Cyclones</span>}
       </>:mode==='recovery'?<span>◆ Fixed references · 25 km inner / 100 km outer bands</span>:mode==='portfolio'?<span>● Insured locations · unassessed</span>:[3,4,5,6,7,null].map((value,i)=><span key={i}><i style={{background:intensityColor(value)}}/>{['<4','4–<5','5–<6','6–<7','7+','Unknown'][i]}</span>)}
     </div>}
 
-    <p className="exposure-map-note">{mode==='monitor'?'USGS · NOAA · NASA FIRMS · NIFC. Portfolio attention only; no damage or loss assessment.':mode==='portfolio'?'Insured location inventory · No hazard assessment.':mode==='exposure'?'USGS shaking evidence · Shaking estimates do not establish property damage.':'Contractual fixed-reference distance bands · Not shaking contours or damage radii.'} Natural Earth geographic context.</p>
+    <p className="exposure-map-note">{mode==='monitor'?'USGS · NOAA · NASA FIRMS · NIFC · NRCan CWFIS · ECCC. Portfolio attention only; no damage or loss assessment.':mode==='portfolio'?'Insured location inventory · No hazard assessment.':mode==='exposure'?'USGS shaking evidence · Shaking estimates do not establish property damage.':'Contractual fixed-reference distance bands · Not shaking contours or damage radii.'} Natural Earth geographic context.</p>
   </section>;
 }

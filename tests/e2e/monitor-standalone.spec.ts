@@ -13,8 +13,10 @@ test('standalone hazard controls explain backend requirement and never request c
     const toggle=page.getByRole('switch',{name:label,exact:true});
     await expect(toggle).toBeDisabled();await expect(toggle).not.toBeChecked();
   }
-  await expect(page.getByRole('region',{name:'Catastrophe feed controls'})).toContainText('Fire and weather warning feeds require the Catlas backend.');
-  if(testInfo.project.name==='desktop')await page.getByText('US regional fire and weather feeds',{exact:true}).evaluate(element=>element.scrollIntoView({block:'start'}));
+  await expect(page.locator('.monitor-map-layer-controls').getByRole('heading',{level:3})).toHaveText(['PORTFOLIO','HAZARDS','WEATHER']);
+  await expect(page.getByRole('region',{name:'Fires',exact:true})).toContainText('Fire feeds require the Catlas backend.');
+  await expect(page.getByRole('region',{name:'Weather warnings display',exact:true})).toContainText('Weather warning feeds require the Catlas backend.');
+  if(testInfo.project.name==='desktop')await page.getByText('Fire feeds: US region',{exact:true}).evaluate(element=>element.scrollIntoView({block:'start'}));
   if(testInfo.project.name==='desktop')await page.screenshot({path:'docs.local/verification/monitor-standalone-desktop.png',fullPage:true});
   await page.getByText('Layers',{exact:true}).click();
   if(!await page.getByRole('button',{name:'Feeds',exact:true}).isVisible())await page.getByRole('button',{name:'Monitor options',exact:true}).click();
