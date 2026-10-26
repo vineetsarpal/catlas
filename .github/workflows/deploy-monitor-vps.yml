@@ -1,0 +1,125 @@
+name: Check and deploy Monitor to VPS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - 'functions/_monitor.ts'
+      - 'scripts/deploy-monitor-vps*'
+      - 'scripts/monitor-service.mjs'
+      - '.github/workflows/deploy-monitor-vps.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - 'functions/_monitor.ts'
+      - 'scripts/deploy-monitor-vps*'
+      - 'scripts/monitor-service.mjs'
+      - '.github/workflows/deploy-monitor-vps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monitor-vps-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: node --test scripts/deploy-monitor-vps.test.mjs
+      - run: npm run build
+
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.MONITOR_VPS_DEPLOY_ENABLED == 'true'
+    environment: monitor-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VPS_HOST: ${{ vars.MONITOR_VPS_HOST }}
+      VPS_USER: ${{ vars.MONITOR_VPS_USER }}
+      VPS_PORT: ${{ vars.MONITOR_VPS_PORT || '22' }}
+      VPS_DEPLOY_DIR: ${{ vars.MONITOR_VPS_DEPLOY_DIR }}
+      VPS_NODE_PATH: ${{ vars.MONITOR_VPS_NODE_PATH }}
+      TS_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_CLIENT_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      VPS_SSH_KEY: ${{ secrets.MONITOR_VPS_SSH_KEY }}
+      VPS_KNOWN_HOSTS: ${{ secrets.MONITOR_VPS_KNOWN_HOSTS }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Validate deployment settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in VPS_HOST VPS_USER VPS_PORT VPS_DEPLOY_DIR VPS_NODE_PATH TS_CLIENT_ID TS_CLIENT_SECRET VPS_SSH_KEY VPS_KNOWN_HOSTS; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing $name. See docs/catlas-monitor-deploy.md."
+              exit 1
+            fi
+          done
+          [[ "$VPS_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$VPS_USER" =~ ^[a-z_][a-z0-9_-]*$ && "$VPS_USER" != root ]]
+          [[ "$VPS_PORT" =~ ^[0-9]{1,5}$ ]] && (( 10#$VPS_PORT > 0 && 10#$VPS_PORT < 65536 ))
+          for value in "$VPS_DEPLOY_DIR" "$VPS_NODE_PATH"; do
+            [[ "$value" =~ ^/[a-zA-Z0-9_./-]+$ && "$value" != / && "$value" != */../* && "$value" != */.. && "$value" != */./* && "$value" != */. && "$value" != */ ]]
+          done
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+      - name: Connect to the private tailnet
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:catlas-ci
+          ping: ${{ vars.MONITOR_VPS_HOST }}
+      - name: Configure pinned SSH identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          install -d -m 0700 "$RUNNER_TEMP/monitor-ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$RUNNER_TEMP/monitor-ssh/key"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$RUNNER_TEMP/monitor-ssh/known_hosts"
+          ssh-keygen -y -P '' -f "$RUNNER_TEMP/monitor-ssh/key" > /dev/null
+          lookup="$VPS_HOST"
+          if [[ "$VPS_PORT" != 22 ]]; then lookup="[$VPS_HOST]:$VPS_PORT"; fi
+          ssh-keygen -F "$lookup" -f "$RUNNER_TEMP/monitor-ssh/known_hosts" > /dev/null
+      - name: Upload and activate the release
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/catlas-monitor-$GITHUB_SHA.tar.gz"
+          git archive --format=tar.gz --output="$archive" "$GITHUB_SHA" \
+            package.json package-lock.json tsconfig.base.json backend shared frontend/package.json scripts
+          options=(-i "$RUNNER_TEMP/monitor-ssh/key" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/monitor-ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          target="$VPS_USER@$VPS_HOST"
+          ssh "${options[@]}" -p "$VPS_PORT" "$target" "install -d -m 0750 '$VPS_DEPLOY_DIR/incoming' '$VPS_DEPLOY_DIR/releases'"
+          scp "${options[@]}" -P "$VPS_PORT" "$archive" "$target:$VPS_DEPLOY_DIR/incoming/$GITHUB_SHA.tar.gz"
+          ssh "${options[@]}" -p "$VPS_PORT" "$target" \
+            "flock -w 10 '$VPS_DEPLOY_DIR/.deploy.lock' '$VPS_NODE_PATH' --input-type=module - '$VPS_DEPLOY_DIR' '$GITHUB_SHA'" \
+            < scripts/deploy-monitor-vps.mjs
+      - name: Remove runner SSH files
+        if: always()
+        shell: bash
+        run: rm -rf -- "$RUNNER_TEMP/monitor-ssh"

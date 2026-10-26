@@ -82,7 +82,7 @@ Check `https://catlas-workbench.pages.dev/api/monitor/health` returns 200. Then 
 
 ## Updates and rollback
 
-Deployment to this VPS is manual; no SSH credential or unattended deployment workflow is installed. Record the current `git rev-parse HEAD`, then in the checkout run:
+An opt-in [GitHub Actions deployment](catlas-monitor-deploy.md) is available using Tailscale and SSH. It requires the one-time release-based systemd setup and repository settings described there. Until enabled, use the manual checkout deployment below. Do not run these manual checkout updates against a release directory managed by the workflow. Record the current `git rev-parse HEAD`, then in the checkout run:
 
 ```sh
 git pull --ff-only

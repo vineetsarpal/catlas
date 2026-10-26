@@ -1,8 +1,11 @@
 import { homedir, userInfo } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { isAbsolute, resolve } from 'node:path';
 
 const user = userInfo();
-const repository = fileURLToPath(new URL('../', import.meta.url)).replace(/\/$/, '');
+const releaseRoot = process.env.CATLAS_MONITOR_DEPLOY_ROOT;
+if (releaseRoot && (!isAbsolute(releaseRoot) || releaseRoot === '/' || resolve(releaseRoot) !== releaseRoot)) throw Error('CATLAS_MONITOR_DEPLOY_ROOT must be a canonical absolute directory.');
+const repository = releaseRoot ? `${releaseRoot}/current` : fileURLToPath(new URL('../', import.meta.url)).replace(/\/$/, '');
 const node = process.execPath;
 const configuration = `${homedir()}/.config/catlas-monitor.env`;
 if (user.uid === 0) throw Error('Generate this unit as the unprivileged user who will run Monitor.');
