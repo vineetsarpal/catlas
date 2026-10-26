@@ -12,8 +12,10 @@ export async function openHistory(page: Page) {
 export async function openPortfolio(page: Page) {
   await closeDialog(page);
   await page.getByRole('button', { name: 'Portfolios', exact: true }).click();
+  const options=page.getByRole('button',{name:'Portfolio options',exact:true});
+  if(await options.isVisible())await options.click();
   const details=page.getByRole('button',{name:'Portfolio details',exact:true});
-  if(await details.getAttribute('aria-expanded')==='false')await details.click();
+  if(await details.count()&&await details.getAttribute('aria-expanded')==='false')await details.click();
 }
 export async function openFilters(page: Page) {
   await closeDialog(page);

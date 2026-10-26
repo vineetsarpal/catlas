@@ -1,3 +1,4 @@
+import { MapFilters } from '../monitor/MapFilters';
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import * as maplibre from 'maplibre-gl';
@@ -35,7 +36,17 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
   const flatPitch = useRef(0);
   const [geography,setGeography] = useState({countries:true,states:true,labels:true});
   const [showZones,setShowZones]=useState(true),[globe,setGlobe]=useState(mode!=='portfolio');
-  const [mapMenu,setMapMenu]=useState<'layers'|'appearance'|null>(null);
+  const [mapMenu,setMapMenu]=useState<'layers'|'appearance'|'filters'|null>(null);
+  const mapMenusRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(monitor?.filterRequest)setMapMenu('filters');},[monitor?.filterRequest]);
+  useEffect(()=>setMapMenu(null),[mode]);
+  useEffect(()=>{
+    if(mapMenu!=='filters')return;
+    const closeOutside=(event:PointerEvent)=>{if(event.target instanceof Node&&!mapMenusRef.current?.contains(event.target))setMapMenu(null);};
+    const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.stopPropagation();setMapMenu(null);mapMenusRef.current?.querySelector<HTMLElement>('.monitor-filter-menu>summary')?.focus();}};
+    document.addEventListener('pointerdown',closeOutside);document.addEventListener('keydown',escape);
+    return()=>{document.removeEventListener('pointerdown',closeOutside);document.removeEventListener('keydown',escape);};
+  },[mapMenu]);
   const selectAreaRef=useRef(onSelectArea);selectAreaRef.current=onSelectArea;
   callback.current = onSelect;
   const placementRef=useRef(placement); placementRef.current=placement;
@@ -258,10 +269,14 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
   );
   return <section className="exposure-spatial" data-testid={mode==='recovery'?'analytical-map':undefined} data-ready={ready} aria-label={mode==='monitor'?'Live hazards and portfolio map':mode==='portfolio'?'Portfolio inventory map':mode==='exposure'?'Shaking and portfolio map':'Treaty trigger zone map'}>
     {controlsInSidebar&&layersTarget&&createPortal(layerControls,layersTarget)}
-    <div className="exposure-map-menus" aria-label="Map controls">
+    <div ref={mapMenusRef} className="exposure-map-menus" aria-label="Map controls">
       {!controlsInSidebar&&<details className="exposure-layer-menu" open={mapMenu==='layers'}>
         <summary onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='layers'?null:'layers');}}>Layers</summary>
         {layerControls}
+      </details>}
+      {mode==='monitor'&&monitor&&<details className="exposure-layer-menu monitor-filter-menu" open={mapMenu==='filters'}>
+        <summary role="button" aria-expanded={mapMenu==='filters'} onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='filters'?null:'filters');}}>Filters{(monitor.state.prefs.nearPortfolio||monitor.state.prefs.watchedOnly)&&<span className="monitor-filter-count">{Number(monitor.state.prefs.nearPortfolio)+Number(monitor.state.prefs.watchedOnly)}</span>}</summary>
+        <div className="exposure-map-layers monitor-filter-popover" role="group" aria-label="Map filters"><MapFilters state={monitor.state}/></div>
       </details>}
       <details className="exposure-layer-menu" open={mapMenu==='appearance'}>
         <summary onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='appearance'?null:'appearance');}}>Appearance</summary>

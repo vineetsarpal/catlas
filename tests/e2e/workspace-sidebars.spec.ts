@@ -64,6 +64,7 @@ test('portfolio options stay left while selected location details and editing st
   await right.getByRole('button', { name: 'Edit location', exact: true }).click();
   const form = page.getByRole('form', { name: 'Edit location', exact: true });
   await expect(form).toBeVisible();
+  await expect(right.getByRole('heading',{name:'Edit location',exact:true})).toHaveCount(1);
   await expect(right).toBeVisible();
   if (info.project.name === 'mobile') await expect(left).not.toBeVisible();
   await expect(form.getByLabel('Location name', { exact: true })).toHaveValue('Ridgecrest medical centre');
@@ -101,7 +102,10 @@ test('event-loss recovery preserves draft inputs across tabs and reviews the res
   const left=page.locator('#atlas-recovery-panel'),right=page.locator('#atlas-recovery-inspector');
   await left.getByRole('button',{name:'Use Ridgecrest earthquake',exact:true}).click();
   await left.getByLabel('Insurer / legal entity',{exact:true}).fill('Draft insurer');
+  await expect(left.getByRole('heading',{level:2})).toHaveText(['Recovery assessment']);
   await tools.getByRole('button',{name:'History',exact:true}).click();
+  await expect(left.getByRole('heading')).toHaveText(['Recovery history']);
+  await expect(left.getByText('Assess one catastrophe excess-of-loss layer', { exact:false })).toBeHidden();
   await assessment.click();
   await expect(left.getByLabel('Insurer / legal entity',{exact:true})).toHaveValue('Draft insurer');
   const inputs:Record<string,string>={
@@ -159,5 +163,25 @@ test('every module keeps layer controls in the left sidebar and retains toggles 
   await layersButton().click();
   await expect(page.getByRole('switch',{name:'Insured locations',exact:true})).toBeVisible();
   await expect(page.locator('.exposure-map-menus summary').filter({hasText:/^Layers$/})).toHaveCount(0);
+  await noViewportOverflow(page);
+});
+
+test('sidebar titles identify one task without repeating content introductions',async({page},info)=>{
+  await page.addInitScript(()=>localStorage.setItem('catlas-monitor-1',JSON.stringify({earthquakes:false,cyclones:false,wind:false,vessels:false,locations:true,fires:false,perimeters:false,alerts:false,nearPortfolio:false,watchedOnly:false,watchlist:[]})));
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  await demoPortfolio(page);
+  const portfolioTools=page.getByRole('navigation',{name:'Portfolio tools',exact:true});
+  await portfolioTools.getByRole('button',{name:'Settings',exact:true}).click();
+  await expect(page.getByRole('complementary',{name:'Portfolio options',exact:true}).getByRole('heading')).toHaveText(['Portfolio settings']);
+  await page.getByRole('button',{name:'Monitor',exact:true}).click();
+  await page.getByRole('navigation',{name:'Monitor tools',exact:true}).getByRole('button',{name:'Feeds',exact:true}).click();
+  await expect(page.locator('#atlas-monitor-panel').getByRole('heading',{level:2})).toHaveText(['Feed status']);
+  await page.getByRole('button',{name:'Exposure',exact:true}).click();
+  await page.getByRole('button',{name:'Explore regions',exact:true}).click();
+  await expect(page.locator('#atlas-side-panel').getByRole('heading')).toHaveText(['Regional exposure']);
+  await page.getByRole('button',{name:'Recovery',exact:true}).click();
+  const recoveryTools=page.getByRole('navigation',{name:'Recovery tools',exact:true});
+  await recoveryTools.getByRole('button',{name:'History',exact:true}).click();
+  await expect(page.locator('#atlas-recovery-panel').getByRole('heading')).toHaveText(['Recovery history']);
   await noViewportOverflow(page);
 });

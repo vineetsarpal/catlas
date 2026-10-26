@@ -95,7 +95,7 @@ test('editing or deleting inventory never rewrites saved investigations or repla
   await page.getByRole('button',{name:'History',exact:true}).click();
   await page.getByRole('button',{name:'Save this investigation locally',exact:true}).click();
   await expect(page.getByRole('button',{name:'Saved in this browser'})).toBeDisabled();
-  await page.getByRole('button',{name:'Close dialog',exact:true}).click();
+  await page.getByRole('button',{name:'Close side panel',exact:true}).click();
   await page.getByRole('button',{name:'Portfolios',exact:true}).click();
   await create(page,'Current book'); await add(page,'CURRENT','Current location');
   await page.getByRole('button',{name:'Exposure',exact:true}).click();
@@ -109,7 +109,7 @@ test('editing or deleting inventory never rewrites saved investigations or repla
   await expect(page.getByLabel('Active portfolio',{exact:true}).locator('option:checked')).toContainText('Current book');
   await page.getByRole('button',{name:'Portfolios',exact:true}).click();await openInventory(page);
   await expect(page.getByRole('table')).toContainText('Current location');
-  page.on('dialog',dialog=>dialog.accept()); await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Edit portfolio details',exact:true}).click(); await page.getByRole('button',{name:'Delete portfolio',exact:true}).click();
+  page.on('dialog',dialog=>dialog.accept()); await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Settings',exact:true}).click(); await page.getByRole('button',{name:'Delete portfolio',exact:true}).click();
   await page.getByRole('button',{name:'Exposure',exact:true}).click();
   await expect(page.getByTestId('exposure-count')).toHaveText('11');
 });

@@ -12,7 +12,7 @@ export function DeliveryHistory({
       className="delivery-history"
       aria-label="Simulated RAS delivery history"
     >
-      <h2>Simulated RAS delivery history</h2>
+      <h3>Simulated RAS deliveries</h3>
       {error ? (
         <p aria-live="assertive">{error}</p>
       ) : loading ? (

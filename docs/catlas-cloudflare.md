@@ -23,3 +23,9 @@ Official documentation: [Git integration](https://developers.cloudflare.com/page
 ## Workspace layout requirement
 
 The npm workspace layout keeps the build root at the repository root, command `npm run package:offline`, and publication directory `release/pages`. Frontend build output is now `frontend/dist`, which the packaging script reads. A future deployment must update `NODE_VERSION` to a supported Node 24+ release to match package engines and ecCodes. The earlier Node 22 setting above records the previous deployed configuration; no Cloudflare settings have been changed by the local migration.
+
+## CAT-48 hosted archive bridge — pending release configuration
+
+The new Exposure source code adds a Pages Function at `functions/api/exposure/[[path]].ts`, using the narrow public-route handler in `functions/_archive.ts`. A future hosted release must configure `ARCHIVE_API_ORIGIN` (the approved HTTPS Worker origin) and `ARCHIVE_PROOF_TOKEN` as **server-side** bindings. Do not put the token in frontend `VITE_` configuration, source control or the offline ZIP. Maintenance routes are not proxied. Until these bindings are configured, the new discovery path returns a connection error; frozen local workflows remain usable.
+
+The CAT-48 implementation updates the existing disposable archive Worker and provides a local frontend preview; it does not publish the main Pages application or change its account settings. The offline ZIP remains static and excludes Functions and credentials. The earlier description of a Functions-free hosted deployment documents the previously published release; the bridge is a reviewed code change awaiting a separately authorized main-app release.

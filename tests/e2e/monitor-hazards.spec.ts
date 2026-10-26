@@ -25,7 +25,7 @@ async function feeds(page:Page,state:{fires:HazardSnapshot<FireDetection>;perime
 test.beforeEach(async({page})=>{
   test.skip(process.env.VITE_CATLAS_BACKEND!=='true','Run this suite with VITE_CATLAS_BACKEND=true.');
   await page.clock.install({time:new Date(at)});
-  await page.addInitScript(()=>localStorage.setItem('catlas-monitor-1',JSON.stringify({earthquakes:false,cyclones:false,wind:false,vessels:false,locations:true,nearPortfolio:false,watchedOnly:false,watchlist:[],fireDistanceKm:0})));
+  await page.addInitScript(()=>{if(!localStorage.getItem('catlas-monitor-1'))localStorage.setItem('catlas-monitor-1',JSON.stringify({earthquakes:false,cyclones:false,wind:false,vessels:false,locations:true,nearPortfolio:false,watchedOnly:false,watchlist:[],fireDistanceKm:0}));});
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
   await page.goto('/?mode=portfolios');
   await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();
@@ -197,4 +197,45 @@ test('fire map groups observations, preserves selection, fits a perimeter and ke
   await expect(map).toHaveAttribute('data-fire-clusters','0');
   await expect(map).toHaveAttribute('data-fire-detections','0');
   await expect(page.getByText(/^Map display:/)).toHaveCount(0);
+});
+
+test('shared map filters persist, open from Attention and leave lists available',async({page},testInfo)=>{
+  await feeds(page,{fires:snapshot([]),perimeters:snapshot([perimeter]),alerts:snapshot([])});
+  await page.goto('/?mode=monitor');
+  let panel=await details(page);
+  await expect(panel.getByRole('checkbox',{name:'Events relevant to portfolio locations'})).toHaveCount(0);
+  await expect(panel.getByText('Earthquakes and cyclones use 250 km point proximity.',{exact:false})).toHaveCount(0);
+  await expect(panel.getByRole('button',{name:perimeter.name,exact:true})).toBeVisible();
+  await panel.getByRole('button',{name:'Open map filters',exact:true}).click();
+  let filters=page.getByRole('group',{name:'Map filters',exact:true});
+  await expect(filters).toBeVisible();
+  await expect(page.getByText('Preview',{exact:true})).toHaveCount(0);
+  const mapControls=page.getByLabel('Map controls',{exact:true});
+  await expect(mapControls.locator('.exposure-layer-menu > summary')).toHaveText(['Filters','Appearance']);
+  await filters.getByRole('switch',{name:'Relevant to portfolio',exact:true}).check();
+  await filters.getByRole('switch',{name:'Watchlist items',exact:true}).check();
+  await expect(page.getByRole('button',{name:/^Filters\s*2$/})).toBeVisible();
+  await filters.getByText('How matching works',{exact:true}).click();
+  await expect(filters).toContainText('within 0 km');
+  await page.screenshot({path:testInfo.outputPath('monitor-map-filters.png')});
+  await page.keyboard.press('Escape');
+  await expect(filters).not.toBeVisible();
+  panel=await details(page);
+  await expect(panel).toContainText('Portfolio matches');
+  await expect(panel).toContainText('Watchlist items on map');
+  await expect(panel.getByRole('button',{name:perimeter.name,exact:true})).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>{const prefs=JSON.parse(localStorage.getItem('catlas-monitor-1')!);return [prefs.nearPortfolio,prefs.watchedOnly];})).toEqual([true,true]);
+  await page.reload();
+  panel=await details(page);
+  await panel.getByRole('button',{name:'Open map filters',exact:true}).click();
+  filters=page.getByRole('group',{name:'Map filters',exact:true});
+  await expect(filters.getByRole('switch',{name:'Relevant to portfolio',exact:true})).toBeChecked();
+  await expect(filters.getByRole('switch',{name:'Watchlist items',exact:true})).toBeChecked();
+  await page.getByText('Appearance',{exact:true}).click();
+  await expect(filters).not.toBeVisible();
+  await page.getByText('Appearance',{exact:true}).click();
+  panel=await details(page,'Locations');
+  await expect(panel.getByRole('checkbox')).toHaveCount(0);
+  await expect(panel.getByRole('searchbox',{name:'Find a location'})).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Ridgecrest medical centre',exact:true})).toBeVisible();
 });

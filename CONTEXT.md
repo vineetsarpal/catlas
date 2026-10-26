@@ -22,6 +22,12 @@ A geographic representation of a specified catastrophe hazard's intensity for an
 **Potentially affected exposure**:
 Insured locations and associated values identified by comparing a portfolio with event hazard evidence. It does not establish physical damage, insured loss or reinsurance recovery.
 
+**Event catalog**:
+A searchable collection of catastrophe event identities and descriptions used to select events for investigation. An event's inclusion does not establish that usable hazard evidence is available or that a portfolio is affected.
+
+**Portfolio relevance**:
+A screening indication that an event warrants investigation against a selected exposure portfolio, based on hazard evidence, proximity or unresolved evidence gaps. It is distinct from an exposure assessment; unknown relevance does not establish that insured locations are unaffected.
+
 **Investigation threshold**:
 The selected minimum estimated hazard intensity used to screen insured locations for investigation. It is distinct from a damage threshold or a contractual recovery trigger.
 

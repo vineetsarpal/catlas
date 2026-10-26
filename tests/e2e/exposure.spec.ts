@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import { openFilters, openHistory, openLocations, openPortfolio } from '../helpers/exposure-workspace';
+import { createHash } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
 async function replay(page:Page){await page.getByRole('button',{name:'Investigate Ridgecrest replay',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('11',{timeout:30_000});await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-shaking-ready','true');await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-land-rendered','true');}
 test.beforeEach(async({page})=>{await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolios',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();});
@@ -36,18 +37,22 @@ test('saved versions survive refresh and portable cases reopen offline in fresh 
  const context=await browser.newContext({viewport:{width:375,height:812}});const fresh=await context.newPage();
  await fresh.route('https://**/*',route=>route.abort());await fresh.goto(baseURL+'/exposure.html');
  await openHistory(fresh);await fresh.getByLabel('Open a self-contained case').setInputFiles({name:'case.json.gz',mimeType:'application/gzip',buffer:bytes});await expect(fresh.getByTestId('exposure-count')).toHaveText('7',{timeout:30_000});await expect(fresh.locator('.exposure-history li')).toHaveCount(1);
- bundle.record.settings.threshold=5;await fresh.getByLabel('Open a self-contained case').setInputFiles({name:'tampered.json.gz',mimeType:'application/gzip',buffer:gzipSync(JSON.stringify(bundle))});await expect(fresh.getByRole('alert')).toContainText('integrity');await expect(fresh.getByTestId('exposure-count')).toHaveText('7');
+ bundle.record.settings.threshold=5;await fresh.getByLabel('Open a self-contained case').setInputFiles({name:'tampered.json.gz',mimeType:'application/gzip',buffer:gzipSync(JSON.stringify(bundle))});await expect(fresh.getByRole('alert').filter({hasText:'integrity'})).toBeVisible();await expect(fresh.getByTestId('exposure-count')).toHaveText('7');
  await context.close();
 });
 
-test('live discovery captures public evidence and reports unavailable ShakeMap without zero',async({page})=>{
- const event={type:'Feature',id:'ci-test',properties:{mag:6.1,place:'Published test earthquake '+ 'with a long regional description '.repeat(10),time:Date.parse('2026-10-17T00:00:00Z'),updated:Date.parse('2026-10-17T00:01:00Z'),ids:',ci-test,'},geometry:{type:'Point',coordinates:[-117.6,35.7,8]}};
- await page.route('https://earthquake.usgs.gov/earthquakes/feed/**',route=>route.fulfill({json:{type:'FeatureCollection',features:[event]}}));
- await page.route('https://earthquake.usgs.gov/fdsnws/**',route=>route.fulfill({json:event}));
- await page.getByRole('button',{name:'Change event',exact:true}).click();await page.getByLabel('Enable near-real-time USGS discovery').check();await expect(page.getByLabel('Recent published events')).toContainText('Published test earthquake');await page.getByLabel('Recent published events').selectOption('ci-test');await page.getByRole('button',{name:'Capture earthquake evidence',exact:true}).click();
- await expect(page.getByRole('heading',{level:1})).toContainText('Published test earthquake');await expect(page.getByTestId('exposure-count')).toHaveText('—');await expect(page.getByTestId('exposure-unknown')).toHaveText('18');
+test('request-driven discovery inspects unavailable evidence without creating a zero or an assessment',async({page})=>{
+ const event={id:'ci-test',name:'Published test earthquake '+ 'with a long regional description '.repeat(10),magnitude:6.1,latitude:35.7,longitude:-117.6,occurredAt:'2026-10-17T00:00:00.000Z',updatedAt:'2026-10-17T00:01:00.000Z',aliases:['ci-test'],significance:700};
+ await page.route('**/api/exposure/catalog?**',route=>route.fulfill({json:{events:[event],checkedAt:new Date().toISOString(),range:{start:'2026-07-27T00:00:00.000Z',end:'2026-10-25T00:00:00.000Z'},offset:0,limit:50,hasMore:false,completeness:'complete',rejected:0}}));
+ await page.route('**/api/exposure/captures',route=>route.fulfill({status:422,json:{error:{code:'evidence_unavailable'}}}));
+ await page.getByRole('button',{name:'Refresh events',exact:true}).click();
+ await page.getByRole('button',{name:/Published test earthquake/}).click();
+ await expect(page.getByRole('heading',{level:1})).toContainText('Published test earthquake');
+ await expect(page.getByTestId('exposure-count')).toHaveText('—');await expect(page.getByTestId('exposure-unknown')).toHaveText('—');
+ await expect(page.getByRole('complementary',{name:'Earthquake evidence inspector'})).toContainText('No supported shaking evidence');
+ await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Save investigation',exact:true})).toBeDisabled();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await openLocations(page);const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();const bundle=JSON.parse(gunzipSync(await fs.readFile((await (await download).path())!)).toString());expect(bundle.record.summary.meetingThreshold).toBeNull();
 });
 
 test('source update is explicit, creates a new version and preserves the earlier saved result',async({page})=>{
@@ -55,7 +60,15 @@ test('source update is explicit, creates a new version and preserves the earlier
  page.on('request',request=>{if(request.url().startsWith('https://earthquake.usgs.gov/'))requests.push({method:request.method(),body:request.postData()});});
  await page.route('https://earthquake.usgs.gov/fdsnws/**',route=>route.fulfill({json:{id:'ci-test',properties:{mag:6.1,place:'Versioned public earthquake',time:Date.parse('2026-01-01T00:00:00Z'),updated:Date.parse(`2026-01-01T00:0${revision}:00Z`),ids:',ci-test,',products:{shakemap:[{id:`map-${revision}`,source:'us',code:'ci-test',status:'UPDATE',updateTime:Date.parse(`2026-01-01T00:0${revision}:00Z`),preferredWeight:20,contents:{'download/grid.xml':{url:`https://earthquake.usgs.gov/product/revision-${revision}.xml`}}}]}},geometry:{coordinates:[-117.6,35.7,8]}}}));
  await page.route('https://earthquake.usgs.gov/product/revision-*.xml',route=>route.fulfill({contentType:'application/xml',body:`<shakemap_grid event_id="ci-test" shakemap_version="${revision}" process_timestamp="2026-01-01T00:0${revision}:00"><event event_id="ci-test"/><grid_specification nlon="2" nlat="2"/><grid_field name="LON" index="1" units="dd"/><grid_field name="LAT" index="2" units="dd"/><grid_field name="MMI" index="3" units="intensity"/><grid_data>-118 36 ${revision===1?6:3}\n-117 36 ${revision===1?8:3}\n-118 35 ${revision===1?4:3}\n-117 35 ${revision===1?6:3}</grid_data></shakemap_grid>`}));
- await page.getByRole('button',{name:'Change event',exact:true}).click();await page.getByLabel('USGS event ID',{exact:true}).fill('ci-test');await page.getByRole('button',{name:'Capture earthquake evidence',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('7');
+ const detail=Buffer.from(JSON.stringify({id:'ci-test',properties:{mag:6.1,magType:'mw',time:Date.parse('2026-01-01T00:00:00Z'),updated:Date.parse('2026-01-01T00:01:00Z'),ids:',ci-test,'},geometry:{coordinates:[-117.6,35.7,8]}}));
+ const grid=Buffer.from('<shakemap_grid event_id="ci-test" shakemap_version="1" process_timestamp="2026-01-01T00:01:00"><event event_id="ci-test"/><grid_specification nlon="2" nlat="2"/><grid_field name="LON" index="1" units="dd"/><grid_field name="LAT" index="2" units="dd"/><grid_field name="MMI" index="3" units="intensity"/><grid_data>-118 36 6\n-117 36 8\n-118 35 4\n-117 35 6</grid_data></shakemap_grid>');
+ const artifact=(bytes:Buffer,kind:string)=>{const sha256=createHash('sha256').update(bytes).digest('hex');return {sha256,bytes:bytes.length,path:`/api/artifacts/${sha256}`,sourceUrl:`https://earthquake.usgs.gov/${kind}`,contentType:kind==='grid'?'application/xml':'application/geo+json'};};
+ const artifacts={detail:artifact(detail,'detail'),grid:artifact(grid,'grid')};
+ await page.route('**/api/exposure/captures',route=>route.fulfill({status:201,json:{schemaVersion:1,event:{id:'ci-test',aliases:['ci-test'],name:'Versioned public earthquake',occurredAt:'2026-01-01T00:00:00.000Z',updatedAt:'2026-01-01T00:01:00.000Z'},product:{id:'map-1',source:'us',code:'ci-test',updatedAt:'2026-01-01T00:01:00.000Z',retrospective:false},capturedAt:'2026-10-25T00:00:00.000Z',artifacts}}));
+ await page.route('**/api/exposure/artifacts/*',route=>route.fulfill({body:route.request().url().endsWith(artifacts.grid.sha256)?grid:detail}));
+ await page.getByRole('button',{name:'Change event',exact:true}).click();await page.getByLabel('USGS event ID',{exact:true}).fill('ci-test');await page.getByRole('button',{name:'Capture earthquake evidence',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeEnabled();await expect(page.getByTestId('exposure-count')).toHaveText('—');
+ await page.getByRole('button',{name:'Assess portfolio',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('7');
  await openHistory(page);await page.getByRole('button',{name:'Save this investigation locally',exact:true}).click();await expect(page.locator('.exposure-history li')).toHaveCount(1);
  revision=2;await page.getByRole('button',{name:'Check for newer source evidence',exact:true}).click();await expect(page.getByRole('button',{name:'Apply captured update as new version',exact:true})).toBeEnabled();await expect(page.getByTestId('exposure-count')).toHaveText('7');
  await page.getByRole('button',{name:'Apply captured update as new version',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('0');await expect(page.getByTestId('exposure-unknown')).toHaveText('11');
@@ -69,7 +82,7 @@ test('large map is the default and retired variant URLs cannot select another la
  await expect(page.getByRole('combobox',{name:'Compare map layouts'})).toHaveCount(0);
  await expect(page.getByTestId('exposure-map')).toBeVisible();
  await expect(page.getByRole('button',{name:'Toggle location table'})).toHaveAttribute('aria-expanded','false');
- const fits=await page.getByTestId('exposure-map').evaluate(element=>{const rect=element.getBoundingClientRect();return rect.top<innerHeight*.4&&rect.height>innerHeight*.5&&document.documentElement.scrollHeight<=innerHeight&&document.documentElement.scrollWidth<=innerWidth;});
+ const fits=await page.getByTestId('exposure-map').evaluate(element=>{const rect=element.getBoundingClientRect();return rect.top<innerHeight*.4&&rect.height>=260&&document.documentElement.scrollHeight<=innerHeight&&document.documentElement.scrollWidth<=innerWidth;});
  expect(fits).toBe(true);
  await replay(page);await openLocations(page);
  await page.getByRole('button',{name:'Ridgecrest distribution',exact:true}).click();

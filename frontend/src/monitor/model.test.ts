@@ -79,12 +79,23 @@ describe('Monitor hazard attention',()=>{
     current.now=now+7*86400000;
     expect(monitorItems(current,portfolio)).toEqual([]);
   });
+  it('keeps Attention and Locations available when the map is restricted to watchlist items',()=>{
+    const current=state();current.prefs.locations=true;
+    const items=monitorItems(current,portfolio),attention=attentionMonitorItems(items,current);
+    current.prefs.watchedOnly=true;
+    expect(visibleMonitorItems(items,current)).toEqual([]);
+    expect(attentionMonitorItems(items,current)).toEqual(attention);
+    expect(attentionMonitorItems(items,current).some(item=>item.kind==='location')).toBe(true);
+    current.prefs.watchlist=[{key:'perimeter:incident',name:'Fire'}];
+    expect(visibleMonitorItems(items,current).map(item=>item.key)).toEqual(['perimeter:incident']);
+    expect(attentionMonitorItems(items,current)).toEqual(attention);
+  });
   it('follows alert identity references and preserves unavailable screening under portfolio filtering',()=>{
     const current=state(),items=monitorItems(current,portfolio),warning=items.find(i=>i.kind==='alert')!;
     current.prefs.watchlist=[{key:'alert:old',name:'Original warning'}];
     current.prefs.watchedOnly=true;current.prefs.nearPortfolio=true;
     expect(isMonitorItemWatched(warning,current.prefs.watchlist)).toBe(true);
-    expect(attentionMonitorItems(items,current)).toEqual([warning]);
+    expect(attentionMonitorItems(items,current)).toContain(warning);
     expect(isMonitorItemWatched(warning,[{key:'alert:unrelated',name:'Other warning'}])).toBe(false);
   });
 });

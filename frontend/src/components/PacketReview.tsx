@@ -91,7 +91,7 @@ export function PacketHistory({ packets }: { packets: RecoveryPacket[] }) {
   if (!packets.length) return null;
   return (
     <section className="packet-history" aria-label="Retained packet history">
-      <h2>Retained packet history</h2>
+      <h3>Saved packets</h3>
       <p>
         Prior packets remain immutable and retained locally across refresh on this origin. Download archived content independently of the selected evaluation.
       </p>

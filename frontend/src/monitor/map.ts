@@ -10,7 +10,7 @@ import type { MonitorItem } from './model';
 import { containmentBand, observationAge, perimeterBounds, fireEvidenceTime } from './fire-display';
 import { addFireMapLayers, updateFireMapLayers } from './fire-map';
 
-export type MonitorMapProps={state:MonitorState;items:MonitorItem[];selectedItem?:MonitorItem;fitRequest?:number};
+export type MonitorMapProps={state:MonitorState;items:MonitorItem[];selectedItem?:MonitorItem;fitRequest?:number;filterRequest?:number};
 export function useMonitorMap(mapRef:RefObject<maplibre.Map|null>,ready:boolean,active:boolean,monitor?:MonitorMapProps) {
   const selection=useRef(monitor?.state.select);selection.current=monitor?.state.select;
   const [imageStatus,setImageStatus]=useState('');

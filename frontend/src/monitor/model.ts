@@ -71,8 +71,9 @@ export function monitorItems(state:MonitorState,portfolio:Portfolio):MonitorItem
     ...fireGroups,...fires.map(fire=>({key:`fire:detection:${fire.id}`,name:`Fire detection — ${fire.source}`,kind:'fire' as const,longitude:fire.longitude,latitude:fire.latitude,nearby:detectionCounts.get(fire)??0,fire,fireDetections:[fire],mapOnly:true})),...perimeters,...alerts,
   ];
 }
+/** Watchlist filtering is map-only, so the lists remain available for finding new watches. */
 export function attentionMonitorItems(items:MonitorItem[],state:MonitorState) {
-  return items.filter(item=>!item.mapOnly&&(!state.prefs.nearPortfolio||item.kind==='location'||item.kind==='vessel'||item.nearby>0||item.relevance?.screeningUnavailable)&&(!state.prefs.watchedOnly||isMonitorItemWatched(item,state.prefs.watchlist))).sort(compareMonitorItems);
+  return items.filter(item=>!item.mapOnly&&(!state.prefs.nearPortfolio||item.kind==='location'||item.kind==='vessel'||item.nearby>0||item.relevance?.screeningUnavailable)).sort(compareMonitorItems);
 }
 export function visibleMonitorItems(items:MonitorItem[],state:MonitorState) {
   const watchedDetectionIds=new Set<string>();

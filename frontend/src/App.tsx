@@ -77,7 +77,7 @@ function ParametricRecoveryWorkbench({ sharedEvent, onEventChange, onContextChan
   useEffect(()=>{onContextChange({evaluation,selectedArea,selectArea});},[evaluation,selectedArea,selectArea,onContextChange]);
   return (
     <div className="catlas recovery-controls">
-      <header className="recovery-panel-intro"><p className="eyebrow">CONTRACTUAL RECOVERY</p><h2>Parametric recovery</h2><p>Evaluate imported terms against the selected earthquake. Shaking exposure does not establish a recovery.</p></header>
+      <p hidden={view!=="assessment"} className="recovery-panel-intro">Evaluate imported terms against the selected earthquake. Shaking exposure does not establish a recovery.</p>
       <div hidden={view !== "assessment"} className="recovery-assessment-options">
       {sharedEvent && !matches && <section className="recovery-handoff" aria-label="Selected earthquake recovery handoff"><strong>{sharedEvent.name ?? sharedEvent.id}</strong><p>{evaluation?'A retained recovery belongs to a different observation. Evaluate the selected earthquake to create its assessment.':'Use the selected observation with the packaged fictional contract.'}</p><button disabled={busy} onClick={()=>void evaluateInputs(sharedEvent,contract).then(saved=>{if(saved)setScenarioId('__retained__');})}>Evaluate selected earthquake</button></section>}
       <p className="storage-summary" role="status">{storageStatus==="ready"?"Local history saved in this browser":storageStatus==="saving"?"Saving local history…":storageStatus==="loading"?"Loading local history…":"Local history requires attention below"}</p>

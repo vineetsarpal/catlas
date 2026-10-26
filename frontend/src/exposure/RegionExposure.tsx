@@ -6,7 +6,7 @@ export function RegionExposure({ rows, threshold, region, onRegion }: {
 }) {
   const groups = regionExposure(rows, threshold);
   return <section className="exposure-regions" aria-label="Regional exposure breakdown">
-    <div className="exposure-regions-heading"><div><p className="exposure-eyebrow">PORTFOLIO CONCENTRATIONS</p><h2>Where to focus</h2></div>{region !== null && <button onClick={() => onRegion(null)}>All regions</button>}</div>
+    <div className="exposure-regions-heading">{region !== null && <button onClick={() => onRegion(null)}>All regions</button>}</div>
     <p>Full assessed portfolio · MMI ≥ {threshold}. Select a region to filter the map and locations.</p>
     <div className="exposure-region-list">{groups.map(group => <button className="exposure-region" key={group.region} aria-label={`Filter region ${group.region || 'Not supplied'}`} aria-pressed={region === group.region} onClick={() => onRegion(region === group.region ? null : group.region)}>
       <span className="exposure-region-title"><strong>{group.region || 'Not supplied'}</strong><span>{group.unknown===group.total?`${group.total} ${group.total===1?'location':'locations'} · intensity unknown`:`${group.meeting} of ${group.total} meet threshold`}</span></span>

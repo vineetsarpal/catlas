@@ -1,0 +1,19 @@
+.monitor-map-filters h3 { margin:0; font-size:11px; }
+.monitor-map-filters .monitor-filter-intro { margin:8px 0 15px; font-size:11px; line-height:1.6; }
+.monitor-map-filter-option+.monitor-map-filter-option { margin-top:17px; }
+.monitor-map-filter-option .monitor-layer-toggle { display:flex; justify-content:space-between; align-items:center; gap:12px; color:#285b46; font-size:12px; font-weight:600; cursor:pointer; }
+.monitor-matching-help { margin-top:18px; padding:12px 0 0; border-top:1px solid #e1e8e4; font-size:11px; }
+.monitor-matching-help summary { cursor:pointer; color:#346a55; font-weight:600; }
+.monitor-matching-help ul { padding-left:18px; font-size:10px; line-height:1.65; }
+.monitor-matching-help li+li { margin-top:7px; }
+.monitor-matching-help p { font-size:11px; line-height:1.65; }
+.monitor-filter-summary { padding:13px 18px; display:flex; justify-content:space-between; align-items:flex-start; gap:8px; background:#f7faf8; border-bottom:1px solid #e1e8e4; }
+.monitor-filter-summary>div { display:flex; flex-wrap:wrap; align-items:center; gap:5px; min-height:26px; }
+.monitor-filter-summary>div>span { padding:4px 7px; border-radius:4px; color:#38624f; background:#e9f1ec; font-size:10px; }
+.exposure-page .monitor-filter-summary>button { flex:none; padding:3px 0; min-height:26px; border:0; background:transparent; color:#346a55; font-size:10px; }
+.monitor-portfolio-caption { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:12px 18px; border-bottom:1px solid #e1e8e4; font-size:10px; color:#64786e; }
+.monitor-portfolio-caption button { padding:0; border:0; background:none; font-size:10px; }
+.monitor-panel-notices:empty { display:none; }
+.monitor-panel-notices>p { margin:0; padding:10px 18px; border-bottom:1px solid #e1e8e4; }
+.atlas-map-workspace .monitor-filter-menu .monitor-filter-popover { width:300px; max-width:calc(100vw - 105px); max-height:min(65vh,480px); overflow-y:auto; overscroll-behavior:contain; background:#fff; }
+.monitor-filter-count { display:inline-flex; justify-content:center; align-items:center; min-width:16px; height:16px; margin-left:7px; border-radius:8px; background:#dcebe3; color:#285b46; font-size:9px; font-weight:600; }
