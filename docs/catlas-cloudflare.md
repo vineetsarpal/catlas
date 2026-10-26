@@ -30,6 +30,8 @@ Exposure uses a Pages Function at `functions/api/exposure/[[path]].ts`, using th
 
 The offline ZIP remains static and excludes Functions and credentials. The Node/Fastify monitoring backend remains localhost-only; this archive deployment does not host `/api/monitor`.
 
+The optional VPS Monitor deployment is documented in [the manual VPS guide](catlas-monitor-vps.md). Its Pages bridge uses separate `MONITOR_API_ORIGIN` and encrypted `MONITOR_API_TOKEN` bindings. Enable it only after the authenticated VPS health checks pass; change the Pages build command to `npm run package:pages` and set `VITE_CATLAS_BACKEND=true` for production. The separate hosted build preserves the backend-independent offline ZIP. Preparing these files does not establish that Monitor has been installed on the VPS.
+
 ## Archive Worker deployment
 
 `.github/workflows/deploy-archive.yml` checks the archive package on pull requests and pushes affecting its directory or workflow. On `main`, successful checks deploy the existing `catlas-exposure-proof` Worker. Manual runs are also available on `main`. Checks install the pinned package dependencies, type-check, run fixture tests, and dry-run the Worker build on Node 24. Local PostgreSQL tests remain opt-in and are not claimed by this workflow. Deployments are serialized and use the committed resource bindings and storage limits. The workflow does not run database migrations, rotate runtime secrets, or acquire earthquake evidence.

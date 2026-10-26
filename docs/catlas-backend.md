@@ -1,6 +1,6 @@
 # Local monitoring backend
 
-CAT-35 adds a Node.js 24+ / TypeScript / Fastify service. This stage is localhost only; no VPS, public tunnel, authentication service or paid infrastructure has been provisioned. The standalone build remains the default; wind forecasts and vessels require the backend. Wind acquisition, decoding, validation and caching run on the backend, while the browser receives and renders vector grids.
+CAT-35 adds a Node.js 24+ / TypeScript / Fastify service. Local mode remains the default. An authenticated VPS mode and Pages bridge are available; follow [the manual VPS deployment guide](catlas-monitor-vps.md) to install and verify them. Deployment is not established merely by having a healthy tunnel. Wind acquisition, decoding, validation and caching run on the backend, while the browser receives and renders vector grids.
 
 ## Run
 
@@ -22,7 +22,7 @@ VITE_CATLAS_BACKEND=true npm run dev -- --port 4174
 
 Open http://127.0.0.1:4174/?mode=monitor. Alternatively copy `frontend/.env.example` to `frontend/.env` and restart Vite. Credentials belong only in `backend/.env` (ignored by Git), never a `VITE_` variable. Without a key, wind works and the vessel feed explicitly reports unconfigured. No sample positions are presented as live observations.
 
-The API binds to `127.0.0.1:3001`. Vite proxies `/api/monitor` to it. The backend rejects non-local Host and Origin headers, has no cross-origin browser access and applies a per-IP request limit. This is not the public deployment access gate: authentication, trusted proxy configuration and routing must be designed before exposing it. Existing Funnel routing is untouched. A production frontend using the backend will need a same-origin reverse proxy; Vite's development proxy is not bundled into static Pages output.
+The API binds to `127.0.0.1:3001`. Vite proxies `/api/monitor` to it. Without a server token, the backend rejects non-local Host and Origin headers. Hosted mode requires a 64-character lowercase hexadecimal `CATLAS_MONITOR_TOKEN`; every request, including health checks over loopback, must authenticate. `CATLAS_MONITOR_HOSTED=true` refuses startup if the token is absent. Browser Origin headers are refused in hosted mode; the Pages bridge strips browser headers and supplies the credential. Client addresses used for per-IP limits come from the bridge only after successful authentication. Existing Funnel routing is untouched. Hosted routing uses `functions/api/monitor/[[path]].ts`; Vite's development proxy is not bundled into static output.
 
 ## Behavior and limits
 

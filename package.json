@@ -16,6 +16,7 @@
     "check:backend": "npm run check --workspace=@catlas/backend",
     "test:e2e": "playwright test",
     "package:offline": "node scripts/build-offline.mjs && python3 scripts/package-release.py",
+    "package:pages": "npm run package:offline && node scripts/build-hosted.mjs",
     "release": "npm test && npm run package:offline && npm run test:offline",
     "test:offline": "python3 scripts/prepare-offline-test.py && playwright test --config playwright.offline.config.ts"
   },

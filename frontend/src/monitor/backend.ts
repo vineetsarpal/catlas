@@ -4,7 +4,7 @@ export const WIND_BACKEND_REQUIRED='Wind requires the Catlas backend.';
 export const backendEnabled=import.meta.env.VITE_CATLAS_BACKEND==='true';
 export async function backendJSON(path:string,signal:AbortSignal){
   const response=await fetch(`/api/monitor/${path}`,{signal});
-  if(!response.ok)throw Error(`Local backend unavailable (${response.status}). Check that it is running.`);
+  if(!response.ok)throw Error(`Monitor backend unavailable (${response.status}). Retry shortly or check its connection.`);
   return response.json();
 }
 export const windMetadataSchema=z.object({runAt:z.string().datetime(),defaultTime:z.string().datetime(),times:z.array(z.string().datetime()).min(1).max(17)});

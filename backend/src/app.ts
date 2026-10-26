@@ -1,9 +1,13 @@
 import Fastify from 'fastify';
+import { createHash, timingSafeEqual } from 'node:crypto';
+import { isIP } from 'node:net';
 import { HazardService } from './hazards';
 import { WindService } from './wind';
 import { VesselRelay, validBounds } from './vessels';
 
-export function createApp(options:{wind?:WindService;relay?:VesselRelay;apiKey?:string;hazards?:HazardService;firmsKey?:string}={}) {
+export function createApp(options:{wind?:WindService;relay?:VesselRelay;apiKey?:string;hazards?:HazardService;firmsKey?:string;monitorToken?:string}={}) {
+  if(options.monitorToken!==undefined&&!/^[a-f0-9]{64}$/.test(options.monitorToken))throw Error('CATLAS_MONITOR_TOKEN must contain 64 lowercase hexadecimal characters.');
+  const credential=options.monitorToken===undefined?null:createHash('sha256').update(`Bearer ${options.monitorToken}`).digest();
   const app=Fastify({logger:false,bodyLimit:1024});
   const wind=options.wind??new WindService(), relay=options.relay??new VesselRelay(options.apiKey??'');
   const hazards=options.hazards??new HazardService({firmsKey:options.firmsKey});
@@ -12,14 +16,22 @@ export function createApp(options:{wind?:WindService;relay?:VesselRelay;apiKey?:
   app.get('/api/monitor/alerts',()=>hazards.alerts());
   const viewers=new Map<string,{at:number;count:number}>();
   app.addHook('onRequest',async(req,reply)=>{
-    const host=req.headers.host??'';
-    if(!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host))return reply.code(403).send({error:'Localhost access only'});
-    const origin=req.headers.origin;
-    if(origin&&!/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin))return reply.code(403).send({error:'Origin is not allowed'});
+    reply.header('Cache-Control','no-store');
+    if(credential){
+      const supplied=createHash('sha256').update(req.headers.authorization??'').digest();
+      if(!timingSafeEqual(credential,supplied))return reply.code(401).send({error:'Monitor authentication required'});
+      if(req.headers.origin)return reply.code(403).send({error:'Use the same-origin Monitor bridge'});
+    }else{
+      const host=req.headers.host??'';
+      if(!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host))return reply.code(403).send({error:'Localhost access only'});
+      const origin=req.headers.origin;
+      if(origin&&!/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin))return reply.code(403).send({error:'Origin is not allowed'});
+    }
     const now=Date.now();for(const [id,v] of viewers)if(now-v.at>60000)viewers.delete(id);
-    const id=req.ip,current=viewers.get(id)??{at:now,count:0};
+    const forwarded=req.headers['x-catlas-client-ip'];
+    const id=credential&&typeof forwarded==='string'&&isIP(forwarded)?forwarded:req.ip,current=viewers.get(id)??{at:now,count:0};
     if(++current.count>240||(!viewers.has(id)&&viewers.size>=1000))return reply.code(429).send({error:'Too many requests'});
-    viewers.set(id,current);reply.header('Cache-Control','no-store');
+    viewers.set(id,current);
   });
   app.setErrorHandler((error,req,reply)=>{const status=error instanceof Error&&'statusCode' in error&&typeof error.statusCode==='number'?error.statusCode:502;reply.code(status).send({error:status<500&&error instanceof Error?error.message:'Provider unavailable; retry shortly'});});
   app.get('/api/monitor/health',()=>({status:'ok',vesselsConfigured:Boolean(options.apiKey),storage:'bounded memory; reset on restart'}));
