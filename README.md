@@ -61,6 +61,7 @@ Run `npm ci` once from the repository root. One root lockfile covers all three p
 
 ```sh
 npm run dev              # frontend
+npm run dev:all          # frontend + localhost API; enables backend integration
 npm run backend          # separate terminal; localhost API
 npm run check            # all packages plus browser test types
 npm test                 # shared, frontend and backend tests

@@ -4,6 +4,8 @@ CAT-35 adds a Node.js 24+ / TypeScript / Fastify service. This stage is localhos
 
 ## Run
 
+To start both servers with backend integration enabled, run `npm run dev:all` from the repository root. Open the URL printed by Vite; Ctrl+C stops both servers. Frontend options can be forwarded, for example `npm run dev:all -- --port 4174`. The backend loads `backend/.env` if present.
+
 Install dependencies with `npm ci`. In one terminal:
 
 ```sh

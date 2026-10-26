@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev:all": "node scripts/dev.mjs",
     "dev": "npm run dev --workspace=@catlas/frontend --",
     "backend": "npm run dev --workspace=@catlas/backend --",
     "build": "npm run build --workspaces",
