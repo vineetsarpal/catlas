@@ -1,0 +1,6 @@
+.dev.vars
+.dev.vars.*
+.proof.env*
+.wrangler/
+dist/
+node_modules/
