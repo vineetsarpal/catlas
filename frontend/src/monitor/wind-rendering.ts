@@ -39,39 +39,61 @@ export function createWindFlow(map:AtlasMap,field:WindField,options:{paused:bool
     const center=map.getCenter(),r=Math.PI/180;
     return Math.sin(center.lat*r)*Math.sin(lat*r)+Math.cos(center.lat*r)*Math.cos(lat*r)*Math.cos((lon-center.lng)*r)>.03;
   }
-  function trace(lon:number,lat:number,direction:number) {
+  function trace(lon:number,lat:number,direction:number,zoom:number) {
     const points:[number,number][]=[];
+    let a=map.project([lon,lat]);
     for(let step=0;step<16;step++){
       const wind=sampleWind(field,lon,lat);if(!wind||Math.abs(lat)>84.5)break;
       const speed=Math.hypot(wind.u,wind.v);if(speed<.3)break;
-      const mpp=40075016*Math.cos(lat*Math.PI/180)/(512*2**map.getZoom());
+      const mpp=40075016*Math.cos(lat*Math.PI/180)/(512*2**zoom);
       const dt=direction*Math.min(6000,Math.max(1,mpp*3/speed));
       const nextLat=lat+wind.v*dt/111320,nextLon=lon+wind.u*dt/(111320*Math.max(.05,Math.cos(lat*Math.PI/180)));
       if(!front(nextLon,nextLat))break;
-      const a=map.project([lon,lat]),b=map.project([nextLon,nextLat]);
+      const b=map.project([nextLon,nextLat]);
       if(!Number.isFinite(b.x+b.y)||Math.hypot(b.x-a.x,b.y-a.y)>35)break;
-      points.push([b.x,b.y]);lon=nextLon;lat=nextLat;
+      points.push([b.x,b.y]);a=b;lon=nextLon;lat=nextLat;
     }
     return points;
   }
   function bake(){
     if(disposed)return;
+    cancelAnimationFrame(frame);frame=0;lastPaint=-Infinity;
     const width=map.getCanvas().clientWidth,height=map.getCanvas().clientHeight,dpr=Math.min(devicePixelRatio||1,2);
     canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);context!.setTransform(dpr,0,0,dpr,0,0);
     paths=[];const count=width<600?360:Math.min(2400,Math.round(width*height/280)),spacing=Math.sqrt(width*height/count);
-    let seed=0;
-    for(let y=spacing*.5;y<height;y+=spacing)for(let x=spacing*.5;x<width;x+=spacing){
-      const px=x+Math.sin(seed*2.4)*spacing*.35,py=y+Math.cos(seed*1.7)*spacing*.35;seed++;
-      const pos=map.unproject([px,py]);if(!front(pos.lng,pos.lat)||Math.abs(pos.lat)>84.5)continue;
-      const screen=map.project(pos);if(Math.hypot(screen.x-px,screen.y-py)>4)continue;
-      const wind=sampleWind(field,pos.lng,pos.lat);if(!wind)continue;
-      const backward=trace(pos.lng,pos.lat,-1).reverse(),forward=trace(pos.lng,pos.lat,1);
-      const points:[number,number][]=[...backward,[px,py],...forward];
-      if(points.length>5)paths.push({points,speed:Math.hypot(wind.u,wind.v),phase:(seed*.61803398875)%1});
+    const zoom=map.getZoom();
+    let seed=0,x=spacing*.5,y=spacing*.5;
+    // Yield between small batches so rebuilding after a camera move cannot monopolize the UI.
+    function chunk(){
+      timer=undefined;if(disposed||moving)return;
+      const started=performance.now();let processed=0;
+      while(y<height){
+        const px=x+Math.sin(seed*2.4)*spacing*.35,py=y+Math.cos(seed*1.7)*spacing*.35;seed++;
+        const pos=map.unproject([px,py]);
+        if(front(pos.lng,pos.lat)&&Math.abs(pos.lat)<=84.5){
+          const screen=map.project(pos);
+          if(Math.hypot(screen.x-px,screen.y-py)<=4){
+            const wind=sampleWind(field,pos.lng,pos.lat);
+            if(wind){
+              const backward=trace(pos.lng,pos.lat,-1,zoom).reverse(),forward=trace(pos.lng,pos.lat,1,zoom);
+              const points:[number,number][]=[...backward,[px,py],...forward];
+              if(points.length>5)paths.push({points,speed:Math.hypot(wind.u,wind.v),phase:(seed*.61803398875)%1});
+            }
+          }
+        }
+        x+=spacing;if(x>=width){x=spacing*.5;y+=spacing;}
+        if(++processed>=32||performance.now()-started>=6)break;
+      }
+      if(y<height){
+        if(!frame)paint(performance.now());
+        timer=setTimeout(chunk,0);return;
+      }
+      canvas.dataset.paths=String(paths.length);canvas.dataset.validAt=field.validAt;canvas.dataset.runAt=field.runAt;
+      options.onReady(paths.length);lastTime=0;paint(performance.now());
     }
-    canvas.dataset.paths=String(paths.length);canvas.dataset.validAt=field.validAt;canvas.dataset.runAt=field.runAt;
-    options.onReady(paths.length);lastTime=0;moving=false;paint(performance.now());
+    timer=setTimeout(chunk,0);
   }
+
   function paint(now:number){
     frame=0;if(disposed||moving||document.hidden)return;
     const paused=options.paused||reduced.matches;
@@ -80,17 +102,28 @@ export function createWindFlow(map:AtlasMap,field:WindField,options:{paused:bool
     const width=map.getCanvas().clientWidth,height=map.getCanvas().clientHeight;context!.clearRect(0,0,width,height);
     context!.lineWidth=1.25;context!.lineCap='round';context!.lineJoin='round';
     const isDark=dark();
-    for(const path of paths){
-      const points=path.points,head=Math.floor((path.phase+flowTime*(.045+Math.min(path.speed,30)*.0015))%1*(points.length+7));
-      context!.strokeStyle=isDark?'#bce9e0':'#286c78';
-      if(paused){context!.globalAlpha=isDark?.65:.44;context!.beginPath();points.forEach(([x,y],i)=>i?context!.lineTo(x,y):context!.moveTo(x,y));context!.stroke();continue;}
-      for(let tail=6;tail>=0;tail--){const i=head-tail;if(i<=0||i>=points.length)continue;context!.globalAlpha=(1-tail/7)*(isDark?.85:.7);context!.beginPath();context!.moveTo(...points[i-1]);context!.lineTo(...points[i]);context!.stroke();}
+    context!.strokeStyle=isDark?'#bce9e0':'#286c78';
+    if(paused){
+      context!.globalAlpha=isDark?.65:.44;context!.beginPath();
+      for(const {points} of paths)points.forEach(([x,y],i)=>i?context!.lineTo(x,y):context!.moveTo(x,y));
+      context!.stroke();
+    }else{
+      // Each opacity bucket shares a stroke instead of issuing one stroke per segment.
+      for(let tail=6;tail>=0;tail--){
+        context!.globalAlpha=(1-tail/7)*(isDark?.85:.7);context!.beginPath();
+        for(const path of paths){
+          const points=path.points,head=Math.floor((path.phase+flowTime*(.045+Math.min(path.speed,30)*.0015))%1*(points.length+7));
+          const i=head-tail;if(i<=0||i>=points.length)continue;
+          context!.moveTo(...points[i-1]);context!.lineTo(...points[i]);
+        }
+        context!.stroke();
+      }
     }
     context!.globalAlpha=1;canvas.dataset.paused=String(paused);canvas.dataset.frame=String(Math.round(now));canvas.dataset.framesPainted=String(++painted);
     if(!paused)frame=requestAnimationFrame(paint);
   }
-  function movingStart(){moving=true;cancelAnimationFrame(frame);context!.clearRect(0,0,canvas.width,canvas.height);}
-  function schedule(){clearTimeout(timer);timer=setTimeout(bake,120);}
+  function movingStart(){moving=true;clearTimeout(timer);cancelAnimationFrame(frame);frame=0;context!.clearRect(0,0,canvas.width,canvas.height);}
+  function schedule(){clearTimeout(timer);timer=setTimeout(()=>{moving=false;bake();},0);}
   function visibility(){cancelAnimationFrame(frame);if(!document.hidden){lastTime=0;paint(performance.now());}}
   function reducedChange(){cancelAnimationFrame(frame);lastTime=0;paint(performance.now());}
   map.on('movestart',movingStart);map.on('moveend',schedule);map.on('resize',schedule);document.addEventListener('visibilitychange',visibility);reduced.addEventListener('change',reducedChange);
