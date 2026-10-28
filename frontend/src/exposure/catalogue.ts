@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { earthquakeSchema, type Earthquake } from './model';
 import { captureEvidence, readBoundedStream } from './evidence';
-import type { LiveCapture } from './live';
+import type { EarthquakeCapture } from './capture';
 
 const eventId = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 const catalogEventSchema = earthquakeSchema.extend({ aliases: z.array(eventId).max(5050), significance: z.number().finite().nullable() });
@@ -97,7 +97,7 @@ async function original(artifact: z.infer<typeof artifactSchema>, signal: AbortS
   // Preserve a UTF-8 BOM in retained originals; strip only for JSON interpretation below.
   return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
 }
-async function readArchivedEarthquake(id: string, signal?: AbortSignal, checkSource = false): Promise<LiveCapture> {
+async function readArchivedEarthquake(id: string, signal?: AbortSignal, checkSource = false): Promise<EarthquakeCapture> {
   eventId.parse(id);
   const boundedSignal = requestSignal(signal);
   const response = await fetch(checkSource?'/api/exposure/captures/check':'/api/exposure/captures', { method: 'POST', signal: boundedSignal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ eventId: id }), cache: 'no-store' });
@@ -130,10 +130,10 @@ async function readArchivedEarthquake(id: string, signal?: AbortSignal, checkSou
   return { event, evidence, reason: null };
 }
 
-export async function captureArchivedEarthquake(id:string,signal?:AbortSignal):Promise<LiveCapture>{
+export async function captureArchivedEarthquake(id:string,signal?:AbortSignal):Promise<EarthquakeCapture>{
   try{return await readArchivedEarthquake(id,signal);}catch(error){throw archiveEvidenceFailure(error);}
 }
 
-export async function checkArchivedEarthquake(id:string,signal?:AbortSignal):Promise<LiveCapture>{
+export async function checkArchivedEarthquake(id:string,signal?:AbortSignal):Promise<EarthquakeCapture>{
   try{return await readArchivedEarthquake(id,signal,true);}catch(error){throw archiveEvidenceFailure(error);}
 }

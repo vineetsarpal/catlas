@@ -21,7 +21,7 @@ import { SAMPLER_VERSION, intensityBand, intensityColor, type CapturedEvidence, 
 import { demoPortfolio } from './fixtures';
 import { loadReplay } from './evidence';
 import { eventFromEvidence, investigate } from './investigation';
-import type { LiveCapture } from './live';
+import type { EarthquakeCapture } from './capture';
 import { captureArchivedEarthquake, checkArchivedEarthquake, archiveEvidenceFailure } from './catalogue';
 import { RecentEarthquakes } from './RecentEarthquakes';
 import { screenPortfolioRelevance } from './relevance';
@@ -66,15 +66,15 @@ export function ExposureWorkbench({ initialMode = 'exposure' }: { initialMode?: 
   const [history,setHistory] = useState<Investigation[]>([]), [busy,setBusy] = useState(''), [error,setError] = useState(''), [notice,setNotice] = useState('');
   const [threshold,setThreshold] = useState(4), [selected,setSelected] = useState('RC-01'), [filter,setFilter] = useState('all'), [currency,setCurrency] = useState('all'), [page,setPage] = useState(0);
   const [query,setQuery] = useState(''), [region,setRegion] = useState<string|null>(null), [businessLine,setBusinessLine] = useState<string|null>(null);
-  const [eventId,setEventId] = useState(''), [pendingUpdate,setPendingUpdate] = useState<LiveCapture|null>(null);
+  const [eventId,setEventId] = useState(''), [pendingUpdate,setPendingUpdate] = useState<EarthquakeCapture|null>(null);
   const [inspectionActive,setInspectionActive] = useState(false);
-  const [inspection,setInspection] = useState<LiveCapture|null>(null), [inspectionReason,setInspectionReason] = useState('');
+  const [inspection,setInspection] = useState<EarthquakeCapture|null>(null), [inspectionReason,setInspectionReason] = useState('');
   const [sourceCheck,setSourceCheck]=useState<{recordId:string;attemptedAt:string;successfulAt?:string;failedAt?:string;reason:string}|null>(null);
   const [inspectionTarget,setInspectionTarget] = useState<Earthquake|string|null>(null);
   const [inspectionCheck,setInspectionCheck] = useState<{id:string;attemptedAt:string;failedAt?:string;successfulAt?:string}|null>(null);
   // Two bounded public captures only; insured data and saved investigations are never cached here.
-  const captureCache=useRef(new Map<string,{capture:LiveCapture;successfulAt:string}>());
-  function rememberCapture(capture:LiveCapture,successfulAt:string) {
+  const captureCache=useRef(new Map<string,{capture:EarthquakeCapture;successfulAt:string}>());
+  function rememberCapture(capture:EarthquakeCapture,successfulAt:string) {
     if(!capture.evidence)return;
     const m=capture.evidence.manifest;
     const key=JSON.stringify([capture.event.id,m.productId,m.productVersion,m.productUpdatedAt,m.rawSha256,m.eventDetailSha256,m.occurredAt,m.magnitude,m.longitude,m.latitude]);
@@ -117,7 +117,7 @@ export function ExposureWorkbench({ initialMode = 'exposure' }: { initialMode?: 
     const cached=[...captureCache.current.values()].reverse();
     const currentInspection=inspection?.evidence&&(inspection.event.id===targetId||inspection.evidence.manifest.aliases.includes(targetId))?inspection:undefined;
     const inspectedManifest=currentInspection?.evidence?.manifest;
-    const retained:{capture:LiveCapture;successfulAt?:string}|undefined=currentInspection?{capture:currentInspection,successfulAt:cached.find(item=>item.capture.evidence?.manifest.rawSha256===inspectedManifest?.rawSha256&&item.capture.evidence?.manifest.eventDetailSha256===inspectedManifest?.eventDetailSha256&&item.capture.evidence?.manifest.productId===inspectedManifest?.productId&&item.capture.evidence?.manifest.productVersion===inspectedManifest?.productVersion)?.successfulAt}:cached.find(item=>item.capture.event.id===targetId||item.capture.evidence?.manifest.aliases.includes(targetId));
+    const retained:{capture:EarthquakeCapture;successfulAt?:string}|undefined=currentInspection?{capture:currentInspection,successfulAt:cached.find(item=>item.capture.evidence?.manifest.rawSha256===inspectedManifest?.rawSha256&&item.capture.evidence?.manifest.eventDetailSha256===inspectedManifest?.eventDetailSha256&&item.capture.evidence?.manifest.productId===inspectedManifest?.productId&&item.capture.evidence?.manifest.productVersion===inspectedManifest?.productVersion)?.successfulAt}:cached.find(item=>item.capture.event.id===targetId||item.capture.evidence?.manifest.aliases.includes(targetId));
     setInspectionTarget(event);setInspectionCheck({id:targetId,attemptedAt,successfulAt:retained?.successfulAt});
     setInspectionActive(true);setSharedEvent(retained?recoveryEventFromExposure(retained.capture.event,retained.capture.evidence):typeof event==='string'?null:recoveryEventFromExposure(event,null));setInspection(retained?.capture??null);setInspectionReason(retained?'Checking public evidence; retained verified evidence remains inspectable.':'Retrieving available public evidence…');setEvidence(retained?.capture.evidence??null);setWorkspacePanel('events');
     try {
