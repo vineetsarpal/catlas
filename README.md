@@ -70,6 +70,20 @@ npm run test:frontend -- src/monitor/wind.test.ts
 npm run test:backend
 ```
 
+The Exposure archive service has an independent install and lockfile. For complete local code verification, install both dependency sets and run:
+
+```sh
+npm ci
+npm ci --prefix services/exposure-archive
+npm run verify
+```
+
+`verify` runs `check:all`, `test:all`, and `build:all`: workspace/browser-test type checks, archive type checks, workspace unit tests, archive unit tests, deployment-script fixture tests, the frontend production build, and the archive Wrangler **dry-run** build. It does not publish or deploy. Tests use local fixtures and require localhost socket access for backend HTTP tests; they do not require provider or database credentials. Dependencies must already be installed; installation may need network access. The archive dry run uses the existing local Wrangler tooling.
+
+`test:archive:unit` explicitly excludes the two opt-in PostgreSQL HTTP suites, even if `CATLAS_POSTGRES_TEST` is set in the environment. For PostgreSQL integration verification, follow the fixed disposable local database setup in the [archive README](services/exposure-archive/README.md) and run `CATLAS_POSTGRES_TEST=1 npm test --prefix services/exposure-archive`. Those tests use fixture credentials and never read the hosted `DATABASE_URL`. This is separate from `verify` and is not evidence of production database health.
+
+Browser journeys remain `npm run test:e2e`. Packaged offline acceptance remains `npm run package:offline && npm run test:offline`; run it when validating an offline release. CI retains its separate deployment jobs.
+
 Package-specific commands also work, e.g. `npm run build --workspace=@catlas/frontend` and `npm run check --workspace=@catlas/backend`. The backend and shared packages execute TypeScript through Node/tsx and Vite respectively; their build tasks type-check source rather than emit a standalone distribution. The frontend consumes shared source through declared package exports. Deploying the backend requires the root lockfile, backend and shared workspaces; it is not a standalone copy of `backend/`.
 
 `npm run package:offline` still writes `release/pages/` and `release/catlas-offline.zip` at the root. For an independent browser-test port, use `CATLAS_E2E_PORT=4180 npm run test:e2e`.

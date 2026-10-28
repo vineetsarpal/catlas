@@ -18,7 +18,13 @@
     "package:offline": "node scripts/build-offline.mjs && python3 scripts/package-release.py",
     "package:pages": "npm run package:offline && node scripts/build-hosted.mjs",
     "release": "npm test && npm run package:offline && npm run test:offline",
-    "test:offline": "python3 scripts/prepare-offline-test.py && playwright test --config playwright.offline.config.ts"
+    "test:offline": "python3 scripts/prepare-offline-test.py && playwright test --config playwright.offline.config.ts",
+    "check:all": "npm run check && npm run check --prefix services/exposure-archive",
+    "test:archive:unit": "npm test --prefix services/exposure-archive -- --exclude src/postgres-http.test.ts --exclude src/backup-http.test.ts",
+    "test:tooling": "node --test scripts/deploy-monitor-vps.test.mjs",
+    "test:all": "npm test && npm run test:archive:unit && npm run test:tooling",
+    "build:all": "npm run build && npm run build --prefix services/exposure-archive",
+    "verify": "npm run check:all && npm run test:all && npm run build:all"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

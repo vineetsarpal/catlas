@@ -19,3 +19,9 @@ A repository-wide symbol search confirmed `acquireEarthquake` had no application
 - Existing `archive-availability-flow` and `evidence-versioning` browser suites: 10 passed across desktop/mobile. The same invocation included `monitor-hazards`; 16 backend-only cases skipped in standalone configuration and are not claimed as coverage.
 - Existing `past-events --grep 'Monitor opens'`: two passed across desktop/mobile, verifying Monitor discovery opens archive evidence without automatic assessment.
 - Symbol search finds no remaining `acquireEarthquake` or `LiveCapture` in frontend source; `git diff --check` passed.
+
+## 3. Complete local code verification entry point
+
+Added `verify` → `check:all`, `test:all`, `build:all`, plus explicit archive-unit and deployment-tooling commands. The archive retains its independent install/lockfile. README documents both installs, localhost needs, local PostgreSQL opt-in checks, browser journeys and packaged offline acceptance. Archive unit verification explicitly excludes the two database suites even if an integration opt-in variable is inherited. No existing CI job or release command changed.
+
+`npm run verify` passed with dependencies already installed in this checkout: shared 2, frontend 269 (one optional skip), backend 35, archive 90 and deployment tooling 7 tests passed; all type checks, frontend production build and archive Wrangler dry run passed. No fresh dependency installation or clean-checkout reproduction was performed. The first sandbox-only attempt failed on two backend localhost listeners; rerun with localhost access passed. Vite retains its existing large-chunk warning. Deployment fixture messages refer only to temporary local fake releases; Wrangler explicitly exited after `--dry-run`.
