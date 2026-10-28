@@ -2,9 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { archiveBridge } from '../../../functions/_archive';
 const env = { ARCHIVE_API_ORIGIN: 'https://capture.example.workers.dev', ARCHIVE_PROOF_TOKEN: 'server-only-proof-token-32-characters' };
 describe('same-origin public archive HTTP bridge', () => {
-  it.each(['grid_unavailable', 'unsupported_layout', 'unsupported_units', 'database_unavailable', 'object_store_unavailable', 'service_unavailable'])('retains the safe availability outcome %s while stripping private provider diagnostics', async code => {
+  it('forwards an explicit source check with only a bounded public identity', async () => {
+    const post = (body: unknown) => new Request('https://catlas.test/api/exposure/captures/check', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const checked = await archiveBridge(post({ eventId: 'event-one' }), env, async (url, options) => {
+      expect(String(url)).toBe('https://capture.example.workers.dev/api/captures/check');
+      expect(JSON.parse(String(options?.body))).toEqual({ eventId: 'event-one' });
+      return Response.json({ cache: 'hit' });
+    });
+    expect(checked.status).toBe(200);
+    expect((await archiveBridge(post({ eventId: 'event-one', portfolio: ['private'] }), env)).status).toBe(400);
+  });
+
+  it.each(['cleanup_conflict', 'artifact_expired', 'grid_unavailable', 'unsupported_layout', 'unsupported_units', 'database_unavailable', 'object_store_unavailable', 'service_unavailable'])('retains the safe availability outcome %s while stripping private provider diagnostics', async code => {
     const request = new Request('https://catlas.test/api/exposure/captures', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ eventId: 'ci38457511' }) });
-    const status = code.includes('unavailable') && !['grid_unavailable'].includes(code) ? 503 : 422;
+    const status = code === 'cleanup_conflict' ? 409 : code === 'artifact_expired' ? 410 : code.includes('unavailable') && !['grid_unavailable'].includes(code) ? 503 : 422;
     const response = await archiveBridge(request, env, async () => Response.json({ error: { code, message: `${env.ARCHIVE_PROOF_TOKEN} private database hostname and query` } }, { status }));
     expect(response.status).toBe(status);
     const body = await response.json() as { error: { code: string; message: string } };
@@ -12,6 +23,14 @@ describe('same-origin public archive HTTP bridge', () => {
     expect(body.error.message).not.toContain('private');
     expect(body.error.message).not.toContain(env.ARCHIVE_PROOF_TOKEN);
   });
+  it('retains only the safe expired-archive context alongside a failed source refetch',async()=>{
+    const request=()=>new Request('https://catlas.test/api/exposure/captures',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({eventId:'event-one'})});
+    const result=await archiveBridge(request(),env,async()=>Response.json({error:{code:'source_unavailable',message:'PRIVATE diagnostic'},archiveEvidence:'expired'},{status:503}));
+    expect(result.status).toBe(503);expect(await result.json()).toMatchObject({error:{code:'source_unavailable'},archiveEvidence:'expired'});
+    const unsafe=await archiveBridge(request(),env,async()=>Response.json({error:{code:'source_unavailable'},archiveEvidence:'PRIVATE diagnostic'},{status:503}));
+    expect(await unsafe.text()).not.toContain('PRIVATE');
+  });
+
   it('forwards historical public search fields without adding a recent cutoff or revealing credentials', async () => {
     const query = new URLSearchParams({ mode: 'historical', start: '1890-01-01T00:00:00.000Z', end: '1899-12-31T23:59:59.999Z', minMagnitude: '6', maxMagnitude: '9', minLatitude: '-20', maxLatitude: '60', minLongitude: '170', maxLongitude: '200', offset: '50', significant: 'false' });
     const response = await archiveBridge(new Request(`https://catlas.test/api/exposure/catalog?${query}`), env, async (input, init) => {
@@ -106,6 +125,18 @@ describe('same-origin public archive HTTP bridge', () => {
     const response = await archiveBridge(new Request(`https://catlas.test${path}`), env, async () => Response.json({ leaked: true }));
     expect([400, 404]).toContain(response.status);
     expect(await response.text()).not.toContain('leaked');
+  });
+
+  it.each(['cleanup/preview','cleanup/confirm','retention','backups/start','backups/advance','backups/restore/start','backups/restore/advance','backups/rotate'])('keeps private maintenance POST %s outside the browser bridge',async path=>{
+    let forwarded=false;
+    const response=await archiveBridge(new Request(`https://catlas.test/api/exposure/maintenance/${path}`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'}),env,async()=>{forwarded=true;return Response.json({leaked:true});});
+    expect(response.status).toBe(404);expect(forwarded).toBe(false);
+  });
+
+  it('keeps the private backup inventory outside the browser bridge',async()=>{
+    let forwarded=false;
+    const response=await archiveBridge(new Request('https://catlas.test/api/exposure/maintenance/backups/inventory'),env,async()=>{forwarded=true;return Response.json({leaked:true});});
+    expect(response.status).toBe(404);expect(forwarded).toBe(false);
   });
 
   it('serves discovery through the fixed archive without exposing its credential', async () => {

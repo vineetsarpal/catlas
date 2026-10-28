@@ -33,10 +33,75 @@ class EdgeFixedLengthStream extends TransformStream<Uint8Array, Uint8Array> {
   constructor(expected: number) { let bytes = 0; super({ transform(chunk, controller) { bytes += chunk.byteLength; if (bytes > expected) throw new Error('FixedLengthStream length exceeded'); controller.enqueue(chunk); }, flush() { if (bytes !== expected) throw new Error('FixedLengthStream length mismatch'); } }); }
 }
 vi.stubGlobal('FixedLengthStream', EdgeFixedLengthStream);
+const ADMIN = 'private-admin-token-distinct-at-least-32chars';
 const TOKEN = 'test-token-at-least-24-characters';
-const authorized = (path: string, body?: unknown) => new Request(`https://proof.example${path}`, { method: body ? 'POST' : 'GET', headers: { authorization: `Bearer ${TOKEN}`, ...(body ? { 'content-type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+const authorized = (path: string, body?: unknown) => new Request(`https://proof.example${path}`, { method: body ? 'POST' : 'GET', headers: { authorization: `Bearer ${path.startsWith('/api/maintenance/') ? ADMIN : TOKEN}`, ...(body ? { 'content-type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
 
 describe('public archive HTTP boundary', () => {
+  it('keeps maintenance private from the public archive credential', async () => {
+    const deps = fixture(); const handler = createArchiveHandler(deps);
+    const response = await handler(new Request(authorized('/api/maintenance/cleanup/preview', {}), { headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' } }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: 'different-admin-token-at-least-24chars' });
+    expect(response.status).toBe(401);
+    expect((await handler(new Request(authorized('/api/maintenance/usage'), { headers: { authorization: `Bearer ${TOKEN}` } }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: 'different-admin-token-at-least-24chars' })).status).toBe(401);
+  });
+
+  it('explicitly checks the source while reusing an unchanged capture without downloading its grid', async () => {
+    const deps = fixture(); const handler = createArchiveHandler(deps);
+    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json() as Capture;
+    const upstream = deps.providerFetch; const sources: string[] = [];
+    deps.providerFetch = async (...args) => { sources.push(String(args[0])); return upstream(...args); };
+    const check = await handler(authorized('/api/captures/check', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
+    expect(check.status).toBe(200);
+    expect(await check.json()).toMatchObject({ capturedAt: first.capturedAt, artifacts: first.artifacts, product: first.product });
+    expect(sources).toEqual(['https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventid=ci38457511']);
+  });
+
+  it('reuses original evidence when only the source check metadata timestamp advances', async () => {
+    const deps = fixture(); const handler = createArchiveHandler(deps);
+    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json() as Capture;
+    const upstream = deps.providerFetch;
+    deps.providerFetch = async (...args) => {
+      const body = await (await upstream(...args)).json() as { properties: { updated: number } };
+      body.properties.updated += 1000; return Response.json(body);
+    };
+    const check = await handler(authorized('/api/captures/check', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
+    expect(check.status).toBe(200);
+    expect(await check.json()).toMatchObject({ capturedAt: first.capturedAt, artifacts: first.artifacts });
+  });
+
+  it('captures revised observations with their own detail while reusing an unchanged product grid', async () => {
+    const deps = fixture(); const handler = createArchiveHandler(deps);
+    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json() as Capture;
+    const upstream = deps.providerFetch; const sources: string[] = [];
+    deps.providerFetch = async (...args) => {
+      sources.push(String(args[0]));
+      if (String(args[0]).includes('grid.xml')) return upstream(...args);
+      const detail = await (await upstream(...args)).json() as { properties: { mag?: number } };
+      detail.properties.mag = 6.9; return Response.json(detail);
+    };
+    const check = await handler(authorized('/api/captures/check', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
+    expect(check.status).toBe(201);
+    const revised = await check.json() as Capture;
+    expect(revised.artifacts.detail.sha256).not.toBe(first.artifacts.detail.sha256);
+    expect(revised.artifacts.grid).toEqual(first.artifacts.grid);
+    expect(sources).toEqual(['https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventid=ci38457511']);
+  });
+
+  it('never reports a failed revised publication as success merely because the previous capture still exists', async () => {
+    const deps = fixture(); const handler = createArchiveHandler(deps);
+    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json() as Capture;
+    const upstream = deps.providerFetch;
+    deps.providerFetch = async (...args) => {
+      const result = await upstream(...args);
+      return new Response((await result.text()).replaceAll('1562383293000', '1562383393000'));
+    };
+    deps.database.publish = async () => { throw new Error('Publication failed before commit'); };
+    const failed = await handler(authorized('/api/captures/check', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
+    expect(failed.status).toBe(503);
+    expect(await failed.json()).toMatchObject({ error: { code: 'capture_uncertain' } });
+    expect(await (await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json()).toMatchObject({ product: first.product, artifacts: first.artifacts });
+  });
+
   it('keeps an event with no active ShakeMap distinct from missing grid and pending capture states', async () => {
     const deps = fixture(); const upstream = deps.providerFetch;
     deps.providerFetch = async (...args) => {
@@ -45,11 +110,11 @@ describe('public archive HTTP boundary', () => {
       return Response.json(detail);
     };
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(422);
     expect((await response.json() as { error: { code: string } }).error.code).toBe('evidence_unavailable');
     deps.database.status = async () => 'pending';
-    const pending = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN });
+    const pending = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(pending.status).toBe(409);
     expect((await pending.json() as { error: { code: string } }).error.code).toBe('capture_pending');
   });
@@ -63,72 +128,72 @@ describe('public archive HTTP boundary', () => {
       ? new Response(new ReadableStream({ start(controller) { controller.error(new Error('private source body transport details')); } }))
       : upstream(...args);
     const handler = createArchiveHandler(deps);
-    const failed = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const failed = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(failed.status).toBe(502);
     expect((await failed.json() as { error: { code: string } }).error.code).toBe('source_unavailable');
-    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).status).toBe(404);
+    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(404);
     unavailable = false;
-    expect((await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN })).status).toBe(201);
-    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).status).toBe(200);
+    expect((await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(201);
+    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(200);
   });
 
   it('recovers a generic API interruption without losing the frozen capture', async () => {
     const deps = fixture(); const handler = createArchiveHandler(deps);
-    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN })).json() as Capture;
+    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json() as Capture;
     let unavailable = true;
     deps.rateLimit = async () => { if (unavailable) throw new Error('private API dependency diagnostics'); return true; };
-    const failed = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN });
+    const failed = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(failed.status).toBe(503);
     expect(await failed.json()).toEqual({ error: { code: 'service_unavailable', message: 'The archive service failed. Previously saved local cases remain usable.' } });
     unavailable = false;
-    const recovered = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN });
+    const recovered = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(recovered.status).toBe(200);
     expect(await recovered.json()).toMatchObject({ event: first.event, product: first.product, capturedAt: first.capturedAt, artifacts: first.artifacts });
   });
 
   it('retains a successful capture through source failure and resolves a new alias on explicit retry', async () => {
     const deps = fixture(); const handler = createArchiveHandler(deps);
-    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN })).json() as Capture;
+    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json() as Capture;
     const upstream = deps.providerFetch; let unavailable = true;
     deps.providerFetch = async (...args) => unavailable ? new Response('private source detail', { status: 503 }) : upstream(...args);
-    const failed = await handler(authorized('/api/captures', { eventId: 'later-source-alias' }), { PROOF_TOKEN: TOKEN });
+    const failed = await handler(authorized('/api/captures', { eventId: 'later-source-alias' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(failed.status).toBe(502);
     expect((await failed.json() as { error: { code: string } }).error.code).toBe('source_unavailable');
-    expect(await (await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).json()).toMatchObject({ capturedAt: first.capturedAt, artifacts: first.artifacts });
+    expect(await (await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json()).toMatchObject({ capturedAt: first.capturedAt, artifacts: first.artifacts });
     unavailable = false;
-    const recovered = await handler(authorized('/api/captures', { eventId: 'later-source-alias' }), { PROOF_TOKEN: TOKEN });
+    const recovered = await handler(authorized('/api/captures', { eventId: 'later-source-alias' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(recovered.status).toBe(200);
-    expect(await (await handler(authorized('/api/captures/later-source-alias'), { PROOF_TOKEN: TOKEN })).json()).toMatchObject({ event: first.event, product: first.product, capturedAt: first.capturedAt, artifacts: first.artifacts });
+    expect(await (await handler(authorized('/api/captures/later-source-alias'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json()).toMatchObject({ event: first.event, product: first.product, capturedAt: first.capturedAt, artifacts: first.artifacts });
   });
 
   it('recovers object-store access without changing retained capture identities or original bytes', async () => {
     const deps = fixture(); const handler = createArchiveHandler(deps);
-    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN })).json() as Capture;
+    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json() as Capture;
     const read = deps.bucket.head; let unavailable = true;
     deps.bucket.head = async key => { if (unavailable) throw new Error('private R2 storage diagnostic'); return read(key); };
-    const failed = await handler(authorized('/api/captures/alias1'), { PROOF_TOKEN: TOKEN });
+    const failed = await handler(authorized('/api/captures/alias1'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(failed.status).toBe(503);
     expect(await failed.json()).toEqual({ error: { code: 'object_store_unavailable', message: 'The public evidence object store is unavailable. Retry explicitly.' } });
     unavailable = false;
-    const recovered = await handler(authorized('/api/captures/alias1'), { PROOF_TOKEN: TOKEN });
+    const recovered = await handler(authorized('/api/captures/alias1'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(recovered.status).toBe(200);
     expect(await recovered.json()).toMatchObject({ event: first.event, product: first.product, capturedAt: first.capturedAt, artifacts: first.artifacts });
-    expect(await (await handler(authorized(first.artifacts.grid.path), { PROOF_TOKEN: TOKEN })).text()).toBe(GRID);
+    expect(await (await handler(authorized(first.artifacts.grid.path), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).text()).toBe(GRID);
   });
 
   it('recovers a Neon transport interruption and retrieves the retained capture through its alias', async () => {
     const deps = fixture(); const handler = createArchiveHandler(deps);
-    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN })).json() as Capture;
+    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json() as Capture;
     let unavailable = true;
-    deps.database = createPostgresDatabase(async () => {
+    deps.database = createPostgresDatabase(async (sql) => {
       if (unavailable) throw new Error('private Neon connection details postgres://secret:password@database.invalid');
-      return [{ manifest: first }];
+      return sql.includes('catlas_proof_artifact_lifecycle') ? [] : [{ manifest: first }];
     });
-    const failed = await handler(authorized('/api/captures/alias1'), { PROOF_TOKEN: TOKEN });
+    const failed = await handler(authorized('/api/captures/alias1'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(failed.status).toBe(503);
     expect(await failed.json()).toEqual({ error: { code: 'database_unavailable', message: 'The public metadata database is unavailable. Retry explicitly.' } });
     unavailable = false;
-    const recovered = await handler(authorized('/api/captures/alias1'), { PROOF_TOKEN: TOKEN });
+    const recovered = await handler(authorized('/api/captures/alias1'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(recovered.status).toBe(200);
     expect(await recovered.json()).toMatchObject({ event: first.event, product: first.product, capturedAt: first.capturedAt, artifacts: first.artifacts });
   });
@@ -137,20 +202,20 @@ describe('public archive HTTP boundary', () => {
     const deps = fixture(); const upstream = deps.providerFetch;
     deps.providerFetch = async (...args) => String(args[0]).includes('grid.xml') ? new Response('private missing grid diagnostics', { status: 404 }) : upstream(...args);
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(422);
     expect((await response.json() as { error: { code: string } }).error.code).toBe('grid_unavailable');
-    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).status).toBe(404);
+    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(404);
   });
 
   it('distinguishes a grid missing its MMI field from incompatible units', async () => {
     const deps = fixture(); const upstream = deps.providerFetch;
     deps.providerFetch = async (...args) => new Response((await (await upstream(...args)).text()).replace('name="MMI"', 'name="PGA"'));
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(422);
     expect((await response.json() as { error: { code: string } }).error.code).toBe('unsupported_layout');
-    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).status).toBe(404);
+    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(404);
   });
 
   it('distinguishes an active ShakeMap without a numeric grid from no active product', async () => {
@@ -161,15 +226,15 @@ describe('public archive HTTP boundary', () => {
       return Response.json(detail);
     };
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({ error: { code: 'grid_unavailable', message: 'The selected active ShakeMap has no numeric grid.xml. Intensity is unknown.' } });
-    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).status).toBe(404);
+    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(404);
   });
 
   it('preserves provider quota classification when publication cannot be confirmed', async () => {
     const deps = fixture(); deps.database.publish = async () => { throw new ArchiveError('provider_quota', 'Neon is limiting requests.', 503); };
-    const response = await createArchiveHandler(deps)(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await createArchiveHandler(deps)(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(503);
     const body = await response.json() as { error: { code: string; message: string } };
     expect(body.error.code).toBe('provider_quota');
@@ -185,7 +250,7 @@ describe('public archive HTTP boundary', () => {
     const deps = fixture();
     if (provider === 'Neon') deps.database = createPostgresDatabase(async () => { throw new Error(diagnostic); });
     else deps.bucket.head = async () => { throw new Error(diagnostic); };
-    const response = await createArchiveHandler(deps)(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await createArchiveHandler(deps)(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     const body = await response.text();
     expect(JSON.parse(body).error.code).toBe(expected);
     expect(body).not.toContain(diagnostic);
@@ -193,27 +258,27 @@ describe('public archive HTTP boundary', () => {
 
   it('distinguishes an upstream source quota from unavailable earthquake evidence', async () => {
     const deps = fixture(); deps.providerFetch = async () => new Response('private source quota details', { status: 429 });
-    const response = await createArchiveHandler(deps)(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await createArchiveHandler(deps)(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: { code: 'provider_quota', message: 'USGS is limiting source requests. Retry explicitly later.' } });
   });
 
   it('reports a Neon provider quota without exposing the database response', async () => {
     const deps = fixture(); deps.database = createPostgresDatabase(async () => { throw new Error('Server error (HTTP status 429): private database diagnostics'); });
-    const response = await createArchiveHandler(deps)(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN });
+    const response = await createArchiveHandler(deps)(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: { code: 'provider_quota', message: 'Neon is limiting requests or has exhausted a provider allowance. Retry explicitly later.' } });
   });
 
   it('preserves a provider-quota refusal when an upload is interrupted', async () => {
     const deps = fixture(); deps.bucket.put = async () => { throw new Error('R2 PUT: private diagnostic (10058)'); };
-    const response = await createArchiveHandler(deps)(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await createArchiveHandler(deps)(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect((await response.json() as { error: { code: string } }).error.code).toBe('provider_quota');
   });
 
   it('distinguishes object-provider throttling from application storage refusal', async () => {
     const deps = fixture(); deps.bucket.head = async () => { throw new Error('R2 HEAD: private diagnostic (10058)'); };
-    const response = await createArchiveHandler(deps)(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await createArchiveHandler(deps)(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: { code: 'provider_quota', message: 'R2 is limiting requests or has exhausted a provider allowance. Retry explicitly later.' } });
   });
@@ -222,16 +287,16 @@ describe('public archive HTTP boundary', () => {
     const deps = fixture();
     Object.assign(deps.database, { usage: async () => ({ databaseBytes: 8000, reservedArtifactBytes: 1200, referencedArtifactBytes: 1000, abandonedArtifactBytes: 200, recordedBackupBytes: 1500, captureAttemptsToday: 2, usageDate: '2026-10-25' }) });
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/maintenance/usage'), { PROOF_TOKEN: TOKEN, MAX_R2_BYTES: '10000', BACKUP_RESERVED_BYTES: '1000' });
+    const response = await handler(authorized('/api/maintenance/usage'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN, MAX_R2_BYTES: '10000', BACKUP_RESERVED_BYTES: '1000' });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ reservedArtifactBytes: 1200, abandonedArtifactBytes: 200, recordedBackupBytes: 1500, effectiveBackupBytes: 1500, accountedObjectBytes: 2700, availableObjectBytes: 7300 });
   });
 
   it('makes a newly discovered source alias retrievable without rewriting the retained capture', async () => {
     const handler = createArchiveHandler(fixture());
-    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN })).json() as Capture;
-    expect((await handler(authorized('/api/captures', { eventId: 'later-alias' }), { PROOF_TOKEN: TOKEN })).status).toBe(200);
-    const retrieved = await handler(authorized('/api/captures/later-alias'), { PROOF_TOKEN: TOKEN });
+    const first = await (await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json() as Capture;
+    expect((await handler(authorized('/api/captures', { eventId: 'later-alias' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(200);
+    const retrieved = await handler(authorized('/api/captures/later-alias'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(retrieved.status).toBe(200);
     expect((await retrieved.json() as Capture).capturedAt).toBe(first.capturedAt);
   });
@@ -244,10 +309,10 @@ describe('public archive HTTP boundary', () => {
       recordOrphan: async () => {},
     });
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/maintenance/reconcile', {}), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/maintenance/reconcile', {}), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ checked: 16, present: 0, missing: 16, invalid: 0, retainedBytes: 1600 });
-    expect((await handler(authorized('/api/artifacts/' + abandoned[0].sha256), { PROOF_TOKEN: TOKEN })).status).toBe(404);
+    expect((await handler(authorized('/api/artifacts/' + abandoned[0].sha256), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(404);
   });
 
   it('bounds a stalled object-store check and permits a later explicit retry', async () => {
@@ -258,33 +323,33 @@ describe('public archive HTTP boundary', () => {
     deps.bucket.head = async () => { entered(); await blocked; return null; };
     const handler = createArchiveHandler(deps);
     let settled: Response | undefined;
-    const pending = handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN }).then(response => { settled = response; return response; });
+    const pending = handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN }).then(response => { settled = response; return response; });
     try {
       await started; await vi.advanceTimersByTimeAsync(15_000);
       expect(settled?.status).toBe(503);
     } finally { unblock(); await pending; vi.useRealTimers(); }
     deps.bucket.head = head;
-    expect((await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN })).status).toBe(201);
+    expect((await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(201);
   });
 
   it('recovers the immutable capture when publication commits but its acknowledgement is lost', async () => {
     const deps = fixture(); const publish = deps.database.publish;
     deps.database.publish = async (...args) => { await publish(...args); throw new Error('acknowledgement lost'); };
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(200);
     const capture = await response.json() as Capture;
-    const retried = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const retried = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect((await retried.json() as Capture).artifacts).toEqual(capture.artifacts);
   });
 
   it('returns a completed capture even if lease cleanup loses its acknowledgement', async () => {
     const deps = fixture(); deps.database.release = async () => { throw new Error('connection lost'); };
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(201);
     const capture = await response.json() as Capture;
-    expect((await (await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).json() as Capture).capturedAt).toBe(capture.capturedAt);
+    expect((await (await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).json() as Capture).capturedAt).toBe(capture.capturedAt);
   });
 
   it('reports a pending capture while another request acquires evidence', async () => {
@@ -295,10 +360,10 @@ describe('public archive HTTP boundary', () => {
     Object.assign(deps.database, { status: async () => pending ? 'pending' : null });
     deps.providerFetch = async (...args) => { pending = true; entered(); await blocked; return upstream(...args); };
     const handler = createArchiveHandler(deps);
-    const capture = handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const capture = handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     await started;
     try {
-      const response = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN });
+      const response = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
       expect(response.status).toBe(409);
       expect((await response.json() as { error: { code: string } }).error.code).toBe('capture_pending');
     } finally { release(); await capture; }
@@ -310,99 +375,99 @@ describe('public archive HTTP boundary', () => {
     expect(await response.json()).toEqual({ error: { code: 'unauthorized', message: 'A valid proof token is required.' } });
   });
   it('rejects insured-data fields rather than accepting an open-ended capture payload', async () => {
-    const response = await worker.fetch(new Request('https://proof.example/api/captures', { method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: '{"eventId":"ci38457511","portfolio":[{"value":100}]}' }), { PROOF_TOKEN: TOKEN });
+    const response = await worker.fetch(new Request('https://proof.example/api/captures', { method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: '{"eventId":"ci38457511","portfolio":[{"value":100}]}' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: { code: 'invalid_request', message: 'Send only a valid USGS eventId.' } });
   });
   it('captures public evidence, retrieves exact bytes, then reuses the same capture', async () => {
     const handler = createArchiveHandler(fixture());
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(201);
     const first = await response.json() as Capture & { cache: string };
     expect(first.cache).toBe('miss');
     expect(first.artifacts.grid.sha256).toBe('48c9888fc2f87da3f92fab08e3f189eb778b23bb11b928bf8692888bc1ece6aa');
-    const original = await handler(authorized(first.artifacts.grid.path), { PROOF_TOKEN: TOKEN });
+    const original = await handler(authorized(first.artifacts.grid.path), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(await original.text()).toBe(GRID);
-    const repeated = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const repeated = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     const second = await repeated.json() as Capture & { cache: string };
     expect(second.cache).toBe('hit');
     expect(second.capturedAt).toBe(first.capturedAt);
     expect(second.artifacts).toEqual(first.artifacts);
-    const alias = await handler(authorized('/api/captures/alias1'), { PROOF_TOKEN: TOKEN });
+    const alias = await handler(authorized('/api/captures/alias1'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect((await alias.json() as Capture).event.id).toBe('ci38457511');
   });
   it('keeps unsupported MMI units unassessable and does not publish a capture', async () => {
     const deps = fixture(); const upstream = deps.providerFetch;
     deps.providerFetch = async (...args) => { const response = await upstream(...args); return new Response((await response.text()).replace('units="intensity"', 'units="cm/s"')); };
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(422);
     expect((await response.json() as { error: { code: string } }).error.code).toBe('unsupported_units');
-    const cached = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN });
+    const cached = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(cached.status).toBe(404);
   });
   it('does not advertise an interrupted object write and succeeds on explicit retry', async () => {
     const deps = fixture(); const write = deps.bucket.put; let fail = true;
     deps.bucket.put = async (...args) => { if (fail) throw new Error('private upstream diagnostics'); return write(...args); };
     const handler = createArchiveHandler(deps);
-    const failed = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const failed = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(failed.status).toBe(503);
     expect(await failed.json()).toEqual({ error: { code: 'object_store_unavailable', message: 'The public evidence object store is unavailable. Retry explicitly.' } });
-    const missing = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN });
+    const missing = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(missing.status).toBe(404);
     fail = false;
-    const retried = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const retried = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(retried.status).toBe(201);
     expect((await retried.json() as Capture).event.id).toBe('ci38457511');
   });
   it('refuses acquisition at the rate limit without creating a capture', async () => {
     const deps = fixture(); deps.rateLimit = async () => false;
     const handler = createArchiveHandler(deps);
-    const limited = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const limited = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(limited.status).toBe(429);
     expect((await limited.json() as { error: { code: string } }).error.code).toBe('rate_limited');
   });
   it('refuses evidence above the configured byte limit and leaves no capture available', async () => {
     const handler = createArchiveHandler(fixture());
-    const failed = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, MAX_GRID_BYTES: '10' });
+    const failed = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN, MAX_GRID_BYTES: '10' });
     expect(failed.status).toBe(413);
-    const cached = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN });
+    const cached = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(cached.status).toBe(404);
   });
   it('preserves existing reads when the storage budget refuses a new capture', async () => {
     const deps = fixture(); const handler = createArchiveHandler(deps);
-    const first = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const first = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(first.status).toBe(201);
     deps.database.acquire = async () => { throw new ArchiveError('capacity_exceeded', 'The proof storage budget was reached.', 507); };
-    const failed = await handler(authorized('/api/captures', { eventId: 'different-event' }), { PROOF_TOKEN: TOKEN });
+    const failed = await handler(authorized('/api/captures', { eventId: 'different-event' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(failed.status).toBe(507);
-    const retained = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN });
+    const retained = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(retained.status).toBe(200);
     const metadata = await retained.json() as Capture;
-    const original = await handler(authorized(metadata.artifacts.grid.path), { PROOF_TOKEN: TOKEN });
+    const original = await handler(authorized(metadata.artifacts.grid.path), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(await original.text()).toBe(GRID);
   });
   it('does not advertise missing artifacts when a newly requested source ID resolves to a captured event', async () => {
     const deps = fixture(); const handler = createArchiveHandler(deps);
-    expect((await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN })).status).toBe(201);
+    expect((await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(201);
     deps.bucket.head = async () => null;
-    const response = await handler(authorized('/api/captures', { eventId: 'new-source-alias' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'new-source-alias' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(503);
     expect((await response.json() as { error: { code: string } }).error.code).toBe('artifact_unavailable');
   });
   it('reports a source HTTP 403 without exposing the upstream response body or publishing evidence', async () => {
     const deps = fixture(); deps.providerFetch = async () => new Response('private source diagnostics that must not be exposed', { status: 403 });
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: { code: 'source_unavailable', message: 'USGS GET event detail returned HTTP 403. Retry explicitly.' } });
-    const cached = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN });
+    const cached = await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(cached.status).toBe(404);
   });
   it('distinguishes a source transport error without exposing diagnostic text', async () => {
     const deps = fixture(); deps.providerFetch = async () => { throw new TypeError('fetch failed: network connection lost; Bearer secret-never-expose'); };
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(502);
     const body = await response.text();
     expect(JSON.parse(body)).toEqual({ error: { code: 'source_unavailable', message: 'USGS GET event detail transport failed. Retry explicitly.' } });
@@ -416,10 +481,10 @@ describe('public archive HTTP boundary', () => {
       return upstream(input, init);
     };
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(201);
     const capture = await response.json() as Capture;
-    expect(await (await handler(authorized(capture.artifacts.grid.path), { PROOF_TOKEN: TOKEN })).text()).toBe(GRID);
+    expect(await (await handler(authorized(capture.artifacts.grid.path), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).text()).toBe(GRID);
   });
   it('refuses a source redirect without following its target or publishing a capture', async () => {
     const deps = fixture(); const upstream = deps.providerFetch;
@@ -432,10 +497,10 @@ describe('public archive HTTP boundary', () => {
       return upstream(input, init);
     };
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: { code: 'source_redirect', message: 'USGS GET numeric grid returned HTTP 302. Redirects are not followed.' } });
-    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).status).toBe(404);
+    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(404);
   });
   it('captures an original grid through the native object-store stream when the source supplies hash and length', async () => {
     const deps = fixture({ sha256: 'SMmIj8L4faP5L6sI4/GJ63eLI7sRuSi/hpKIi8Hs5qo=', length: new TextEncoder().encode(GRID).byteLength });
@@ -445,28 +510,28 @@ describe('public archive HTTP boundary', () => {
       return write(key, value, options);
     };
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(201);
     const capture = await response.json() as Capture;
-    expect(await (await handler(authorized(capture.artifacts.grid.path), { PROOF_TOKEN: TOKEN })).text()).toBe(GRID);
+    expect(await (await handler(authorized(capture.artifacts.grid.path), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).text()).toBe(GRID);
   });
   it('never publishes a streamed grid that is shorter than the source-declared byte length', async () => {
     const deps = fixture({ sha256: '48c9888fc2f87da3f92fab08e3f189eb778b23bb11b928bf8692888bc1ece6aa', length: new TextEncoder().encode(GRID).byteLength + 10 });
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(502);
     expect((await response.json() as { error: { code: string } }).error.code).toBe('source_integrity');
-    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).status).toBe(404);
+    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(404);
   });
   it('never publishes streamed bytes rejected by native object-store checksum verification', async () => {
     const deps = fixture({ sha256: '48c9888fc2f87da3f92fab08e3f189eb778b23bb11b928bf8692888bc1ece6aa', length: new TextEncoder().encode(GRID).byteLength });
     const upstream = deps.providerFetch;
     deps.providerFetch = async (input, init) => String(input).includes('grid.xml') ? new Response(GRID.replace('6.2', '6.3')) : upstream(input, init);
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(503);
     expect((await response.json() as { error: { code: string } }).error.code).toBe('artifact_integrity');
-    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).status).toBe(404);
+    expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(404);
   });
   it('uploads both original detail and grid through the object-store streaming boundary', async () => {
     const deps = fixture({ sha256: 'SMmIj8L4faP5L6sI4/GJ63eLI7sRuSi/hpKIi8Hs5qo=', length: new TextEncoder().encode(GRID).byteLength });
@@ -476,12 +541,12 @@ describe('public archive HTTP boundary', () => {
       return write(key, value, options);
     };
     const handler = createArchiveHandler(deps);
-    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN });
+    const response = await handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect(response.status).toBe(201);
     const capture = await response.json() as Capture;
-    const detail = await handler(authorized(capture.artifacts.detail.path), { PROOF_TOKEN: TOKEN });
+    const detail = await handler(authorized(capture.artifacts.detail.path), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN });
     expect((await detail.json() as { id: string }).id).toBe('ci38457511');
-    expect(await (await handler(authorized(capture.artifacts.grid.path), { PROOF_TOKEN: TOKEN })).text()).toBe(GRID);
+    expect(await (await handler(authorized(capture.artifacts.grid.path), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).text()).toBe(GRID);
   });
   it('times out a hanging source at the acquisition deadline without making a capture available', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -495,7 +560,7 @@ describe('public archive HTTP boundary', () => {
     });
     const handler = createArchiveHandler(deps);
     let settled: Response | undefined;
-    const pending = handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN }).then(response => { settled = response; return response; });
+    const pending = handler(authorized('/api/captures', { eventId: 'ci38457511' }), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN }).then(response => { settled = response; return response; });
     try {
       await started;
       await vi.advanceTimersByTimeAsync(59_999);
@@ -503,7 +568,7 @@ describe('public archive HTTP boundary', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(settled?.status).toBe(502);
       expect((await settled!.json() as { error: { code: string } }).error.code).toBe('source_unavailable');
-      expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN })).status).toBe(404);
+      expect((await handler(authorized('/api/captures/ci38457511'), { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN })).status).toBe(404);
     } finally { stop(); await pending; vi.useRealTimers(); }
   });
 });
@@ -514,7 +579,7 @@ describe('Durable Object proof HTTP route', () => {
     const execute = createCoordinatorHandler((request, env) => createArchiveHandler(deps)(request, env));
     const env = { CAPTURE_COORDINATOR: {
       idFromName: () => 'proof-coordinator',
-      get: () => ({ fetch: (request: Request) => execute(request, { PROOF_TOKEN: TOKEN }) }),
+      get: () => ({ fetch: (request: Request) => execute(request, { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN }) }),
     } } as never;
     const response = await routeRequest(authorized('/api/captures', { eventId: 'ci38457511' }), env);
     expect(response.status).toBe(201);
@@ -537,7 +602,7 @@ describe('Durable Object proof HTTP route', () => {
     let entered!: () => void; const requested = new Promise<void>(resolve => { entered = resolve; }); let held = false;
     deps.providerFetch = async (input, init) => { if (!held) { held = true; entered(); await wait; } return upstream(input, init); };
     const execute = createCoordinatorHandler((request, env, admission) => createArchiveHandler(deps, admission)(request, env));
-    const env = { CAPTURE_COORDINATOR: { idFromName: () => 'proof', get: () => ({ fetch: (request: Request) => execute(request, { PROOF_TOKEN: TOKEN }) }) } } as never;
+    const env = { CAPTURE_COORDINATOR: { idFromName: () => 'proof', get: () => ({ fetch: (request: Request) => execute(request, { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN }) }) } } as never;
     const first = routeRequest(authorized('/api/captures', { eventId: 'ci38457511' }), env);
     await requested;
     try {
@@ -554,7 +619,7 @@ describe('Durable Object proof HTTP route', () => {
     const deps = fixture(); const write = deps.bucket.put; let fail = true;
     deps.bucket.put = async (...args) => { if (fail) throw new Error('Disposable object store unavailable'); return write(...args); };
     const execute = createCoordinatorHandler((request, env, admission) => createArchiveHandler(deps, admission)(request, env));
-    const env = { CAPTURE_COORDINATOR: { idFromName: () => 'proof', get: () => ({ fetch: (request: Request) => execute(request, { PROOF_TOKEN: TOKEN }) }) } } as never;
+    const env = { CAPTURE_COORDINATOR: { idFromName: () => 'proof', get: () => ({ fetch: (request: Request) => execute(request, { PROOF_TOKEN: TOKEN, ADMIN_TOKEN: ADMIN }) }) } } as never;
     const failed = await routeRequest(authorized('/api/captures', { eventId: 'ci38457511' }), env);
     expect(failed.status).toBe(503);
     expect(failed.headers.get('X-Catlas-Executor')).toBe('durable-object');

@@ -15,6 +15,8 @@ const catalogPageSchema = z.object({
 export type CatalogPage = z.infer<typeof catalogPageSchema>;
 
 const messages: Record<string, string> = {
+  cleanup_conflict: 'Public archive cleanup is in progress. Retry evidence retrieval after the operator completes it; saved local investigations remain usable.',
+  artifact_expired: 'Public evidence was removed by private archive cleanup. Retry evidence retrieval explicitly; the source may no longer provide it. Saved local investigations remain usable.',
   artifact_unavailable: 'Captured artifact unavailable in archive object storage. Retained evidence and saved cases are unchanged.',
   artifact_not_found: 'Captured artifact not found in archive object storage. Retained evidence and saved cases are unchanged.',
   artifact_integrity: 'Stored artifact failed SHA-256 integrity verification. No replacement evidence was selected.',
@@ -47,7 +49,7 @@ const messages: Record<string, string> = {
 };
 export class ArchiveEvidenceError extends Error {
   readonly code: string;
-  constructor(code:string) { super(Object.hasOwn(messages,code)?messages[code]:messages.archive_unavailable); this.name='ArchiveEvidenceError';this.code=Object.hasOwn(messages,code)?code:'archive_unavailable'; }
+  constructor(code:string,expired=false) { super((Object.hasOwn(messages,code)?messages[code]:messages.archive_unavailable)+(expired?' '+messages.artifact_expired:'')); this.name='ArchiveEvidenceError';this.code=Object.hasOwn(messages,code)?code:'archive_unavailable'; }
 }
 export function archiveEvidenceFailure(error:unknown):ArchiveEvidenceError { return error instanceof ArchiveEvidenceError?error:new ArchiveEvidenceError('archive_unavailable'); }
 async function jsonResponse(response: Response): Promise<unknown> {
@@ -55,8 +57,8 @@ async function jsonResponse(response: Response): Promise<unknown> {
   let body: unknown;
   try { body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { body = null; }
   if (!response.ok) {
-    const error = z.object({ error: z.object({ code: z.string() }) }).safeParse(body);
-    throw new ArchiveEvidenceError(error.success?error.data.error.code:'archive_unavailable');
+    const error = z.object({ error: z.object({ code: z.string() }), archiveEvidence: z.literal('expired').optional() }).safeParse(body);
+    throw new ArchiveEvidenceError(error.success?error.data.error.code:'archive_unavailable',error.success&&error.data.archiveEvidence==='expired');
   }
   return body;
 }
@@ -95,10 +97,10 @@ async function original(artifact: z.infer<typeof artifactSchema>, signal: AbortS
   // Preserve a UTF-8 BOM in retained originals; strip only for JSON interpretation below.
   return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
 }
-async function readArchivedEarthquake(id: string, signal?: AbortSignal): Promise<LiveCapture> {
+async function readArchivedEarthquake(id: string, signal?: AbortSignal, checkSource = false): Promise<LiveCapture> {
   eventId.parse(id);
   const boundedSignal = requestSignal(signal);
-  const response = await fetch('/api/exposure/captures', { method: 'POST', signal: boundedSignal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ eventId: id }), cache: 'no-store' });
+  const response = await fetch(checkSource?'/api/exposure/captures/check':'/api/exposure/captures', { method: 'POST', signal: boundedSignal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ eventId: id }), cache: 'no-store' });
   const parsed = manifestSchema.safeParse(await jsonResponse(response));
   if (!parsed.success) throw new ArchiveEvidenceError('source_integrity');
   const manifest = parsed.data;
@@ -130,4 +132,8 @@ async function readArchivedEarthquake(id: string, signal?: AbortSignal): Promise
 
 export async function captureArchivedEarthquake(id:string,signal?:AbortSignal):Promise<LiveCapture>{
   try{return await readArchivedEarthquake(id,signal);}catch(error){throw archiveEvidenceFailure(error);}
+}
+
+export async function checkArchivedEarthquake(id:string,signal?:AbortSignal):Promise<LiveCapture>{
+  try{return await readArchivedEarthquake(id,signal,true);}catch(error){throw archiveEvidenceFailure(error);}
 }

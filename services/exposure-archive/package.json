@@ -9,7 +9,9 @@
     "test": "vitest run",
     "build": "wrangler deploy --dry-run --outdir dist",
     "migrate": "node scripts/migrate.mjs",
-    "measure": "node scripts/measure.mjs"
+    "measure": "node scripts/measure.mjs",
+    "cleanup": "node scripts/cleanup.mjs",
+    "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.0.2"

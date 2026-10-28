@@ -4,6 +4,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-24",
   "workers_dev": true,
+  "triggers": { "crons": ["0 6 * * *"] },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
@@ -31,8 +32,8 @@
     "MAX_GRID_BYTES": "33554432",
     "MAX_DETAIL_BYTES": "2097152",
     "MAX_DATABASE_BYTES": "100000000",
-    "MAX_R2_BYTES": "384000000",
-    "BACKUP_RESERVED_BYTES": "128000000",
+    "MAX_R2_BYTES": "768000000",
+    "BACKUP_RESERVED_BYTES": "256000000",
     "MAX_CAPTURE_ATTEMPTS_PER_DAY": "100",
     "MAX_MAINTENANCE_REQUESTS_PER_DAY": "20"
   },

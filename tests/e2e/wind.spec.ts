@@ -35,7 +35,7 @@ test('backend metadata failure can retry, then grid failure is explicit',async({
   await page.goto('/?mode=monitor');
   await page.getByText('Layers',{exact:true}).click();
   await expect(page.getByRole('switch',{name:'Wind',exact:true})).toBeEnabled();
-  await expect(page.getByRole('region',{name:'Wind display'})).toContainText('Wind unavailable: Local backend unavailable (503)');
+  await expect(page.getByRole('region',{name:'Wind display'})).toContainText('Wind unavailable: Monitor backend unavailable (503)');
   failMetadata=false;
   await page.getByRole('button',{name:'Retry wind forecasts',exact:true}).click();
   await expect(page.getByLabel('Wind forecast valid time',{exact:true})).toBeVisible();

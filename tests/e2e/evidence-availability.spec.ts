@@ -36,7 +36,7 @@ test('failed retry retains only the selected event verified capture and its succ
  await expect(inspector(page)).toContainText('Retained verified evidence');await expect(inspector(page)).toContainText(files.artifacts.grid.sha256);await expect(inspector(page)).toContainText('Last failed check');
  await expect(inspector(page).locator(`time[datetime="${successful}"]`)).toBeVisible();
  await page.getByRole('button',{name:/Different earthquake/}).click();await expect(inspector(page)).not.toContainText(files.artifacts.grid.sha256);await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeDisabled();
- await page.getByLabel('USGS event ID',{exact:true}).fill('manual-known-id');await page.getByRole('button',{name:'Capture earthquake evidence',exact:true}).click();await expect(inspector(page).getByRole('heading')).toHaveText('USGS event manual-known-id');
+ await page.getByLabel('USGS event ID',{exact:true}).fill('manual-known-id');await page.getByRole('button',{name:'Capture earthquake evidence',exact:true}).click();await expect(inspector(page).getByRole('heading',{level:2})).toHaveText('USGS event manual-known-id');
 });
 for(const [code,label] of [['capture_pending','Evidence capture is pending'],['evidence_unavailable','No supported shaking evidence'],['grid_unavailable','No usable numeric grid'],['unsupported_layout','Unsupported ShakeMap layout'],['unsupported_units','Unsupported ShakeMap units']] as const){
  test(`${code} explains an unassessable selected event without intensity`,async({page})=>{
@@ -57,8 +57,8 @@ for(const kind of ['units','layout','hash'] as const){
 test('failed source update keeps a saved investigation inspectable and reopenable while all public services are unavailable',async({page},testInfo)=>{
  const files=await mockOriginals(page);let outage=false;
  await page.route('**/api/exposure/captures',route=>outage?route.fulfill({status:503,json:{error:{code:'archive_unavailable'}}}):route.fulfill({status:201,json:files.manifest}));
- await page.route('https://earthquake.usgs.gov/fdsnws/event/1/query?**',route=>route.fulfill({status:503,body:'PRIVATE USGS diagnostics'}));
- await page.route('**/api/exposure/**',route=>outage?route.fulfill({status:503,json:{error:{code:'archive_unavailable'}}}):route.fallback());
+ let sourceChecks=0,externalRequests=0;await page.route('https://earthquake.usgs.gov/**',route=>{externalRequests++;return route.abort();});
+ await page.route('**/api/exposure/**',route=>{if(route.request().url().endsWith('/captures/check')){sourceChecks++;expect(route.request().method()).toBe('POST');expect(route.request().postDataJSON()).toEqual({eventId:event.id});return route.fulfill({status:503,json:{error:{code:'source_unavailable',message:'PRIVATE USGS diagnostics'}}});}return outage?route.fulfill({status:503,json:{error:{code:'archive_unavailable'}}}):route.fallback();});
  await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolios',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();
  await page.getByRole('button',{name:/Availability earthquake/}).click();await expect(inspector(page)).toContainText(files.artifacts.grid.sha256);await page.getByRole('button',{name:'Assess portfolio',exact:true}).click();await page.getByRole('button',{name:'Save investigation',exact:true}).click();
  const before=await page.getByTestId('exposure-count').textContent();outage=true;
@@ -66,9 +66,9 @@ test('failed source update keeps a saved investigation inspectable and reopenabl
  await page.getByRole('button',{name:'Saved',exact:true}).click();await expect(page.locator('.atlas-catalog-panel .exposure-history li')).toHaveCount(1);await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();await expect(inspector(page)).toContainText(files.artifacts.grid.sha256);await expect(page.getByTestId('exposure-count')).toHaveText(before!);
  await page.screenshot({path:`output/playwright/cat50-retained-outage-${testInfo.project.name}.png`,fullPage:true});
  await page.reload();await page.getByRole('button',{name:'Saved',exact:true}).click();await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText(before!);await expect(inspector(page)).toContainText(files.artifacts.grid.sha256);
- await page.getByRole('button',{name:'Events',exact:true}).click();await page.getByLabel('USGS event ID',{exact:true}).fill(event.id);await page.getByRole('button',{name:'Capture earthquake evidence',exact:true}).click();await expect(inspector(page)).toContainText('Archive API unavailable');await expect(inspector(page)).toContainText(files.artifacts.grid.sha256);await expect(inspector(page)).toContainText('Retained verified evidence');
+ await page.getByRole('button',{name:'Events',exact:true}).click();await page.getByLabel('USGS event ID',{exact:true}).fill(event.id);await page.getByRole('button',{name:'Capture earthquake evidence',exact:true}).click();await expect(inspector(page)).toContainText('Archive API unavailable');await expect(inspector(page)).toContainText(files.artifacts.grid.sha256);await expect(inspector(page)).toContainText('Retained verified evidence');expect(sourceChecks).toBe(1);expect(externalRequests).toBe(0);
 });
-for(const [code,label] of [['artifact_unavailable','Captured artifact unavailable in archive object storage'],['artifact_integrity','Stored artifact failed SHA-256 integrity verification'],['constructor','Archive API unavailable']] as const){
+for(const [code,label] of [['cleanup_conflict','Public archive cleanup is in progress'],['artifact_unavailable','Captured artifact unavailable in archive object storage'],['artifact_integrity','Stored artifact failed SHA-256 integrity verification'],['constructor','Archive API unavailable']] as const){
  test(`artifact response ${code} retains a safe subsystem explanation`,async({page})=>{
   const files=await mockOriginals(page);await page.route('**/api/exposure/captures',route=>route.fulfill({status:201,json:files.manifest}));await page.route('**/api/exposure/artifacts/*',route=>route.fulfill({status:503,json:{error:{code,message:'PRIVATE storage diagnostics'}}}));
   await page.goto('/exposure.html');await page.getByRole('button',{name:/Availability earthquake/}).click();await expect(inspector(page)).toContainText(label);await expect(inspector(page)).not.toContainText('PRIVATE');await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeDisabled();
@@ -79,4 +79,19 @@ test('a delayed capture cannot overwrite a different observation selected in Rec
  await page.route('**/api/exposure/captures',async route=>{await pending;await route.fulfill({status:201,json:files.manifest});finished();});
  await page.goto('/exposure.html?recovery=parametric');await page.getByRole('button',{name:/Availability earthquake/}).click();await page.getByRole('button',{name:'Recovery',exact:true}).click();if(!await page.getByRole('combobox',{name:'Demonstration scenario',exact:true}).isVisible())await page.getByRole('button',{name:'Assessment',exact:true}).first().click();await page.getByRole('combobox',{name:'Demonstration scenario',exact:true}).selectOption('outer');await expect(page.getByRole('heading',{level:1})).toContainText('Synthetic');
  release();await completed;await page.getByRole('button',{name:'Exposure',exact:true}).click();await expect(page.getByRole('button',{name:/Availability earthquake/})).toBeEnabled();await expect(page.getByRole('heading',{level:1})).toContainText('Synthetic');await expect(inspector(page)).not.toContainText(files.artifacts.grid.sha256);await expect(inspector(page).getByRole('button',{name:'Retry evidence retrieval',exact:true})).toHaveCount(0);await expect(inspector(page)).not.toContainText('Last evidence check');
+});
+
+test('expired public evidence explains cleanup and requires an explicit bounded retry',async({page})=>{
+ const files=await mockOriginals(page);let expired=true;const requests:unknown[]=[];
+ await page.route('**/api/exposure/captures',route=>{requests.push(route.request().postDataJSON());return expired?route.fulfill({status:410,json:{error:{code:'artifact_expired',message:'PRIVATE maintenance audit'}}}):route.fulfill({status:201,json:files.manifest});});
+ await page.goto('/exposure.html');await page.getByRole('button',{name:/Availability earthquake/}).click();
+ await expect(inspector(page)).toContainText('removed by private archive cleanup');
+ await expect(inspector(page)).toContainText('source may no longer provide');
+ await expect(inspector(page)).not.toContainText('PRIVATE');
+ await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeDisabled();
+ expect(requests).toEqual([{eventId:event.id}]);
+ expired=false;await inspector(page).getByRole('button',{name:'Retry evidence retrieval',exact:true}).click();
+ await expect(inspector(page)).toContainText(files.artifacts.grid.sha256);
+ expect(requests).toEqual([{eventId:event.id},{eventId:event.id}]);
+ await expect(page.getByTestId('exposure-count')).toHaveText('—');
 });

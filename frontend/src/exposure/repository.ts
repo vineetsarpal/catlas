@@ -11,10 +11,32 @@ export class ExposureDatabase extends Dexie {
     super(name); this.version(1).stores({ cases: 'id,caseId,createdAt,[caseId+version]', evidence: 'hash' });
   }
 }
-export async function restoreEvidence(manifest: EvidenceManifest, rawXml: string, rawEventJson: string | null): Promise<CapturedEvidence> {
+export async function restoreEvidence(manifest: EvidenceManifest, rawXml: string, rawEventJson: string | null, investigationEventId = manifest.eventId): Promise<CapturedEvidence> {
   const { rawSha256, measure: _measure, units: _units, productVersion, processedAt, eventDetailUrl, eventDetailSha256, ...metadata } = manifest;
   if ((rawEventJson === null) !== (eventDetailSha256 === null) || (rawEventJson !== null && await sha256(rawEventJson) !== eventDetailSha256))
     throw new Error('Captured event detail integrity check failed.');
+  if (rawEventJson !== null) {
+    const detail = JSON.parse(rawEventJson.replace(/^\uFEFF/, ''));
+    const sourceIds = new Set([detail.id, ...(typeof detail.properties?.ids === 'string' ? detail.properties.ids.split(',').filter(Boolean) : [])]);
+    // The original supported packaged replay recorded a rounded observation.
+    // Preserve that exact historical tuple only, never a general coordinate tolerance.
+    const packagedReplay = rawSha256 === 'f4fbcf36e9098963ddc2ea82656974c268b50df5dfdb49b9bf9ffae72ea8e306' &&
+      eventDetailSha256 === 'b50ed4fa2bf4e43b897db38c5881dcdd0628c242207d96e1146022304f45ec77' &&
+      manifest.eventId === 'ci38457511' && manifest.magnitude === 7.1 && manifest.longitude === -117.5993 &&
+      manifest.latitude === 35.7695 && manifest.occurredAt === '2019-07-06T03:19:53.000Z';
+    if (!sourceIds.has(manifest.eventId) || !sourceIds.has(investigationEventId) ||
+        (typeof detail.properties?.ids === 'string' && manifest.aliases.some(alias => !sourceIds.has(alias))) ||
+        detail.properties?.mag !== manifest.magnitude || (!packagedReplay &&
+        (detail.properties?.time !== Date.parse(manifest.occurredAt) || detail.geometry?.coordinates?.[0] !== manifest.longitude || detail.geometry?.coordinates?.[1] !== manifest.latitude)))
+      throw new Error('Frozen evidence does not match its original event detail.');
+    const products = detail.properties?.products?.shakemap;
+    if (products !== undefined) {
+      const selected = Array.isArray(products) ? products.find(product => product?.id === manifest.productId) : undefined;
+      if (!selected || selected.source !== manifest.provider || manifest.retrospective !== selected.source.toLowerCase().includes('atlas') || selected.updateTime !== Date.parse(manifest.productUpdatedAt) ||
+          selected.contents?.['download/grid.xml']?.url !== manifest.sourceUrl)
+        throw new Error('Frozen evidence does not match its original product detail.');
+    }
+  }
   const restored = await captureEvidence(rawXml, metadata, rawSha256, rawEventJson !== null && eventDetailUrl ? { url: eventDetailUrl, text: rawEventJson } : undefined);
   if (restored.manifest.productVersion !== productVersion || restored.manifest.processedAt !== processedAt)
     throw new Error('Evidence version/processing metadata does not match the frozen grid.');
@@ -61,7 +83,7 @@ export class ExposureRepository {
     const row = await this.db.evidence.get(record.evidence.rawSha256);
     if (!row) throw new Error('Saved case evidence is missing. The assessment is preserved; its map cannot be reconstructed.');
     const detail = record.evidence.eventDetailSha256 ? await this.db.evidence.get(record.evidence.eventDetailSha256) : undefined;
-    return restoreEvidence(record.evidence, row.rawText, detail?.rawText ?? null);
+    return restoreEvidence(record.evidence, row.rawText, detail?.rawText ?? null, record.event.id);
   }
   async removeCase(caseId: string): Promise<void> {
     await this.db.transaction('rw', this.db.cases, this.db.evidence, async () => {

@@ -21,8 +21,8 @@ export async function decodeBundle(file: Blob): Promise<{ record: Investigation;
   const { sha256: expected, ...payload } = envelope;
   if (expected !== await sha256(JSON.stringify(payload))) throw new Error('Case bundle integrity check failed.');
   const record = await verifyInvestigation(envelope.record);
-  if ((record.evidence === null) !== (envelope.rawXml === null)) throw new Error('Case bundle evidence is incomplete.');
-  const evidence = record.evidence && envelope.rawXml ? await restoreEvidence(record.evidence, envelope.rawXml, envelope.rawEventJson) : null;
+  if ((record.evidence === null) !== (envelope.rawXml === null) || (!record.evidence && envelope.rawEventJson !== null)) throw new Error('Case bundle evidence is incomplete.');
+  const evidence = record.evidence && envelope.rawXml ? await restoreEvidence(record.evidence, envelope.rawXml, envelope.rawEventJson, record.event.id) : null;
   const expectedAssessment = assessExposure(record.portfolio, evidence?.grid ?? null, record.settings);
   if (JSON.stringify(record.rows) !== JSON.stringify(expectedAssessment.rows) || JSON.stringify(record.summary) !== JSON.stringify(expectedAssessment.summary))
     throw new Error('Case results do not reproduce from the bundled evidence and settings.');

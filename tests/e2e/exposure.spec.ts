@@ -1,3 +1,4 @@
+import { mockArchiveUpdate } from '../helpers/archive-update';
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import { openFilters, openHistory, openLocations, openPortfolio } from '../helpers/exposure-workspace';
@@ -58,14 +59,14 @@ test('request-driven discovery inspects unavailable evidence without creating a 
 test('source update is explicit, creates a new version and preserves the earlier saved result',async({page})=>{
  let revision=1;const requests:{method:string;body:string|null}[]=[];
  page.on('request',request=>{if(request.url().startsWith('https://earthquake.usgs.gov/'))requests.push({method:request.method(),body:request.postData()});});
- await page.route('https://earthquake.usgs.gov/fdsnws/**',route=>route.fulfill({json:{id:'ci-test',properties:{mag:6.1,place:'Versioned public earthquake',time:Date.parse('2026-01-01T00:00:00Z'),updated:Date.parse(`2026-01-01T00:0${revision}:00Z`),ids:',ci-test,',products:{shakemap:[{id:`map-${revision}`,source:'us',code:'ci-test',status:'UPDATE',updateTime:Date.parse(`2026-01-01T00:0${revision}:00Z`),preferredWeight:20,contents:{'download/grid.xml':{url:`https://earthquake.usgs.gov/product/revision-${revision}.xml`}}}]}},geometry:{coordinates:[-117.6,35.7,8]}}}));
- await page.route('https://earthquake.usgs.gov/product/revision-*.xml',route=>route.fulfill({contentType:'application/xml',body:`<shakemap_grid event_id="ci-test" shakemap_version="${revision}" process_timestamp="2026-01-01T00:0${revision}:00"><event event_id="ci-test"/><grid_specification nlon="2" nlat="2"/><grid_field name="LON" index="1" units="dd"/><grid_field name="LAT" index="2" units="dd"/><grid_field name="MMI" index="3" units="intensity"/><grid_data>-118 36 ${revision===1?6:3}\n-117 36 ${revision===1?8:3}\n-118 35 ${revision===1?4:3}\n-117 35 ${revision===1?6:3}</grid_data></shakemap_grid>`}));
+
  const detail=Buffer.from(JSON.stringify({id:'ci-test',properties:{mag:6.1,magType:'mw',time:Date.parse('2026-01-01T00:00:00Z'),updated:Date.parse('2026-01-01T00:01:00Z'),ids:',ci-test,'},geometry:{coordinates:[-117.6,35.7,8]}}));
  const grid=Buffer.from('<shakemap_grid event_id="ci-test" shakemap_version="1" process_timestamp="2026-01-01T00:01:00"><event event_id="ci-test"/><grid_specification nlon="2" nlat="2"/><grid_field name="LON" index="1" units="dd"/><grid_field name="LAT" index="2" units="dd"/><grid_field name="MMI" index="3" units="intensity"/><grid_data>-118 36 6\n-117 36 8\n-118 35 4\n-117 35 6</grid_data></shakemap_grid>');
  const artifact=(bytes:Buffer,kind:string)=>{const sha256=createHash('sha256').update(bytes).digest('hex');return {sha256,bytes:bytes.length,path:`/api/artifacts/${sha256}`,sourceUrl:`https://earthquake.usgs.gov/${kind}`,contentType:kind==='grid'?'application/xml':'application/geo+json'};};
  const artifacts={detail:artifact(detail,'detail'),grid:artifact(grid,'grid')};
  await page.route('**/api/exposure/captures',route=>route.fulfill({status:201,json:{schemaVersion:1,event:{id:'ci-test',aliases:['ci-test'],name:'Versioned public earthquake',occurredAt:'2026-01-01T00:00:00.000Z',updatedAt:'2026-01-01T00:01:00.000Z'},product:{id:'map-1',source:'us',code:'ci-test',updatedAt:'2026-01-01T00:01:00.000Z',retrospective:false},capturedAt:'2026-10-25T00:00:00.000Z',artifacts}}));
  await page.route('**/api/exposure/artifacts/*',route=>route.fulfill({body:route.request().url().endsWith(artifacts.grid.sha256)?grid:detail}));
+ const sourceRequests=await mockArchiveUpdate(page,()=>({event:{id:'ci-test',aliases:['ci-test'],name:'Versioned public earthquake',magnitude:6.1,longitude:-117.6,latitude:35.7,occurredAt:'2026-01-01T00:00:00.000Z',updatedAt:`2026-01-01T00:0${revision}:00.000Z`},productId:`map-${revision}`,grid:`<shakemap_grid event_id="ci-test" shakemap_version="${revision}" process_timestamp="2026-01-01T00:0${revision}:00"><event event_id="ci-test"/><grid_specification nlon="2" nlat="2"/><grid_field name="LON" index="1" units="dd"/><grid_field name="LAT" index="2" units="dd"/><grid_field name="MMI" index="3" units="intensity"/><grid_data>-118 36 ${revision===1?6:3}\n-117 36 ${revision===1?8:3}\n-118 35 ${revision===1?4:3}\n-117 35 ${revision===1?6:3}</grid_data></shakemap_grid>`}));
  await page.getByRole('button',{name:'Change event',exact:true}).click();await page.getByLabel('USGS event ID',{exact:true}).fill('ci-test');await page.getByRole('button',{name:'Capture earthquake evidence',exact:true}).click();
  await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeEnabled();await expect(page.getByTestId('exposure-count')).toHaveText('—');
  await page.getByRole('button',{name:'Assess portfolio',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('7');
@@ -74,16 +75,21 @@ test('source update is explicit, creates a new version and preserves the earlier
  await page.getByRole('button',{name:'Apply captured update as new version',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('0');await expect(page.getByTestId('exposure-unknown')).toHaveText('11');
  await openHistory(page);await page.getByRole('button',{name:'Save this investigation locally',exact:true}).click();await expect(page.locator('.exposure-history li')).toHaveCount(2);
  await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('7');
- expect(requests.length).toBeGreaterThan(0);expect(requests.every(request=>request.method==='GET'&&request.body===null)).toBe(true);
+ expect(requests).toHaveLength(0);expect(sourceRequests.checks).toBe(1);expect(sourceRequests.externalRequests).toBe(0);
 });
 
 
-test('large map is the default and retired variant URLs cannot select another layout',async({page})=>{
+test('large map is the default and retired variant URLs cannot select another layout',async({page},info)=>{
  await expect(page.getByRole('combobox',{name:'Compare map layouts'})).toHaveCount(0);
  await expect(page.getByTestId('exposure-map')).toBeVisible();
  await expect(page.getByRole('button',{name:'Toggle location table'})).toHaveAttribute('aria-expanded','false');
- const fits=await page.getByTestId('exposure-map').evaluate(element=>{const rect=element.getBoundingClientRect();return rect.top<innerHeight*.4&&rect.height>=260&&document.documentElement.scrollHeight<=innerHeight&&document.documentElement.scrollWidth<=innerWidth;});
- expect(fits).toBe(true);
+ const geometry=await page.getByTestId('exposure-map').evaluate(element=>{const rect=element.getBoundingClientRect();return {top:rect.top,height:rect.height,innerHeight,innerWidth,scrollHeight:document.documentElement.scrollHeight,scrollWidth:document.documentElement.scrollWidth};});
+ if(info.project.name==='mobile'){
+  // Accepted CAT48 mobile layout stacks catalog, map and inspector in document order.
+  const catalog=await page.getByRole('complementary',{name:'Earthquake catalog'}).boundingBox(),inspector=await page.getByRole('complementary',{name:'Earthquake evidence inspector'}).boundingBox();
+  expect(geometry.scrollWidth<=geometry.innerWidth&&geometry.height>=260,JSON.stringify(geometry)).toBe(true);
+  expect(catalog).not.toBeNull();expect(inspector).not.toBeNull();expect(geometry.top).toBeGreaterThanOrEqual(catalog!.y+catalog!.height);expect(inspector!.y).toBeGreaterThanOrEqual(geometry.top+geometry.height);
+ }else expect(geometry.top<geometry.innerHeight*.4&&geometry.height>=260&&geometry.scrollHeight<=geometry.innerHeight&&geometry.scrollWidth<=geometry.innerWidth,JSON.stringify(geometry)).toBe(true);
  await replay(page);await openLocations(page);
  await page.getByRole('button',{name:'Ridgecrest distribution',exact:true}).click();
  await expect(page.getByRole('complementary',{name:'Selected insured location'})).toContainText('Ridgecrest distribution');

@@ -1,5 +1,7 @@
 /// <reference path="../../services/exposure-archive/node_modules/@cloudflare/workers-types/index.d.ts" />
 import { test, expect } from '@playwright/test';
+import { gunzipSync } from 'node:zlib';
+import fs from 'node:fs/promises';
 import { createArchiveHandler } from '../../services/exposure-archive/src/archive';
 import { ArchiveError, type ArchiveDatabase, type Capture, type ArchiveDependencies } from '../../services/exposure-archive/src/types';
 import { archiveBridge } from '../../functions/_archive';
@@ -15,7 +17,7 @@ test('real archive HTTP boundaries recover visibly while frozen local evidence s
   let failure: 'source'|'database'|'objects'|'api'|null = 'source';
   const captured = new Map<string, Capture>();
   const objects = new Map<string, { bytes: ArrayBuffer; hash: ArrayBuffer }>();
-  const grid = '<shakemap_grid event_id="cat50-public" shakemap_version="1" process_timestamp="2026-10-24T12:00:00Z"><event event_id="cat50-public"/><grid_specification nlon="2" nlat="2"/><grid_field name="MMI" index="1" units="intensity"/><grid_field name="LAT" index="2" units="dd"/><grid_field name="LON" index="3" units="dd"/><grid_data>6 36 -118\n8 36 -117\n4 35 -118\n6 35 -117</grid_data></shakemap_grid>';
+  let grid = '<shakemap_grid event_id="cat50-public" shakemap_version="1" process_timestamp="2026-10-24T12:00:00Z"><event event_id="cat50-public"/><grid_specification nlon="2" nlat="2"/><grid_field name="MMI" index="1" units="intensity"/><grid_field name="LAT" index="2" units="dd"/><grid_field name="LON" index="3" units="dd"/><grid_data>6 36 -118\n8 36 -117\n4 35 -118\n6 35 -117</grid_data></shakemap_grid>';
   const detail = { type: 'Feature', id: 'cat50-public', properties: { mag: 6.2, place: 'Availability fixture earthquake', time: Date.parse('2019-07-06T03:19:53.000Z'), updated: Date.parse('2026-10-24T12:00:00.000Z'), sig: 900, ids: ',cat50-public,', products: { shakemap: [{ id: 'product:cat50-public', source: 'atlas', code: 'cat50-public', updateTime: Date.parse('2026-10-24T12:00:00.000Z'), status: 'UPDATE', contents: { 'download/grid.xml': { url: 'https://earthquake.usgs.gov/product/shakemap/cat50-public/atlas/1/download/grid.xml' } } }] } }, geometry: { type: 'Point', coordinates: [-117.6, 35.7, 8] } };
   let leased = false;
   const database: ArchiveDatabase = {
@@ -83,4 +85,32 @@ test('real archive HTTP boundaries recover visibly while frozen local evidence s
     await page.getByRole('button', { name: 'Open saved version 1', exact: true }).click();
     await expect(page.getByTestId('exposure-count')).not.toHaveText('—');
   }
+  // Exercise the browser → real bridge → real archive HTTP update path.
+  async function exportedRecord() {
+    if (await page.getByRole('button', { name: 'Toggle location table' }).getAttribute('aria-expanded') !== 'true')
+      await page.getByRole('button', { name: 'Toggle location table' }).click();
+    const downloading = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download self-contained case', exact: true }).click();
+    return JSON.parse(gunzipSync(await fs.readFile((await (await downloading).path())!)).toString());
+  }
+  const original = await exportedRecord();
+  await inspector.getByRole('button', { name: 'Check source for updates', exact: true }).click();
+  await expect(inspector.getByRole('region', { name: 'Source update check' })).toContainText('No newer evidence found');
+  expect(await exportedRecord()).toEqual(original);
+  detail.properties.products.shakemap[0].id = 'product:cat50-public-revised';
+  detail.properties.products.shakemap[0].updateTime = Date.parse('2026-10-27T12:00:00.000Z');
+  grid = grid.replace('shakemap_version="1"', 'shakemap_version="2"').replace('6 36 -118', '3 36 -118');
+  await inspector.getByRole('button', { name: 'Check source for updates', exact: true }).click();
+  const pending = inspector.getByRole('region', { name: 'Captured update to apply' });
+  await expect(pending).toContainText('product:cat50-public-revised');
+  expect(await exportedRecord()).toEqual(original);
+  await pending.getByRole('button', { name: 'Apply selected evidence as new version', exact: true }).click();
+  const revised = await exportedRecord();
+  expect(revised.record).toMatchObject({ caseId: original.record.caseId, version: 2, previousId: original.record.id,
+    portfolio: original.record.portfolio, portfolioHash: original.record.portfolioHash, settings: original.record.settings });
+  expect(revised.record.evidence.rawSha256).not.toBe(original.record.evidence.rawSha256);
+  await page.getByRole('button', { name: 'Saved', exact: true }).click();
+  await page.getByRole('button', { name: 'Open saved version 1', exact: true }).click();
+  expect(await exportedRecord()).toEqual(original);
+
 });

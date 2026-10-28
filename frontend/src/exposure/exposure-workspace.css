@@ -297,3 +297,18 @@
 .catalog-historical-search fieldset:disabled { opacity:.55; }
 .atlas-exposure-panel .catalog-query-notice { padding:8px; background:#f5f2e8; border-left:2px solid #a78944; }
 .catalog-query-context { overflow-wrap:anywhere; }
+
+.archive-assessment-actions { position:sticky; top:-1px; z-index:2; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:10px 0 12px; padding:8px 0; background:#fff; }
+.archive-assessment-actions button { padding:10px 6px; min-width:0; }
+.assessment-context h3 { font-size:12px; margin:12px 0 8px; }
+.atlas-evidence-panel .assessment-context dl { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 8px; }
+.atlas-evidence-panel .assessment-context dt { margin-top:0; }
+.atlas-evidence-panel .assessment-context dd { min-width:0; overflow-wrap:anywhere; }
+.atlas-exposure-panel .exposure-history :is(span,small,code) { display:block; min-width:0; overflow-wrap:anywhere; }
+.atlas-exposure-panel .exposure-history code { font-size:10px; margin:6px 0; }
+.portfolio-relevance-map { flex-basis:100%; max-height:64px; overflow:auto; overflow-wrap:anywhere; line-height:1.5; }
+.portfolio-relevance-inspector { border-top:1px solid #dce5e1; margin-top:12px; padding-top:4px; overflow-wrap:anywhere; }
+.portfolio-relevance-inspector h3 { font-size:12px; margin:10px 0 6px; }
+.catalog-portfolio-screening { border-block:1px solid #dce5e1; padding:10px 0; margin:12px 0; }
+.catalog-portfolio-screening input[type=number] { display:block; width:100%; box-sizing:border-box; padding:7px; margin-top:4px; }
+.catalog-event-list small { overflow-wrap:anywhere; }

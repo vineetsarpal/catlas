@@ -1,5 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { archiveEvidenceFailure, discoverRecentEarthquakes, type CatalogEvent, type CatalogPage, type CatalogSearch } from './catalogue';
+
+import type {CapturedEvidence,Portfolio} from './model';
+import {screenPortfolioRelevance} from './relevance';
+const emptyScreeningPortfolio:Portfolio={source:'No portfolio selected',asOf:'',synthetic:false,locations:[],excludedRows:0,warnings:[]};
+const noEvidence:readonly CapturedEvidence[]=[];
 
 function searchContext(search:CatalogSearch):string {
   return search.eventId?`Source ID ${search.eventId}`:search.mode?`${search.start?.slice(0,10)} to ${search.end?.slice(0,10)} UTC${search.minMagnitude?` · magnitude ≥${search.minMagnitude}`:''}${search.maxMagnitude?` · magnitude ≤${search.maxMagnitude}`:''}${search.minLatitude?` · area south ${search.minLatitude}, north ${search.maxLatitude}, west ${search.minLongitude}, east ${search.maxLongitude}`:' · global'}`:'Last 90 days';
@@ -20,7 +25,9 @@ function mergeEvents(previous: CatalogEvent[], incoming: CatalogEvent[]): Catalo
   }
   return result.sort((a,b) => b.occurredAt.localeCompare(a.occurredAt));
 }
-export function RecentEarthquakes({ selectedId, busy, onSelect }: { selectedId?: string; busy: boolean; onSelect:(event:CatalogEvent)=>void }) {
+export function RecentEarthquakes({ selectedId, busy, onSelect, portfolio=emptyScreeningPortfolio,screeningThreshold,onScreeningThreshold,availableEvidence=noEvidence,screenPortfolioLabel }: { selectedId?: string; busy: boolean; onSelect:(event:CatalogEvent)=>void;portfolio?:Portfolio;screeningThreshold?:number;onScreeningThreshold?:(value:number)=>void;availableEvidence?:readonly CapturedEvidence[];screenPortfolioLabel?:string }) {
+  const [relevantOnly,setRelevantOnly]=useState(false),[localThreshold,setLocalThreshold]=useState(4);
+  const threshold=screeningThreshold??localThreshold;
   const [significantOnly,setSignificantOnly] = useState(true);
   const [mode,setMode] = useState<'recent'|'historical'>('recent');
   const [snapshot,setSnapshot] = useState<CatalogPage|null>(null);
@@ -44,7 +51,10 @@ export function RecentEarthquakes({ selectedId, busy, onSelect }: { selectedId?:
     } finally { if (!controller.signal.aborted)setLoading(false); }
   }
   useEffect(()=>{void refresh({significantOnly});return()=>request.current?.abort();},[significantOnly]);
-  const events = snapshot?.events.filter(event=>`${event.name} ${event.id}`.toLowerCase().includes(query.toLowerCase()))??[];
+  const relevance=useMemo(()=>new Map((snapshot?.events??[]).map(event=>[event.id,screenPortfolioRelevance(event,portfolio,availableEvidence,threshold)])),[snapshot,portfolio,availableEvidence,threshold]);
+  const textEvents=snapshot?.events.filter(event=>`${event.name} ${event.id}`.toLowerCase().includes(query.toLowerCase()))??[];
+  const events=textEvents.filter(event=>!relevantOnly||relevance.get(event.id)?.kind!=='below');
+  const belowExcluded=textEvents.filter(event=>relevance.get(event.id)?.kind==='below').length,unknownRetained=textEvents.filter(event=>relevance.get(event.id)?.kind==='unknown').length;
   function historicalSearch() {
     if(sourceId.trim()) { void refresh({mode:'historical',eventId:sourceId.trim()}); return; }
     const start=dates.start+'T00:00:00.000Z',end=dates.end+'T23:59:59.999Z';
@@ -80,10 +90,11 @@ export function RecentEarthquakes({ selectedId, busy, onSelect }: { selectedId?:
     {lastCheck&&<p>Last discovery check {lastCheck.outcome}: <time dateTime={lastCheck.at}>{new Date(lastCheck.at).toLocaleString()}</time>.</p>}
     {failedAttempt&&<><p>Failed query: {searchContext(failedAttempt.search)}{failedAttempt.search.significantOnly?' · significance >600':''} · source offset {failedAttempt.offset}. Retry repeats this submitted query.</p><button disabled={loading} onClick={()=>void refresh(failedAttempt.search,failedAttempt.offset)}>Retry event discovery</button></>}
     {snapshot&&<><p className="catalog-query-context">Retrieved query: {context}{loadedSearch.significantOnly?' · significance >600':''}. Paging continues this retrieved query; editing fields requires a new search.</p><p role="status">Last successful retrieval: <time dateTime={snapshot.checkedAt}>{new Date(snapshot.checkedAt).toLocaleString()}</time>. {snapshot.events.length} events retrieved{loadedSearch.significantOnly?' with significance >600':''}. {snapshot.completeness==='complete'?'All matching results for this requested query were retrieved.':snapshot.completeness==='partial'?'Partial coverage: a request or result bound was reached.':'More results are available.'}{snapshot.rejected>0?` ${snapshot.rejected} unsupported source entries omitted.`:''} At most 50 source records per page and 500 per query; narrow the search when capped. Catalog coverage is distinct from usable shaking evidence.</p></>}
+    <section className="catalog-portfolio-screening" aria-label="Portfolio relevance screening"><label><input type="checkbox" aria-label="Relevant to portfolio" checked={relevantOnly} onChange={event=>setRelevantOnly(event.target.checked)}/> Relevant to portfolio</label><p>{screenPortfolioLabel??(portfolio.locations.length?portfolio.source:'No current portfolio selected')} · supplied as of {portfolio.asOf||'not supplied'} · {portfolio.locations.length} consolidated locations</p><label>Screening threshold MMI<input type="number" min="1" max="10" step=".5" value={Number.isFinite(threshold)?threshold:''} onChange={event=>{const next=event.target.value===''?NaN:Number(event.target.value);setLocalThreshold(next);onScreeningThreshold?.(next);}}/></label><p>Screening uses already inspected captures and the selected current portfolio. Select an event to inspect more evidence. Screening does not assess or revise a saved investigation. Coordinates and insured values remain in this browser.</p>{relevantOnly&&<p>{belowExcluded} retrieved events excluded below the screening threshold; {unknownRetained} with unknown relevance retained. Proximity attention uses 250 km from the epicentre and never proves that locations are unaffected.</p>}</section>
     <label>Filter retrieved events<input type="search" value={query} onChange={event=>setQuery(event.target.value)}/></label>
     <p>Text filters only retrieved names, place descriptions and source IDs; it does not search a global name index.</p>
-    {!loading&&snapshot&&!events.length&&!failure&&<p>No matching events in the retrieved results.</p>}
-    <ul className="catalog-event-list">{events.map(event=><li key={event.id}><button aria-pressed={selectedId===event.id||event.aliases.includes(selectedId??'')} disabled={busy} onClick={()=>onSelect(event)}><strong>{event.name}</strong><span>M{event.magnitude??'unknown'} · {new Date(event.occurredAt).toLocaleDateString()}</span><small>{event.id} · Evidence not yet inspected</small></button></li>)}</ul>
+    {!loading&&snapshot&&!events.length&&!failure&&(relevantOnly&&textEvents.length>0?<p>No events remain in this retrieved set after portfolio relevance screening. All {belowExcluded} retrieved events were screened below the threshold using inspected evidence. This is not a damage or loss conclusion.</p>:<p>No matching events in the retrieved results.</p>)}
+    <ul className="catalog-event-list">{events.map(event=><li key={event.id}><button aria-pressed={selectedId===event.id||event.aliases.includes(selectedId??'')} disabled={busy} onClick={()=>onSelect(event)}><strong>{event.name}</strong><span>M{event.magnitude??'unknown'} · {new Date(event.occurredAt).toLocaleDateString()}</span><small>{event.id} · {relevance.get(event.id)?.evidence?'Inspected evidence reference':'No compatible inspected evidence'}</small><small className={`catalog-relevance is-${relevance.get(event.id)!.kind}`}>{relevance.get(event.id)!.kind==='match'?'Potential match':relevance.get(event.id)!.kind==='below'?'Below screening threshold':'Unknown relevance'}: {relevance.get(event.id)!.explanation}</small>{relevance.get(event.id)?.evidence&&<small>Screening evidence {relevance.get(event.id)!.evidence!.productId} · version {relevance.get(event.id)!.evidence!.productVersion} · source updated {relevance.get(event.id)!.evidence!.productUpdatedAt}</small>}</button></li>)}</ul>
     {snapshot?.hasMore&&<button disabled={loading||(!loadedSearch.mode&&loadedSearch.significantOnly!==significantOnly)} onClick={()=>void refresh(loadedSearch,snapshot.offset+snapshot.limit)}>Load more earthquakes</button>}
   </section>;
 }

@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import { providerFailure } from './provider-errors';
-import { ArchiveError, type ArchiveDatabase, type Artifact, type Capture } from './types';
+import { ArchiveError, type ArchiveDatabase, type Artifact, type Capture, type CleanupPlan, type RecoveryJob, type RecoveryObject } from './types';
 
 /** Neon HTTP operations are request-driven. No pool, timer, heartbeat or background collector. */
 export function createNeonDatabase(connectionString: string): ArchiveDatabase {
@@ -32,12 +32,49 @@ export function createPostgresDatabase(transport: PostgresQuery): ArchiveDatabas
       if (message.includes('catlas_usage_limit')) throw new ArchiveError('usage_limit', 'The archive capture allowance for today was reached. Existing captures remain readable. Retry explicitly after the next UTC day.', 429);
       if (message.includes('catlas_lease_lost')) throw new ArchiveError('capture_interrupted', 'This capture lease expired. Retry explicitly; incomplete evidence is not available.', 409);
       if (message.includes('catlas_alias_conflict') || message.includes('catlas_artifact_conflict')) throw new ArchiveError('identity_conflict', 'Source identity or artifact metadata conflicts with a retained capture.', 409);
+      if (message.includes('catlas_cleanup_invalid')) throw new ArchiveError('cleanup_invalid', 'The cleanup confirmation is invalid or expired. Preview again.', 409);
+      if (message.includes('catlas_cleanup_conflict')) throw new ArchiveError('cleanup_conflict', 'Cleanup or retention state changed. Inspect the audit before retrying.', 409);
+      if (message.includes('catlas_restore_not_empty') || message.includes('catlas_recovery_busy')) throw new ArchiveError('recovery_conflict', 'Recovery requires a clean target with no active archive operations.',409);
       const providerError = providerFailure(e, 'Neon');
       if (providerError) throw providerError;
       throw new ArchiveError('database_unavailable', 'The public metadata database is unavailable. Retry explicitly.', 503);
     }
   }
   return {
+    async recoveryGate(owner) { await query('SELECT catlas_proof_recovery_gate($1::uuid)',[owner]); },
+    async recoverySnapshot(owner) { return (await query('SELECT catlas_proof_recovery_snapshot($1::uuid) AS job',[owner]))[0].job as Record<string,unknown[]>; },
+    async recoveryStart(owner,job,restore) { return (await query('SELECT catlas_proof_recovery_start($1::uuid,$2::jsonb,$3::boolean) AS job',[owner,JSON.stringify(job),restore]))[0].job as RecoveryJob; },
+    async recoverySave(owner,job,restore) { await query('SELECT catlas_proof_recovery_save($1::uuid,$2::jsonb,$3::boolean)',[owner,JSON.stringify(job),restore]); },
+    async recoveryGet(id,restore) { const r=await query(`SELECT document AS job FROM ${restore?'catlas_proof_restore_jobs':'catlas_proof_recovery_points'} WHERE id=$1::uuid`,[id]);return r[0]?.job as RecoveryJob ?? null; },
+    async recoveryInventory() { return (await query("SELECT document-'snapshot' AS job FROM catlas_proof_recovery_points ORDER BY document->>'createdAt' DESC LIMIT 64",[])).map(r=>r.job as RecoveryJob); },
+    async recoveryObject(hash) { const r=await query("SELECT * FROM catlas_proof_recovery_objects WHERE sha256=$1 AND kind='content' AND state='verified' ORDER BY key LIMIT 1",[hash]);return r[0] as RecoveryObject ?? null; },
+    async recoveryReserve(owner,item,max,reserve) { await query('SELECT catlas_proof_recovery_reserve($1::uuid,$2::jsonb,$3::bigint,$4::bigint)',[owner,JSON.stringify(item),max,reserve]); },
+    async recoveryObjectState(owner,key,state) { await query('SELECT catlas_proof_recovery_object_state($1::uuid,$2::text,$3::text)',[owner,key,state]); },
+    async recoveryRotate(owner) { return (await query('SELECT catlas_proof_recovery_rotate($1::uuid) AS items',[owner]))[0].items as RecoveryObject[]; },
+    async recoveryPublish(owner,job) { await query('SELECT catlas_proof_recovery_publish($1::uuid,$2::jsonb)',[owner,JSON.stringify(job)]); },
+    async objectKey(sha256) {
+      const rows = await query('SELECT storage_key FROM catlas_proof_artifact_lifecycle WHERE sha256=$1', [sha256]);
+      return rows.length ? String(rows[0].storage_key) : `sha256/${sha256}`;
+    },
+    async artifactState(sha256) {
+      const rows = await query('SELECT availability FROM catlas_proof_artifact_lifecycle WHERE sha256=$1', [sha256]);
+      return rows[0]?.availability === 'deleted' ? 'deleted' : rows[0]?.availability === 'deleting' ? 'deleting' : 'present';
+    },
+    async cleanupConfirm(owner, planId, confirmation) {
+      const rows = await query('SELECT catlas_proof_cleanup_confirm($1::uuid,$2::uuid,$3::text) AS plan', [owner,planId,confirmation]); return rows[0].plan as CleanupPlan;
+    },
+    async cleanupClaim(owner, planId, sha256) {
+      const rows = await query('SELECT catlas_proof_cleanup_claim($1::uuid,$2::uuid,$3::text) AS claimed', [owner,planId,sha256]); return rows[0].claimed === true;
+    },
+    async cleanupComplete(owner, planId, sha256) { await query('SELECT catlas_proof_cleanup_complete($1::uuid,$2::uuid,$3::text)',[owner,planId,sha256]); },
+    async cleanupStatus(planId) {
+      const rows = await query('SELECT catlas_proof_cleanup_view($1::uuid) AS plan',[planId]); return rows[0]?.plan as CleanupPlan | null;
+    },
+    async cleanupRetention(owner,sha256,retain) { await query('SELECT catlas_proof_cleanup_retention($1::uuid,$2::text,$3::boolean)',[owner,sha256,retain]); },
+    async cleanupPreview(owner, planId, confirmation) {
+      const rows = await query('SELECT catlas_proof_cleanup_preview($1::uuid, $2::uuid, $3::text) AS plan', [owner, planId, confirmation]);
+      return rows[0].plan as CleanupPlan;
+    },
     async usage() {
       const rows = await query("SELECT u.*, CASE WHEN m.usage_date = (statement_timestamp() AT TIME ZONE 'UTC')::date THEN m.requests ELSE 0 END AS maintenance_requests_today FROM catlas_proof_usage() u CROSS JOIN catlas_proof_daily_maintenance m WHERE m.singleton", []);
       const row = rows[0];
@@ -84,7 +121,7 @@ export function createPostgresDatabase(transport: PostgresQuery): ArchiveDatabas
       await query('SELECT catlas_proof_associate($1::uuid, $2::text, $3::text)', [owner, requestedEvent, canonicalEvent]);
     },
     async referencedArtifact(sha256) {
-      const rows = await query("SELECT CASE WHEN detail_sha256 = $1 THEN manifest->'artifacts'->'detail' ELSE manifest->'artifacts'->'grid' END AS artifact FROM catlas_proof_captures WHERE detail_sha256 = $1 OR grid_sha256 = $1 LIMIT 1", [sha256]);
+      const rows = await query("SELECT CASE WHEN detail_sha256 = $1 THEN manifest->'artifacts'->'detail' ELSE manifest->'artifacts'->'grid' END AS artifact FROM catlas_proof_capture_versions WHERE detail_sha256 = $1 OR grid_sha256 = $1 LIMIT 1", [sha256]);
       return rows.length ? rows[0].artifact as Artifact : null;
     },
   };

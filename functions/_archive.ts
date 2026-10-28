@@ -6,12 +6,12 @@ const responseHeaders = (headers: Headers) => {
   }
   return safe;
 };
-const refuse = (code: string, message: string, status: number) => Response.json({ error: { code, message } }, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+const refuse = (code: string, message: string, status: number, expired = false) => Response.json({ error: { code, message }, ...(expired ? { archiveEvidence: 'expired' } : {}) }, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 export async function archiveBridge(request: Request, env: ArchiveBridgeEnv, upstream: typeof fetch = fetch): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname.slice('/api/exposure/'.length);
   const catalog = path === 'catalog' && request.method === 'GET';
-  const capture = path === 'captures' && request.method === 'POST';
+  const capture = (path === 'captures' || path === 'captures/check') && request.method === 'POST';
   const saved = /^captures\/[a-zA-Z0-9_-]{1,100}$/.test(path) && request.method === 'GET';
   const artifact = /^artifacts\/[a-f0-9]{64}$/.test(path) && request.method === 'GET';
   if (!url.pathname.startsWith('/api/exposure/') || !(catalog || capture || saved || artifact)) return refuse('not_found', 'This public archive route does not exist.', 404);
@@ -89,6 +89,8 @@ export async function archiveBridge(request: Request, env: ArchiveBridgeEnv, ups
         capture_uncertain: 'Publication could not be confirmed. Retrieve or retry explicitly.',
         capture_not_found: 'No saved public capture exists for this event.',
         artifact_not_found: 'No complete capture references this artifact.',
+        cleanup_conflict: 'Public archive cleanup is in progress. Retry explicitly after the operator completes it; saved local cases remain usable.',
+        artifact_expired: 'Public evidence was removed by archive cleanup. Explicit refetch may be unavailable at the source; saved local cases remain usable.',
         artifact_unavailable: 'The captured artifact is unavailable. No replacement was selected.',
         artifact_integrity: 'The captured artifact failed verification. No replacement was selected.',
         evidence_unavailable: 'No supported shaking evidence is available. Intensity remains unknown.',
@@ -115,7 +117,8 @@ export async function archiveBridge(request: Request, env: ArchiveBridgeEnv, ups
         } catch { /* Never relay an upstream body or parse diagnostic. */ } finally { reader.releaseLock(); }
       }
       const code = payload && typeof payload === 'object' && 'error' in payload && payload.error && typeof payload.error === 'object' && 'code' in payload.error && typeof payload.error.code === 'string' ? payload.error.code : '';
-      return code && Object.hasOwn(messages, code) ? refuse(code, messages[code], result.status) : refuse('archive_unavailable', 'The public archive is unavailable. Retry explicitly.', 503);
+      const expired = payload && typeof payload === 'object' && 'archiveEvidence' in payload && payload.archiveEvidence === 'expired';
+      return code && Object.hasOwn(messages, code) ? refuse(code, messages[code], result.status, Boolean(expired)) : refuse('archive_unavailable', 'The public archive is unavailable. Retry explicitly.', 503);
     }
     return new Response(result.body, { status: result.status, headers: responseHeaders(result.headers) });
   } catch { return refuse('archive_unavailable', 'The public archive is unavailable. Retry explicitly.', 503); }
