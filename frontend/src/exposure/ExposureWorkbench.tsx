@@ -1,3 +1,4 @@
+import { downloadFile } from '../browser/download';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WorkspaceMode } from '../components/WorkbenchHeader';
 import { usePortfolios } from '../portfolios/usePortfolios';
@@ -26,7 +27,7 @@ import { captureArchivedEarthquake, checkArchivedEarthquake, archiveEvidenceFail
 import { RecentEarthquakes } from './RecentEarthquakes';
 import { screenPortfolioRelevance } from './relevance';
 import { exposureRepository } from './repository';
-import { decodeBundle, downloadFile, encodeBundle, exposureCSV } from './exports';
+import { decodeBundle, encodeBundle, exposureCSV } from './exports';
 import '../workbench-theme.css';
 import './exposure.css';
 import { ExposureWorkspace, type WorkspacePanel } from './ExposureWorkspace';

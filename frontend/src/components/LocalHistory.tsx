@@ -1,3 +1,4 @@
+import { downloadFile } from '../browser/download';
 import { useState } from 'react';
 import type { LifecycleState } from '../domain/packets';
 import type { StorageStatus } from '../hooks/useEvaluationLifecycle';
@@ -15,12 +16,7 @@ export function StoragePanel({ status, error, onReset, repository }: StoragePane
   const downloadArchive = async () => {
     try {
       const archive = await repository.exportArchive();
-      const url = URL.createObjectURL(new Blob([JSON.stringify(archive, null, 2) + '\n'], { type: 'application/json' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'catlas-local-history-raw.json';
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadFile('catlas-local-history-raw.json', new Blob([JSON.stringify(archive, null, 2) + '\n'], { type: 'application/json' }));
       setExportError('');
     } catch (error) {
       setExportError(error instanceof Error ? error.message : String(error));

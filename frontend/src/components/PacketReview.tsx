@@ -1,3 +1,4 @@
+import { downloadFile } from "../browser/download";
 import { useState } from "react";
 import {
   DEMO_ANALYST,
@@ -7,14 +8,10 @@ import {
 } from "../domain/packets";
 
 export function downloadPacket(packet: RecoveryPacket) {
-  const url = URL.createObjectURL(
+  downloadFile(
+    `catlas-${packet.kind}-${packet.packetId}.json`,
     new Blob([serializePacket(packet)], { type: "application/json" }),
   );
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `catlas-${packet.kind}-${packet.packetId}.json`;
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function PacketReview({
   evaluation,

@@ -2,7 +2,7 @@ import { RecoveryInspector, type RecoveryView } from "./RecoveryInspector";
 import { useEffect, useState, type FormEvent } from 'react';
 import type { EventInput } from '../domain/types';
 import { sameRecoveryEvent } from '../exposure/event-context';
-import { downloadFile } from '../exposure/exports';
+import { downloadFile } from '../browser/download';
 import { ridgecrest } from '../data/fixtures';
 import { assessLoss, lossPositionSchema, type LossPosition, type RecoveryResult, type RecoverySnapshot } from './model';
 import { recoveryRepository } from './repository';

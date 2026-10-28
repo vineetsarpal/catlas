@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { demoPortfolio, stressPortfolio } from '../exposure/fixtures';
 import { CSV_TEMPLATE, previewPortfolio, type ImportPreview } from '../exposure/portfolio';
 import { MAX_LOCATIONS, siteSchema, type InsuredLocation } from '../exposure/model';
-import { downloadFile } from '../exposure/exports';
+import { downloadFile } from '../browser/download';
 import { ExposureMap } from '../exposure/ExposureMap';
 import { emptyPortfolio, inventoryCSV, planImport, type ImportMode, type ManagedPortfolio } from './inventory';
 import { type MapPoint, type PlaceResult } from './geocoding';

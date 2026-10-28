@@ -28,10 +28,6 @@ export async function decodeBundle(file: Blob): Promise<{ record: Investigation;
     throw new Error('Case results do not reproduce from the bundled evidence and settings.');
   return { record, evidence };
 }
-export function downloadFile(filename: string, blob: Blob): void {
-  const link = document.createElement('a'), url = URL.createObjectURL(blob);
-  link.href = url; link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 function csvCell(value: string | number | null): string {
   if (value === null) return '';
   const text = typeof value === 'string' && /^[\s]*[=+@-]/.test(value) ? `'${value}` : String(value);
