@@ -14,7 +14,7 @@ export function HazardRelevanceDetails({item}:{item:MonitorItem}) {
   </div>;
 }
 
-export function HazardEvidenceDetails({item,now}:{item:MonitorItem;now:number}) {
+export function HazardEvidenceDetails({item}:{item:MonitorItem}) {
   return <>
     {item.perimeter&&<>
       <p>{fireSourceLabel(item.perimeter)} · {fireEvidenceLabel(item.perimeter).toLowerCase()}</p>

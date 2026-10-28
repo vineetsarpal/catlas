@@ -36,7 +36,7 @@ function SelectedItem({state,selected,portfolio,busy,onCapture}: Props & {select
     </header>
     <div id="monitor-inspector-body" className="monitor-inspector-body" hidden={collapsed}>
       {selected.hasPosition!==false&&<p className="monitor-inspector-coordinates">{selected.latitude.toFixed(3)}, {selected.longitude.toFixed(3)}</p>}
-      <HazardEvidenceDetails item={selected} now={state.now}/>
+      <HazardEvidenceDetails item={selected}/>
       {fireSource&&(fireSource.stale||fireSource.warning)&&<p role="status" className="exposure-warning">{fireSource.provider} coverage is degraded. {fireSource.warning} See Feeds.</p>}
       {alertSource&&(alertSource.stale||alertSource.warning)&&<p role="status" className="exposure-warning">{alertSource.provider} coverage is degraded. {alertSource.warning} Retained evidence may be incomplete; see Feeds.</p>}
       {flaggedLocations.length>0&&<section aria-label="Flagged portfolio locations"><h3>Locations needing attention</h3><ul className="monitor-flagged-locations">{flaggedLocations.slice(0,locationLimit).map(site=><li key={site.id}><b>{site.name}</b><span>{site.value===null?'Insured value unknown':`${site.currency} ${site.value.toLocaleString()}`}</span></li>)}</ul>{flaggedLocations.length>locationLimit&&<button onClick={()=>setLocationLimit(value=>value+20)}>Show more locations ({flaggedLocations.length-locationLimit} remaining)</button>}</section>}
