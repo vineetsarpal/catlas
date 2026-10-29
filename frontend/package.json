@@ -11,13 +11,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@catlas/shared": "0.1.0",
+    "@tanstack/react-query": "5.105.0",
     "d3-geo": "3.1.1",
     "dexie": "4.2.0",
     "maplibre-gl": "6.14.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
-    "zod": "4.1.5",
-    "@catlas/shared": "0.1.0"
+    "zod": "4.1.5"
   },
   "devDependencies": {
     "@types/d3-geo": "3.1.0",

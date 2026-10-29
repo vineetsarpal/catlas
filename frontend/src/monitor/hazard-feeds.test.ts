@@ -62,22 +62,3 @@ describe('alert continuity and preference migration',()=>{
     expect(latestAlertKey('alert:a',rows)).toBe('alert:c');expect(latestAlertKey('earthquake:a',rows)).toBe('earthquake:a');
   });
 });
-describe('Monitor polling lifecycle',()=>{
-  it('aborts when hidden or disabled, resumes online, and ignores stale completion',async()=>{
-    vi.useFakeTimers();const windowEvents=new EventTarget(),documentEvents=new EventTarget();
-    const doc=Object.assign(documentEvents,{visibilityState:'visible'}),nav={onLine:true};
-    vi.stubGlobal('window',windowEvents);vi.stubGlobal('document',doc);vi.stubGlobal('navigator',nav);
-    const signals:AbortSignal[]=[],resolvers:((n:number)=>void)[]=[];
-    const load=vi.fn((signal:AbortSignal)=>{signals.push(signal);return new Promise<number>(resolve=>resolvers.push(resolve));});
-    const callbacks={loading:vi.fn(),data:vi.fn(),error:vi.fn()};
-    const {startMonitorPolling}=await import('./hazard-feeds');const stop=startMonitorPolling(load,1000,callbacks);
-    expect(load).toHaveBeenCalledTimes(1);await vi.advanceTimersByTimeAsync(2000);expect(load).toHaveBeenCalledTimes(1);
-    doc.visibilityState='hidden';doc.dispatchEvent(new Event('visibilitychange'));expect(signals[0].aborted).toBe(true);
-    resolvers[0](1);await Promise.resolve();expect(callbacks.data).not.toHaveBeenCalled();
-    nav.onLine=false;doc.visibilityState='visible';doc.dispatchEvent(new Event('visibilitychange'));await vi.advanceTimersByTimeAsync(2000);expect(load).toHaveBeenCalledTimes(1);
-    nav.onLine=true;windowEvents.dispatchEvent(new Event('online'));expect(load).toHaveBeenCalledTimes(2);
-    nav.onLine=false;windowEvents.dispatchEvent(new Event('offline'));expect(signals[1].aborted).toBe(true);
-    nav.onLine=true;windowEvents.dispatchEvent(new Event('online'));expect(load).toHaveBeenCalledTimes(3);
-    stop();expect(signals[2].aborted).toBe(true);await vi.advanceTimersByTimeAsync(5000);expect(load).toHaveBeenCalledTimes(3);
-  });
-});

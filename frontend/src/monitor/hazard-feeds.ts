@@ -51,22 +51,3 @@ export function latestAlertKey(key:string,alerts:WeatherAlert[]):string {
   if(!key.startsWith('alert:'))return key;
   return reconcileAlertWatches([{key,name:''}],alerts)[0]?.key??key;
 }
-
-/** One visible, online Monitor session. Disabling or suspending it aborts outstanding work. */
-export function startMonitorPolling<T>(load:(signal:AbortSignal)=>Promise<T>,interval:number,callbacks:{loading:(value:boolean)=>void;data:(value:T)=>void;error:(message:string)=>void}):()=>void {
-  let disposed=false,request:AbortController|null=null;
-  const eligible=()=>!disposed&&document.visibilityState==='visible'&&navigator.onLine;
-  const refresh=async()=>{
-    if(!eligible()) {request?.abort();request=null;callbacks.loading(false);return;}
-    if(request)return;
-    const controller=new AbortController();request=controller;callbacks.loading(true);
-    try{
-      const data=await load(AbortSignal.any([controller.signal,AbortSignal.timeout(25000)]));
-      if(!controller.signal.aborted&&eligible())callbacks.data(data);
-    }catch(error){if(!controller.signal.aborted&&eligible())callbacks.error(error instanceof Error?error.message:String(error));}
-    finally{if(request===controller){request=null;callbacks.loading(false);}}
-  };
-  void refresh();const timer=setInterval(()=>void refresh(),interval);
-  window.addEventListener('online',refresh);window.addEventListener('offline',refresh);document.addEventListener('visibilitychange',refresh);
-  return()=>{disposed=true;request?.abort();request=null;clearInterval(timer);window.removeEventListener('online',refresh);window.removeEventListener('offline',refresh);document.removeEventListener('visibilitychange',refresh);callbacks.loading(false);};
-}
