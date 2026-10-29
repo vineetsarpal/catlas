@@ -23,6 +23,6 @@ const icons:Record<WorkspaceIconName,ReactNode>={
 export function WorkspaceIcon({name}:{name:WorkspaceIconName}) {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[name]}</svg>;
 }
-export function WorkspaceRail({label,items,active,onSelect,children}:{label:string;items:Array<{id:string;label:string;icon:WorkspaceIconName}>;active:string|null;onSelect:(id:string)=>void;children?:ReactNode}) {
-  return <nav className="atlas-tool-rail" aria-label={label}>{items.map(item=><button key={item.id} type="button" aria-label={item.label} aria-expanded={active===item.id} onClick={()=>onSelect(item.id)}><WorkspaceIcon name={item.icon}/><span>{item.label}</span></button>)}{children}</nav>;
+export function WorkspaceRail({label,items,active,onSelect,children}:{label:string;items:Array<{id:string;label:string;icon:WorkspaceIconName;badge?:number}>;active:string|null;onSelect:(id:string)=>void;children?:ReactNode}) {
+  return <nav className="atlas-tool-rail" aria-label={label}>{items.map(item=><button key={item.id} type="button" aria-label={item.label} aria-expanded={active===item.id} onClick={()=>onSelect(item.id)}><WorkspaceIcon name={item.icon}/><span>{item.label}</span>{Boolean(item.badge)&&<b className="workspace-rail-badge" aria-hidden="true">{item.badge}</b>}</button>)}{children}</nav>;
 }

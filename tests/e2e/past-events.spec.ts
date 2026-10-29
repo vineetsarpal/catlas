@@ -42,7 +42,7 @@ test('verified archive evidence waits for explicit assessment and save',async({p
  await page.route('**/api/exposure/captures',route=>route.fulfill({status:201,json:{schemaVersion:1,event,product:{id:'product:us-test',source:'us',code:'us-test',updatedAt:event.updatedAt,retrospective:false},capturedAt:'2026-10-25T12:00:00.000Z',artifacts}}));
  await page.route('**/api/exposure/artifacts/*',route=>route.fulfill({body:route.request().url().endsWith(artifacts.grid.sha256)?grid:detail}));
  await page.goto('/exposure.html');
- await page.getByRole('button',{name:'Portfolios',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();
+ await page.getByRole('button',{name:'Portfolio',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();
  await page.getByRole('button',{name:/Recent public earthquake/}).click();
  await expect(page.getByRole('complementary',{name:'Earthquake evidence inspector'})).toContainText(artifacts.grid.sha256);
  await expect(page.getByTestId('exposure-count')).toHaveText('—');

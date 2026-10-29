@@ -1,3 +1,4 @@
+import { openExport } from '../helpers/exposure-workspace';
 import { test, expect, type Page } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
@@ -25,7 +26,7 @@ async function source(page:Page){
   await page.route('**/api/exposure/artifacts/*',route=>route.fulfill({body:route.request().url().endsWith(artifacts.grid.sha256)?grid:detail}));
 }
 async function importPortfolio(page:Page){
-  await page.getByRole('button',{name:'Portfolios',exact:true}).click();
+  await page.getByRole('button',{name:'Portfolio',exact:true}).click();
   await page.getByRole('button',{name:'Create portfolio',exact:true}).click();
   const form=page.getByRole('form',{name:'Create portfolio',exact:true});
   await form.getByLabel('Portfolio name',{exact:true}).fill('Synthetic consolidated CAT51');
@@ -50,8 +51,8 @@ async function assessed(page:Page){
   await expect(page.getByTestId('exposure-unknown')).toHaveText('2');
 }
 async function downloadCase(page:Page){
-  if(await page.getByRole('button',{name:'Toggle location table'}).getAttribute('aria-expanded')!=='true')await page.getByRole('button',{name:'Toggle location table'}).click();
-  const downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();
+  if(await page.getByRole('button',{name:'Locations',exact:true}).getAttribute('aria-expanded')!=='true')await page.getByRole('button',{name:'Locations',exact:true}).click();
+  const downloading=page.waitForEvent('download');await openExport(page);await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();
   return fs.readFile((await (await downloading).path())!);
 }
 
@@ -73,7 +74,7 @@ test('complete current-portfolio investigation freezes independently checked num
   expect(envelope.rawXml).toBe(grid);expect(envelope.rawEventJson).toBe(detail);
   expect(record.evidence).toMatchObject({rawSha256:digest(grid),eventDetailSha256:digest(detail),productId:'cat51-product',productVersion:'3',capturedAt:'2026-10-25T18:00:00.000Z',retrospective:true});
   await fs.mkdir('docs.local/research',{recursive:true});await fs.writeFile(`docs.local/research/cat51-frozen-${testInfo.project.name}.json.gz`,bytes);
-  await page.getByRole('button',{name:'Portfolios',exact:true}).click();
+  await page.getByRole('button',{name:'Portfolio',exact:true}).click();
   if(!await page.getByRole('table',{name:'Insured location inventory'}).isVisible())await page.getByRole('button',{name:/Show locations/}).click();
   page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Delete Below threshold',exact:true}).click();
   await expect(page.getByRole('table',{name:'Insured location inventory'}).locator('tbody tr')).toHaveCount(5);
@@ -81,7 +82,7 @@ test('complete current-portfolio investigation freezes independently checked num
   await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.getByRole('button',{name:'Saved',exact:true}).click();
   await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('3');
   const reopened=JSON.parse(gunzipSync(await downloadCase(page)).toString());expect(reopened).toEqual(envelope);
-  await page.getByRole('button',{name:'Portfolios',exact:true}).click();
+  await page.getByRole('button',{name:'Portfolio',exact:true}).click();
   if(!await page.getByRole('table',{name:'Insured location inventory'}).isVisible())await page.getByRole('button',{name:/Show locations/}).click();
   await expect(page.getByRole('table',{name:'Insured location inventory'}).locator('tbody tr')).toHaveCount(5);
   await expect(page.getByRole('table',{name:'Insured location inventory'})).not.toContainText('Below threshold');

@@ -1,3 +1,4 @@
+import { openExport } from '../helpers/exposure-workspace';
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
@@ -8,7 +9,7 @@ import { openLocations } from '../helpers/exposure-workspace';
 // No saved-case repository, assessment implementation or internal collaborator is mocked.
 const digest=(bytes:Buffer)=>createHash('sha256').update(bytes).digest('hex');
 async function keyboardActivate(page:Page,target:Locator){await expect(target).toBeEnabled();await target.focus();await expect(target).toBeFocused();await page.keyboard.press('Enter');}
-async function downloadCase(page:Page){await openLocations(page);const pending=page.waitForEvent('download');await keyboardActivate(page,page.getByRole('button',{name:'Download self-contained case',exact:true}));const bytes=await fs.readFile((await(await pending).path())!);return{bytes,envelope:JSON.parse(gunzipSync(bytes).toString())};}
+async function downloadCase(page:Page){await openLocations(page);const pending=page.waitForEvent('download');await openExport(page);await keyboardActivate(page,page.getByRole('button',{name:'Download self-contained case',exact:true}));const bytes=await fs.readFile((await(await pending).path())!);return{bytes,envelope:JSON.parse(gunzipSync(bytes).toString())};}
 
 test('keyboard recent and historical inspection, explicit revision and offline transfer preserve the case and public-only idle request boundary',async({page,browser},info)=>{
  test.setTimeout(120_000);
@@ -32,7 +33,7 @@ test('keyboard recent and historical inspection, explicit revision and offline t
   const bytes=objects.get(url.pathname.split('/').at(-1)!);return bytes?route.fulfill({body:bytes}):route.fulfill({status:404});
  });
  await page.goto('/exposure.html');
- await keyboardActivate(page,page.getByRole('button',{name:'Portfolios',exact:true}));await keyboardActivate(page,page.getByRole('button',{name:'Use demo portfolio',exact:true}));await keyboardActivate(page,page.getByRole('button',{name:'Exposure',exact:true}));
+ await keyboardActivate(page,page.getByRole('button',{name:'Portfolio',exact:true}));await keyboardActivate(page,page.getByRole('button',{name:'Use demo portfolio',exact:true}));await keyboardActivate(page,page.getByRole('button',{name:'Exposure',exact:true}));
  const recent=page.getByRole('button',{name:'Recent events',exact:true});await recent.focus();await page.keyboard.press('Tab');await expect(page.getByRole('button',{name:'Historical search',exact:true})).toBeFocused();await page.keyboard.press('Enter');
  const id=page.getByLabel('Source event ID',{exact:true});await id.focus();await page.keyboard.type(event.id);await keyboardActivate(page,page.getByRole('button',{name:'Search historical earthquakes',exact:true}));
  await expect(page.getByText(`Source ID ${event.id}`,{exact:false}).first()).toBeVisible();

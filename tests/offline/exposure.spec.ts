@@ -1,3 +1,4 @@
+import { openExport } from '../helpers/exposure-workspace';
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs/promises';
 import { openHistory, openLocations, openPortfolio } from '../helpers/exposure-workspace';
@@ -13,7 +14,7 @@ test('extracted exposure build reproduces replay, supported portfolio and frozen
  await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-boundary-features',/^[1-9][0-9]*$/);
  await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-geographic-labels',/[A-Za-z]/);
  await openHistory(page);await page.getByRole('button',{name:'Save this investigation locally',exact:true}).click();await expect(page.getByRole('button',{name:'Saved in this browser',exact:true})).toBeDisabled();
- await openLocations(page);const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();const bytes=await fs.readFile((await (await pending).path())!);const bundle=JSON.parse(gunzipSync(bytes).toString());
+ await openLocations(page);const pending=page.waitForEvent('download');await openExport(page);await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();const bytes=await fs.readFile((await (await pending).path())!);const bundle=JSON.parse(gunzipSync(bytes).toString());
  expect(bundle.record.summary.meetingThreshold).toBe(11);expect(bundle.rawEventJson).toContain('ci38457511');
  await openPortfolio(page);await page.getByText('Demo portfolios',{exact:true}).click();await page.getByRole('button',{name:'Use 1,000 synthetic locations',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.getByRole('button',{name:'Investigate latest portfolio',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('590');
  await page.reload();await openHistory(page);await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('11');

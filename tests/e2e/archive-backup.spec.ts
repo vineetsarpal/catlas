@@ -1,4 +1,5 @@
 /// <reference path="../../services/exposure-archive/node_modules/@cloudflare/workers-types/index.d.ts" />
+import { openExport } from '../helpers/exposure-workspace';
 import { test, expect } from '@playwright/test';
 import { createArchiveHandler } from '../../services/exposure-archive/src/archive';
 import { createPostgresDatabase } from '../../services/exposure-archive/src/neon';
@@ -61,9 +62,9 @@ test('a complete recovery point restores genuine originals into an empty archive
   const response=await archiveBridge(new Request(r.url(),{method:r.method(),headers:r.headers(),...(r.method()==='POST'?{body:r.postData()!}:{})}),{ARCHIVE_API_ORIGIN:'https://fixture.workers.dev',ARCHIVE_PROOF_TOKEN:token},async(input,init)=>target(new Request(String(input),init),env));
   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:Buffer.from(await response.arrayBuffer())});
  });
- await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolios',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.getByRole('button',{name:/Ridgecrest Earthquake Sequence/}).click();
+ await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolio',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.getByRole('button',{name:/Ridgecrest Earthquake Sequence/}).click();
  await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Assess portfolio',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('11');await expect(page.getByTestId('exposure-unknown')).toHaveText('2');await page.getByRole('button',{name:'Save investigation',exact:true}).click();
- const download=async()=>{await openLocations(page);const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();return JSON.parse(gunzipSync(await fs.readFile((await(await pending).path())!)).toString());};
+ const download=async()=>{await openLocations(page);const pending=page.waitForEvent('download');await openExport(page);await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();return JSON.parse(gunzipSync(await fs.readFile((await(await pending).path())!)).toString());};
  const original=await download();expect(original.rawEventJson).toBe(detailBytes.toString());expect(hash(Buffer.from(original.rawXml))).toBe(hash(gridBytes));expect(original.record.summary.knownValueByCurrency).toEqual({USD:128000000});
  await page.reload();await page.getByRole('button',{name:'Saved',exact:true}).click();await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();expect(await download()).toEqual(original);
  // Measure real deduplication and rotation calls across 31 points. Only retention age is simulated.

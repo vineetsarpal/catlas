@@ -1,3 +1,4 @@
+import { openExport } from '../helpers/exposure-workspace';
 import { test, expect } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -20,7 +21,7 @@ test('a complete investigation retains the genuine archived Ridgecrest grid thro
     return route.fulfill({ body: url.pathname.endsWith(artifacts.grid.sha256) ? gridBytes : detailBytes });
   });
   await page.goto('/exposure.html');
-  await page.getByRole('button', { name: 'Portfolios', exact: true }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await page.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
   await page.getByRole('button', { name: 'Exposure', exact: true }).click();
   await page.getByRole('button', { name: /Ridgecrest Earthquake Sequence/ }).click();
@@ -34,7 +35,7 @@ test('a complete investigation retains the genuine archived Ridgecrest grid thro
   await page.getByRole('button', { name: 'Save investigation', exact: true }).click();
   await openLocations(page);
   const pending = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download self-contained case', exact: true }).click();
+  await openExport(page);await page.getByRole('button', { name: 'Download self-contained case', exact: true }).click();
   const download = await pending;
   await fs.mkdir('docs.local/research', { recursive: true });
   const savedPath = `docs.local/research/cat51-ridgecrest-saved-${info.project.name}.json.gz`;

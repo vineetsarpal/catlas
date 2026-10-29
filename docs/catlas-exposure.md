@@ -14,9 +14,9 @@ Open `exposure.html` from the hosted/local distribution, or follow **Investigate
 
 ## Portfolio management and imports
 
-Use **Portfolios** in the main navigation to create named working inventories. The inventory, metadata and active selection persist separately from investigation history in browser-local IndexedDB. Add, edit or delete locations manually, or preview a CSV before selecting **Add/update by location ID** or **Replace all locations**. The preview identifies additions, changes, removals, exclusions and coordinate warnings. Apply imports explicitly after acknowledgement. Editing metadata, saving a location and applying a CSV are separate explicit save actions. CSV exports contain all current locations, regardless of inventory search.
+Use **Portfolio** in the main navigation to create named working inventories. The inventory, metadata and active selection persist separately from investigation history in browser-local IndexedDB. Add, edit or delete locations manually, or preview a CSV before selecting **Add/update by location ID** or **Replace all locations**. The preview identifies additions, changes, removals, exclusions and coordinate warnings. Apply imports explicitly after acknowledgement. Editing metadata, saving a location and applying a CSV are separate explicit save actions. CSV exports contain all current locations, regardless of inventory search.
 
-An empty working portfolio is allowed. Exposure still requires at least one location. Monitor always uses the active working inventory. New investigation snapshots include the portfolio name and revision (older cases remain readable). Exposure shows the portfolio snapshot used for its assessment; inventory changes and selection changes leave those results unchanged and offer **Investigate latest portfolio** to create another version. Opening saved history or a case bundle never replaces working holdings. Threshold or evidence-only updates retain the original investigation portfolio. Deleting an inventory requires confirmation and preserves saved investigations. The main URL now opens Portfolios; Recovery can be opened directly with `/?mode=recovery`.
+An empty working portfolio is allowed. Exposure still requires at least one location. Monitor always uses the active working inventory. New investigation snapshots include the portfolio name and revision (older cases remain readable). Exposure shows the portfolio snapshot used for its assessment; inventory changes and selection changes leave those results unchanged and offer **Investigate latest portfolio** to create another version. Opening saved history or a case bundle never replaces working holdings. Threshold or evidence-only updates retain the original investigation portfolio. Deleting an inventory requires confirmation and preserves saved investigations. The main URL now opens Portfolio; Recovery can be opened directly with `/?mode=recovery`.
 
 ### CSV constraints
 
@@ -52,6 +52,14 @@ Run `npm test`, `npm run test:e2e`, `npm run package:offline`, and `npm run test
 
 ## Linked portfolio exploration
 
+The sidebar **Locations** button is the single control for showing and hiding results. Desktop uses a keyboard-resizable bottom drawer alongside the map; mobile uses the full workspace list with location details in a sheet. The button is highlighted while open. On desktop, **Expand locations** fills the workspace with results; **Restore map** or Escape returns to the resizable drawer. Filters and the selected location are retained. Mobile already uses the full workspace list. Desktop drawer visibility and height are remembered locally as viewing preferences; older Map/Split/List preferences remain readable. These controls do not create investigation versions.
+
+Selecting a summary status highlights that card, filters both map and results, and opens Locations. Clicking the selected card again clears the status while leaving Locations open. The stable **Portfolio locations** heading carries a compact visible/total count such as **11/18**, without an additional status strip.
+
+Selecting a map point or list row opens location details on the right. Selection is shared, and a selected location outside the map viewport is brought into view. Filtering preserves the camera; **Fit results**, beside **Appearance**, explicitly frames visible locations. **Clear filters** resets viewing filters without changing the investigation. **Review unknown values** isolates locations meeting the saved threshold whose insured value is missing, while the unknown-intensity filter remains distinct.
+
+The source update timestamp remains visible beside **Evidence**. Open the Evidence drawer for provenance, source checks and explicit evidence updates. Closing it preserves filters and selection. Assessment and Save stay in the case header. CSV, case download and print actions are grouped under **Export** in the location list; they continue to use the full frozen investigation. Evidence-revision comparison is not included in this layout pass.
+
 SpatialKey's [public product page](https://insurity.com/platform/spatialkey) was reviewed as a design reference on 2026-10-17. The relevant ideas are linked maps and financial context, portfolio concentration exploration, and progressive access to detail. Catlas adapts these patterns using its existing earthquake evidence and consolidated insured locations.
 
 - Summary cards for meeting threshold, unknown intensity and below threshold act as view filters. Click the selected card again to return to all statuses.
@@ -72,7 +80,7 @@ Natural Earth source files are pinned by commit and SHA-256 in `frontend/public/
 
 ## Map-first portfolio workspace
 
-Portfolios uses the shared viewport layout: a portfolio list and provenance panel on the left, the inventory map in the center, a location/management inspector on the right, and a collapsible location table below the map. Search in the location table filters existing inventory; **Search a location** focuses the separate place/address search above the map.
+Portfolio uses the shared viewport layout: a portfolio list and provenance panel on the left, the inventory map in the center, a location/management inspector on the right, and a collapsible location table below the map. Search in the location table filters existing inventory; **Search a location** focuses the separate place/address search above the map.
 
 - Type at least three characters and pause briefly for suggestions, or submit immediately. Choose a result, and review the unsaved pin. Drag it to adjust the position, then choose **Add to portfolio**, provide an ID and insurance attributes, and **Save location**.
 - **Drop a pin** enables map placement. Click the map or choose **Use map center** as a keyboard-accessible alternative. Review and save through the same form. Coordinate fields also update the preview pin.
@@ -85,11 +93,15 @@ Offline or failed search leaves manual coordinate entry, pin placement, CSV and 
 
 ## Recent earthquake inspection (CAT-48)
 
-Exposure uses one map toolbar and a shared left sidebar for Events, Saved, Layers, Filters, Regions and Details. Events opens by default; choosing another tool replaces the sidebar content, and choosing the active tool collapses it. The portfolio map stays in the middle, with the public-evidence inspector at right. At narrower desktop widths the inspector moves below the map; the mobile layout stacks the panels. The packaged replay and existing local investigation history remain available.
+Exposure uses one map toolbar and a shared left sidebar for Events, Saved, Layers, Filters, Analysis, Regions and Details. Events opens by default; choosing another tool replaces the sidebar content, and choosing the active tool collapses it. The portfolio map stays in the middle, with the public-evidence inspector at right. Evidence is opened explicitly in its drawer. Mobile uses sidebar overlays and a location detail sheet. The packaged replay and existing local investigation history remain available.
 
 Discovery defaults to the last 90 days, newest first, with the removable **Catlas significance >600** filter. This is a discovery filter, not a portfolio assessment or a promise that a usable shaking grid exists. Text search filters only retrieved results. Requests retrieve at most 50 source records per page, with a ten-page ceiling. A server-issued end time keeps the 90-day window fixed across continuation requests; continuations expire after 24 hours and require an explicit refresh. The UI discloses more results, omitted records or partial coverage. Empty successful results differ from failures; failed refreshes retain prior successful results with their retrieval timestamp and applied filter.
 
 Only source-confirmed aliases merge event identities; similarly named events remain separate. Catalog revisions can update displayed discovery metadata without changing an inspected capture or saved investigation. Selecting an event, or choosing **Inspect earthquake in Exposure** in Monitor, uses the archive capture/reuse path and verifies the length and SHA-256 of both original detail and grid bytes before parsing evidence. Selection creates neither a portfolio assessment nor a saved case. **Assess portfolio** and **Save investigation** are separate explicit actions. An empty portfolio does not prevent inspection.
+
+**Filters** contains viewing controls only: search, status, region, currency and business line. Its sidebar badge counts active viewing filters. **Clear filters** resets them without changing either threshold, the portfolio, map layers or appearance. Summary-card shortcuts remain synchronized with the viewing filters and continue to open Locations.
+
+**Analysis** contains the draft investigation threshold, the threshold used by the current assessment, and **Apply threshold as new version**. Event discovery retains an independent **Screening threshold MMI** under Events. Both default to MMI 4. Changing screening does not change analysis, displayed results or saved cases. New investigations use the draft shown in Analysis. Opening or importing a saved investigation restores its analysis threshold without modifying screening. Changing analysis for an existing investigation requires the explicit new-version action.
 
 The event list remains mounted while switching sidebar tools, preserving its filters, retrieved pages and timestamps. Switching back to Events does not refetch it. Recent discovery fetches on entry, a significance change, explicit refresh or load-more. Historical search runs on explicit submission or load-more. Neither flow has recurring source checks. Existing Monitor polling remains a separate capability. Insured locations, values and cases stay in the browser; archive capture payloads contain only a public `eventId`.
 
@@ -172,3 +184,7 @@ The private [backup and restore runbook](catlas-archive-backup.md) describes com
 ### Hosted acceptance (CAT-57)
 
 See the [hosted acceptance package](catlas-exposure-acceptance.md) for dated evidence, current capacity failure, coordinated release preparation and pending activation gates. Local journey and recovery checks do not establish hosted deployment or operational readiness.
+
+Location search is available directly in the Portfolio locations header. It searches names, IDs, regions and business lines, uses the same map/list filter state, and resets pagination. On smaller screens it occupies its own row below the heading. Clear location search removes only the search query; Clear filters resets every viewing filter.
+
+Location details show a plain-language explanation of the estimate or why intensity is unknown. The collapsed Evidence section contains calculation, source timestamps, product identity and hashes, and resets closed when the selected location or investigation changes.

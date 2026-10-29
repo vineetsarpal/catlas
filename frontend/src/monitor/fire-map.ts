@@ -26,7 +26,7 @@ export function addFireMapLayers(map: maplibre.Map, select: (key: string) => voi
   map.addLayer({ id: 'monitor-fire-selected', type: 'circle', source: 'monitor-selected-fire', paint: {
     'circle-radius': 8, 'circle-color': '#fff2bd', 'circle-stroke-color': '#b74d25', 'circle-stroke-width': 3,
   } }, 'monitor-items');
-  const foregroundAt = (point: maplibre.Point) => map.queryRenderedFeatures(point, { layers: ['monitor-items', 'monitor-vessels', 'monitor-earthquake-labels'] }).length > 0;
+  const foregroundAt = (point: maplibre.Point) => map.queryRenderedFeatures(point, { layers: ['monitor-items', 'monitor-vessels', 'monitor-reported-fires', 'monitor-earthquake-labels'] }).length > 0;
   map.on('click', 'monitor-fire-dots', event => { if (foregroundAt(event.point)) return; const key = event.features?.[0]?.properties.key; if (key) select(String(key)); });
   map.on('click', 'monitor-fire-selected', event => { if (foregroundAt(event.point)) return; const key = event.features?.[0]?.properties.key; if (key) select(String(key)); });
   map.on('click', 'monitor-fire-clusters', async event => {

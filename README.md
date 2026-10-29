@@ -2,14 +2,14 @@
 
 A map-first catastrophe workbench for managing insured locations, monitoring hazards, investigating earthquake exposure and reviewing provisional contractual recovery. The default application runs in the browser with local storage; an optional localhost backend supplies wind forecasts and AIS vessel monitoring.
 
-The main URL opens **Portfolios**. The shared navigation connects **Portfolios → Monitor → Exposure → Recovery**:
+The main URL opens **Portfolio**. The shared navigation connects **Portfolio → Monitor → Exposure → Recovery**:
 
-1. **Portfolios** — create a named inventory, add insured locations through place search, map pins or manual coordinates, or preview and import a CSV. Select the active portfolio for investigation.
+1. **Portfolio** — create a named inventory, add insured locations through place search, map pins or manual coordinates, or preview and import a CSV. Select the active portfolio for investigation.
 2. **Monitor** — view earthquakes, cyclone context and optional US/Canadian fire and weather attention alongside active insured locations, then capture an earthquake for investigation.
 3. **Exposure** — compare a frozen portfolio snapshot with captured USGS shaking evidence, screen locations by MMI, inspect regional totals and export an impact summary or self-contained case bundle. Revisions create new investigation versions.
 4. **Recovery** — evaluate the selected earthquake against imported reinsurance contract terms, review the explanation and prepare an immutable reviewed recovery packet. Delivery, acknowledgements and replacements are simulated.
 
-All workspaces use the same map-first layout: a left tool rail opens workspace options, the map remains in the center, and selected location or item details appear on the right. Portfolios keeps search, imports and settings on the left; Monitor keeps attention, locations, watchlist, feeds and layers there; Recovery separates assessment/history options from the selected recovery explanation. **Layers** lives in the left sidebar in every workspace; Monitor’s **Filters** menu sits immediately before **Appearance** on the map; zoom and north controls use the shared top-right position. On mobile, options and details open one at a time.
+All workspaces use the same map-first layout: a left tool rail opens workspace options, the map remains in the center, and selected location or item details appear on the right. Portfolio keeps search, imports and settings on the left; Monitor keeps attention, locations, watchlist, feeds and layers there; Recovery separates assessment/history options from the selected recovery explanation. **Layers** lives in the left sidebar in every workspace; Monitor’s **Map filters** opens from the left sidebar; zoom and north controls use the shared top-right position. On mobile, options and details open one at a time.
 
 Exposure screening identifies potentially affected insured value; contractual recovery uses the imported treaty terms. Insured value, physical loss and provisional recovery are distinct measures. The fictional Sierra Mutual Ridgecrest recovery demonstration produces Mojave $4.5m + Western $1.5m = $6m.
 
@@ -94,7 +94,7 @@ Offline packaging explicitly disables the backend integration, regardless of loc
 
 ## Portfolio workspace
 
-Use **Portfolios** (`/?mode=portfolios`) to manage multiple named insured-location portfolios. The workspace has a portfolio list, central inventory map, location inspector and collapsible locations table.
+Use **Portfolio** (`/?mode=portfolios`) to manage multiple named insured-location portfolios. The workspace has a portfolio list, central inventory map, location inspector and collapsible locations table.
 
 - **Search a location:** type at least three characters and pause for suggestions, or submit immediately. Use arrow keys and Enter to choose a result; Escape dismisses suggestions. Review the unsaved pin, drag it to adjust the position, then add insurance details and save.
 - **Drop a pin / Add location:** place a point on the map, choose **Use map center**, or enter coordinates manually. An unsaved preview does not add a location; saving the location form does.

@@ -1,4 +1,5 @@
 /// <reference path="../../services/exposure-archive/node_modules/@cloudflare/workers-types/index.d.ts" />
+import { openExport } from '../helpers/exposure-workspace';
 import { test, expect } from '@playwright/test';
 import { createArchiveHandler } from '../../services/exposure-archive/src/archive';
 import { createPostgresDatabase } from '../../services/exposure-archive/src/neon';
@@ -45,8 +46,8 @@ test('private confirmed cleanup expires public originals while a saved local cas
   const response=await archiveBridge(new Request(request.url(),{method:request.method(),headers:request.headers(),...(request.method()==='POST'?{body:request.postData()!}:{})}),{ARCHIVE_API_ORIGIN:'https://fixture.workers.dev',ARCHIVE_PROOF_TOKEN:token},async(input,init)=>handler(new Request(String(input),init),env));
   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:Buffer.from(await response.arrayBuffer())});
  });
- await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolios',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.getByRole('button',{name:/Synthetic cleanup earthquake/}).click();await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Assess portfolio',exact:true}).click();await page.getByRole('button',{name:'Save investigation',exact:true}).click();
- const download=async()=>{await openLocations(page);const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();return JSON.parse(gunzipSync(await fs.readFile((await(await pending).path())!)).toString());};
+ await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolio',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.getByRole('button',{name:/Synthetic cleanup earthquake/}).click();await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Assess portfolio',exact:true}).click();await page.getByRole('button',{name:'Save investigation',exact:true}).click();
+ const download=async()=>{await openLocations(page);const pending=page.waitForEvent('download');await openExport(page);await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();return JSON.parse(gunzipSync(await fs.readFile((await(await pending).path())!)).toString());};
  const original=await download();
  // External fixture ages public captures; all assertions still use HTTP/browser seams.
  await sql(`SET search_path TO ${schema}; UPDATE catlas_proof_captures SET captured_at=clock_timestamp()-interval '91 days'; UPDATE catlas_proof_capture_versions SET captured_at=clock_timestamp()-interval '91 days';`);

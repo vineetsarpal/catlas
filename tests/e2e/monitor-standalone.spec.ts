@@ -9,7 +9,7 @@ test('standalone hazard controls explain backend requirement and never request c
   if(testInfo.project.name==='desktop')await page.setViewportSize({width:1440,height:1200});
   await page.goto('/?mode=monitor');
   await page.getByText('Layers',{exact:true}).click();
-  for(const label of ['Weather warnings','Fire perimeters','Fire detections']){
+  for(const label of ['Weather warnings','Reported fires & perimeters','Fire detections']){
     const toggle=page.getByRole('switch',{name:label,exact:true});
     await expect(toggle).toBeDisabled();await expect(toggle).not.toBeChecked();
   }

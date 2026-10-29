@@ -17,6 +17,7 @@ export function filterExposure(rows: ExposureRow[], threshold: number, view: Exp
     (!query || [row.name, row.id, row.region, row.businessLine].some(value => value.toLocaleLowerCase().includes(query))) &&
     (view.status === 'all' ||
       view.status === 'unknown' && row.mmi === null ||
+      view.status === 'missing-value' && row.value === null && row.mmi !== null && row.mmi >= threshold ||
       view.status === 'meeting' && row.mmi !== null && row.mmi >= threshold ||
       view.status === 'below' && row.mmi !== null && row.mmi < threshold));
 }

@@ -10,7 +10,7 @@ const oneUnknownValue=header+'NODE,Unknown value consolidated site,-117.5,35.5,,
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const catalogRow=(page:Page,id:string)=>page.locator('.catalog-event-list li').filter({hasText:id});
 async function inventory(page:Page,csv=oneUnknownValue){
-  await page.getByRole('button',{name:'Portfolios',exact:true}).click();
+  await page.getByRole('button',{name:'Portfolio',exact:true}).click();
   await page.getByRole('button',{name:'Create portfolio',exact:true}).click();
   const form=page.getByRole('form',{name:'Create portfolio',exact:true});
   await form.getByLabel('Portfolio name',{exact:true}).fill('Synthetic relevance portfolio');
@@ -72,11 +72,11 @@ test('outside-grid locations, missing samples and excluded import rows keep no-h
   await catalogRow(page,below.id).getByRole('button').click();await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeEnabled();
   await page.getByLabel('Relevant to portfolio',{exact:true}).check();
   await expect(catalogRow(page,below.id)).toContainText('Unknown relevance');
-  await page.getByRole('button',{name:'Portfolios',exact:true}).click();await replaceInventory(page,oneUnknownValue);
+  await page.getByRole('button',{name:'Portfolio',exact:true}).click();await replaceInventory(page,oneUnknownValue);
   await page.getByLabel('Relevant to portfolio',{exact:true}).check();await expect(catalogRow(page,below.id)).toHaveCount(0);
   await catalogRow(page,missing.id).getByRole('button').click();await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeEnabled();
   await expect(catalogRow(page,missing.id)).toContainText('Unknown relevance');
-  await page.getByRole('button',{name:'Portfolios',exact:true}).click();await replaceInventory(page,oneUnknownValue+'BAD,Excluded supplied site,,35.5,100,CAD,East,Commercial\n');
+  await page.getByRole('button',{name:'Portfolio',exact:true}).click();await replaceInventory(page,oneUnknownValue+'BAD,Excluded supplied site,,35.5,100,CAD,East,Commercial\n');
   await page.getByLabel('Relevant to portfolio',{exact:true}).check();
   await expect(catalogRow(page,below.id)).toContainText('Unknown relevance');
   await expect(catalogRow(page,below.id)).toContainText('excluded');

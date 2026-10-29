@@ -43,7 +43,7 @@ test('source ID finds supported historical evidence independently of structured 
  const inspector=page.getByRole('complementary',{name:'Earthquake evidence inspector'});
  await expect(inspector).toContainText(artifacts.grid.sha256);await expect(inspector).toContainText('Retrospective');
  await expect(page.getByTestId('exposure-count')).toHaveText('—');
- await page.getByRole('button',{name:'Portfolios',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();
+ await page.getByRole('button',{name:'Portfolio',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();
  await page.getByRole('button',{name:'Assess portfolio',exact:true}).click();
  await expect(page.getByTestId('exposure-count')).not.toHaveText('—');
  await page.getByRole('button',{name:'Save investigation',exact:true}).click();

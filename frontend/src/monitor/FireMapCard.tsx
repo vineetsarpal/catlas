@@ -4,9 +4,9 @@ import type { MonitorState } from './useMonitor';
 
 export function FirePerimeterLegend() {
   return <details className="monitor-containment-legend">
-    <summary>Fire perimeters · containment</summary>
+    <summary aria-label="Fire perimeters · containment"><i className="monitor-perimeter-swatch" aria-hidden="true"/><span>Fire perimeters</span><svg className="monitor-legend-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="m3 2 4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></summary>
     <div aria-label="Reported fire containment legend">
-    <b>Reported containment</b>
+    <header className="monitor-containment-heading"><b>Fire perimeters</b><small>Reported containment</small></header>
     {containmentBands.map(band => <span key={band.id}><i style={{ background: band.color }}/>{band.label}</span>)}
     <small>Containment does not establish location safety.</small>
     </div>

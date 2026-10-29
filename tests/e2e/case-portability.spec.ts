@@ -1,3 +1,4 @@
+import { openExport } from '../helpers/exposure-workspace';
 import { test, expect, type Page } from '@playwright/test';
 import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
@@ -14,12 +15,12 @@ async function assessed(page:Page){
  await page.route('**/api/exposure/catalog?**',route=>route.fulfill({json:{events:[event],checkedAt:event.updatedAt,range:{start:'2026-07-28T00:00:00.000Z',end:'2026-10-26T00:00:00.000Z'},offset:0,limit:50,hasMore:false,completeness:'complete',rejected:0}}));
  await page.route('**/api/exposure/captures',route=>{expect(route.request().postDataJSON()).toEqual({eventId:event.id});return route.fulfill({status:201,json:{schemaVersion:1,event,product:{id:'cat54-product',source:'us',code:event.id,updatedAt:event.updatedAt,retrospective:false},capturedAt:'2026-10-25T18:00:00.000Z',artifacts}});});
  await page.route('**/api/exposure/artifacts/*',route=>route.fulfill({body:raw.get(route.request().url().split('/').at(-1)!)!}));
- await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolios',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.locator('.catalog-event-list li').filter({hasText:event.id}).getByRole('button').click();await page.getByRole('button',{name:'Assess portfolio',exact:true}).click();await page.getByRole('button',{name:'Save investigation',exact:true}).click();
+ await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolio',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();await page.locator('.catalog-event-list li').filter({hasText:event.id}).getByRole('button').click();await page.getByRole('button',{name:'Assess portfolio',exact:true}).click();await page.getByRole('button',{name:'Save investigation',exact:true}).click();
  return await downloaded(page);
 }
 async function downloaded(page:Page){
- if(await page.getByRole('button',{name:'Toggle location table'}).getAttribute('aria-expanded')!=='true')await page.getByRole('button',{name:'Toggle location table'}).click();
- const downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();return JSON.parse(gunzipSync(await fs.readFile((await (await downloading).path())!)).toString());
+ if(await page.getByRole('button',{name:'Locations',exact:true}).getAttribute('aria-expanded')!=='true')await page.getByRole('button',{name:'Locations',exact:true}).click();
+ const downloading=page.waitForEvent('download');await openExport(page);await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();return JSON.parse(gunzipSync(await fs.readFile((await (await downloading).path())!)).toString());
 }
 function alteredCase(original:any){const altered=structuredClone(original);altered.record.id=randomUUID();altered.record.caseId=randomUUID();return altered;}
 function rehash(envelope:any){const{sha256:_old,...payload}=envelope;return gzipSync(JSON.stringify({...payload,sha256:hash(JSON.stringify(payload))}));}

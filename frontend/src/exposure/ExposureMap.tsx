@@ -1,4 +1,3 @@
-import { MapFilters } from '../monitor/MapFilters';
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import * as maplibre from 'maplibre-gl';
@@ -10,6 +9,7 @@ import type { Treaty } from '../domain/types';
 import { triggerPolygon } from '../domain/assessment';
 import { useMonitorMap, type MonitorMapProps } from '../monitor/map';
 import { LayerToggle } from '../monitor/LayerToggle';
+import { REPORTED_FIRE_COLOR, REPORTED_FIRE_PATH, REPORTED_FIRE_INNER_PATH } from '../monitor/fire-icon';
 import { FireMapCard, FirePerimeterLegend } from '../monitor/FireMapCard';
 import { MonitorLayerControls } from '../monitor/MonitorLayerControls';
 import type { MapPoint } from '../portfolios/geocoding';
@@ -36,17 +36,10 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
   const flatPitch = useRef(0);
   const [geography,setGeography] = useState({countries:true,states:true,labels:true});
   const [showZones,setShowZones]=useState(true),[globe,setGlobe]=useState(mode!=='portfolio');
-  const [mapMenu,setMapMenu]=useState<'layers'|'appearance'|'filters'|null>(null);
+  const [mapMenu,setMapMenu]=useState<'layers'|'appearance'|null>(null);
   const mapMenusRef=useRef<HTMLDivElement>(null);
-  useEffect(()=>{if(monitor?.filterRequest)setMapMenu('filters');},[monitor?.filterRequest]);
   useEffect(()=>setMapMenu(null),[mode]);
-  useEffect(()=>{
-    if(mapMenu!=='filters')return;
-    const closeOutside=(event:PointerEvent)=>{if(event.target instanceof Node&&!mapMenusRef.current?.contains(event.target))setMapMenu(null);};
-    const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.stopPropagation();setMapMenu(null);mapMenusRef.current?.querySelector<HTMLElement>('.monitor-filter-menu>summary')?.focus();}};
-    document.addEventListener('pointerdown',closeOutside);document.addEventListener('keydown',escape);
-    return()=>{document.removeEventListener('pointerdown',closeOutside);document.removeEventListener('keydown',escape);};
-  },[mapMenu]);
+
   const selectAreaRef=useRef(onSelectArea);selectAreaRef.current=onSelectArea;
   callback.current = onSelect;
   const placementRef=useRef(placement); placementRef.current=placement;
@@ -74,8 +67,9 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
         element.current.dataset.zoneFeatures=String(new Set(map.queryRenderedFeatures({layers:map.getLayer('recovery-zone-line')?['recovery-zone-line']:[]}).map(feature=>`${feature.properties.areaId}:${feature.properties.radius}`)).size);
         element.current.dataset.shakingReady=String(Boolean(map.getSource('exposure-shaking')&&map.isSourceLoaded('exposure-shaking')));
         if(map.getLayer('monitor-fire-clusters')) {
-          for(const [name,layer] of [['fireClusters','monitor-fire-clusters'],['fireDetections','monitor-fire-dots'],['selectedFires','monitor-fire-selected']] as const)
+          for(const [name,layer] of [['fireClusters','monitor-fire-clusters'],['fireDetections','monitor-fire-dots'],['selectedFires','monitor-fire-selected'],['reportedFires','monitor-reported-fires']] as const)
             element.current.dataset[name]=String(map.queryRenderedFeatures({layers:[layer]}).length);
+          element.current.dataset.circularFireReports=String(map.queryRenderedFeatures({layers:['monitor-items']}).filter(feature=>feature.properties.kind==='perimeter').length);
         }
       });
       map.on('click',e=>{if(placementRef.current?.enabled){const point=e.lngLat.wrap();placementRef.current.onChange({longitude:point.lng,latitude:point.lat});}});
@@ -252,7 +246,13 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
     const marker=new maplibre.Marker({color:'#ffffff'}).setLngLat([event.longitude,event.latitude]).setPopup(new maplibre.Popup().setText(`${event.name} · epicentre`)).addTo(map);
     map.easeTo({center:[event.longitude,event.latitude],zoom:6,duration:350});return()=>{marker.remove();};
   },[ready,event?.id,event?.latitude,event?.longitude,mode==='monitor']);
-  useEffect(()=>{const row=rows.find(r=>r.id===selected);if(ready&&row&&focusRequest>0)mapRef.current?.easeTo({center:[row.longitude,row.latitude],duration:350});},[ready,focusRequest]);
+  useEffect(()=>{const row=rows.find(r=>r.id===selected);if(ready&&row&&focusRequest>0)mapRef.current?.easeTo({center:[row.longitude,row.latitude],duration:window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:350});},[ready,focusRequest]);
+  useEffect(()=>{
+    const map=mapRef.current;
+    if(!ready||!map||mode!=='exposure'||!selectedLocation||pulseRequest===0)return;
+    const point:[number,number]=[selectedLocation.longitude,selectedLocation.latitude];
+    if(!map.getBounds().contains(point))map.easeTo({center:point,duration:window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:350});
+  },[ready,pulseRequest,mode]);
   useEffect(()=>{if(mode==='monitor'&&monitor?.fitRequest)fitLocations();},[monitor?.fitRequest]);
   const layerControls = (
         <div className="exposure-map-layers" aria-label="Map layers">
@@ -274,10 +274,6 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
         <summary onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='layers'?null:'layers');}}>Layers</summary>
         {layerControls}
       </details>}
-      {mode==='monitor'&&monitor&&<details className="exposure-layer-menu monitor-filter-menu" open={mapMenu==='filters'}>
-        <summary role="button" aria-expanded={mapMenu==='filters'} onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='filters'?null:'filters');}}>Filters{(monitor.state.prefs.nearPortfolio||monitor.state.prefs.watchedOnly)&&<span className="monitor-filter-count">{Number(monitor.state.prefs.nearPortfolio)+Number(monitor.state.prefs.watchedOnly)}</span>}</summary>
-        <div className="exposure-map-layers monitor-filter-popover" role="group" aria-label="Map filters"><MapFilters state={monitor.state}/></div>
-      </details>}
       <details className="exposure-layer-menu" open={mapMenu==='appearance'}>
         <summary onClick={e=>{e.preventDefault();setMapMenu(mapMenu==='appearance'?null:'appearance');}}>Appearance</summary>
         <div className="exposure-map-layers" aria-label="Map appearance">
@@ -289,6 +285,7 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
           <label><input type="checkbox" checked={geography.labels} onChange={e=>setGeography({...geography,labels:e.target.checked})}/> Place labels</label>
         </div>
       </details>
+    {mode==='exposure'&&<button className="exposure-fit-results" disabled={!rows.length||!ready} onClick={fitLocations}>Fit results</button>}
     </div>
     {placement?.enabled&&<button className="portfolio-map-center" onClick={()=>{const point=mapRef.current?.getCenter().wrap();if(point)placement.onChange({longitude:point.lng,latitude:point.lat});}}>Use map center</button>}
     <div ref={element} className="exposure-map" data-testid="exposure-map" data-ready={ready} aria-label={mode==='monitor'?'Interactive hazard map; items also available in Monitor details':'Interactive portfolio map; locations also available in the keyboard-accessible table'}/>
@@ -302,6 +299,7 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
         {monitor?.state.prefs.earthquakes&&<span><i style={{background:'#bc7545'}}/>Earthquakes</span>}
         {monitor?.state.prefs.vessels&&<>{(monitor.state.vessels.scope==='all'?[true,false]:[true]).map(inPortfolio=><span key={String(inPortfolio)}><svg width="12" height="16" viewBox="0 0 24 32" aria-hidden="true"><path d="M12 2 20 12 18 29H6L4 12Z" fill={inPortfolio?'#287d69':'#2674bb'}/><path d="M8 16h8v4H8z" fill="white"/></svg>{inPortfolio?'Portfolio vessels':'Other vessels'}</span>)}</>}
         {monitor?.state.prefs.fires&&<span><i style={{background:'#d35827'}}/>Fire detections</span>}
+        {monitor?.state.prefs.perimeters&&monitor.items.some(item=>item.perimeter?.evidence==='reported-incident')&&<span title="Reported fire location; no boundary supplied"><svg width="12" height="16" viewBox="0 0 24 32" aria-hidden="true"><path d={REPORTED_FIRE_PATH} fill={REPORTED_FIRE_COLOR}/><path d={REPORTED_FIRE_INNER_PATH} fill="#fff1d0"/></svg>Reported fires</span>}
         {monitor?.state.prefs.perimeters&&<FirePerimeterLegend/>}
         {monitor?.state.prefs.alerts&&<span><i style={{background:'#b59424'}}/>Weather warnings</span>}
         {monitor?.state.prefs.cyclones&&<span><i style={{background:'#7858a1'}}/>Cyclones</span>}

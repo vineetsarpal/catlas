@@ -23,7 +23,7 @@ test('modes retain the earthquake, camera, map instance and exposure filters',as
  await expect(page.getByTestId('retained-evaluation')).toHaveCount(1);
  await page.getByRole('button',{name:'Exposure',exact:true}).click();
  await expect(page.getByTestId('exposure-count')).toHaveText('11');
- await expect(page.getByRole('status').filter({hasText:'11 of 18 locations'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Show locations meeting threshold',exact:true})).toHaveAttribute('aria-pressed','true');
  expect(await canvas!.evaluate(element=>element.isConnected)).toBe(true);
  await page.getByRole('button',{name:'Recovery',exact:true}).click();
  await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
@@ -43,6 +43,7 @@ test('recovery changes invalidate exposure results until the selected observatio
  await expect(page.getByTestId('exposure-count')).toHaveText('—');
  await openPortfolio(page);await page.getByText('Demo portfolios',{exact:true}).click();await page.getByRole('button',{name:'Use 1,000 synthetic locations',exact:true}).click();await closeDialog(page);
  await expect(page.getByRole('heading',{level:1})).toContainText('outer');
+ const close=page.getByRole('button',{name:'Close side panel',exact:true});if(await close.isVisible())await close.click();
  await page.getByRole('button',{name:'Investigate selected earthquake',exact:true}).click();
  await expect(page.getByTestId('exposure-unknown')).toHaveText('1000');
  await page.getByRole('button',{name:'Recovery',exact:true}).click();

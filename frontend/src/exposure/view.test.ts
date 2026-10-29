@@ -16,6 +16,8 @@ describe('exposure investigation views', () => {
     expect(filterExposure(rows, 4, { ...all, status: 'unknown', region: '' }).map(row => row.id)).toEqual(['TR-02']);
     expect(filterExposure(rows, 4, { ...all, businessLine: 'Residential' }).map(row => row.id)).toEqual(['TR-02']);
     expect(filterExposure(rows, 4, { ...all, query: 'no such location' })).toEqual([]);
+    expect(filterExposure(rows, 4, { ...all, status: 'missing-value' }).map(row=>row.id)).toEqual([rows[2].id]);
+    expect(filterExposure(rows, 8, { ...all, status: 'missing-value' })).toEqual([]);
     expect(JSON.stringify(rows)).toBe(before);
   });
   it('keeps regional counts, separate currencies and unknown values distinct', () => {

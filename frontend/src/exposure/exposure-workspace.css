@@ -54,8 +54,6 @@
 .atlas-active-filters { display:flex; gap:6px; align-items:center; flex-wrap:wrap; min-width:0; flex:1; }
 .atlas-active-filters>span { color:#6a7d74; font-size:10px; }
 .atlas-active-filters button { min-height:26px; padding:3px 8px; font-size:10px; background:#edf5f0; color:#2d6550; border-color:#d6e6dc; }
-.atlas-results-toggle { display:flex; align-items:center; gap:8px; border:0!important; color:#2b6450!important; font-size:11px!important; min-height:30px!important; }
-.atlas-results-toggle b { background:#e9f1ed; border-radius:5px; padding:1px 5px; font-size:10px; }
 .atlas-side-panel { display:flex; flex-direction:column; min-height:0; flex:none; width:300px; background:#fff; border-right:1px solid #dbe5df; }
 .atlas-inspection-panel { width:320px; border-right:0; border-left:1px solid #dbe5df; }
 .atlas-panel-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; border-bottom:1px solid #e1e8e4; padding:18px; flex:none; }
@@ -142,8 +140,6 @@
   .atlas-map-status { padding:5px 8px; gap:4px; align-items:start; }
   .atlas-active-filters { max-height:64px; overflow:auto; }
   .atlas-active-filters>span { font-size:9px; }
-  .atlas-results-toggle { gap:4px; white-space:nowrap; font-size:10px!important; }
-  .atlas-results-toggle svg { display:none; }
   .atlas-modal-backdrop { padding:10px; }
   .atlas-modal { max-height:calc(100dvh - 20px); }
   .atlas-modal-scroll { padding:16px; }
@@ -269,25 +265,6 @@
 .atlas-evidence-panel dt { font-weight:600; margin-top:8px; }
 .atlas-evidence-panel dd { margin:0; overflow-wrap:anywhere; }
 .archive-evidence-actions { display:flex; flex-direction:column; gap:8px; margin:18px 0; }
-@media (max-width:1280px) and (min-width:761px) {
- .is-exposure .has-event-catalog { display:grid; grid-template-columns:66px 0 minmax(0,1fr); grid-template-rows:minmax(280px,1fr) minmax(160px,.65fr); }
- .is-exposure .has-exposure-sidebar { grid-template-columns:66px 280px minmax(0,1fr); }
- .has-event-catalog .atlas-tool-rail { grid-column:1; grid-row:1/3; }
- .has-event-catalog .atlas-exposure-panel { width:auto; grid-column:2; grid-row:1/3; }
- .has-event-catalog .atlas-map-stage { grid-column:3; grid-row:1; }
- .has-event-catalog .atlas-evidence-panel { width:auto; grid-column:3; grid-row:2; border-left:0; border-top:1px solid #dce5e1; }
-}
-@media (max-width:760px) {
- .atlas-map-workspace.is-exposure { height:auto; min-height:100dvh; overflow:visible; }
- .is-exposure .has-event-catalog { display:flex; flex-wrap:wrap; overflow:visible; }
- .has-event-catalog .atlas-tool-rail { width:100%; flex-direction:row; padding:4px; box-sizing:border-box; }
- .has-event-catalog .atlas-tool-rail button { flex:1; min-width:0; min-height:44px; }
- .has-event-catalog .atlas-rail-spacer { display:none; }
- .has-event-catalog .atlas-exposure-panel { position:static; width:100%; max-height:360px; box-sizing:border-box; }
- .has-event-catalog .atlas-map-stage { flex-basis:100%; height:380px; }
- .has-event-catalog .atlas-evidence-panel { width:100%; box-sizing:border-box; border-top:1px solid #dce5e1; }
-}
-
 .catalog-search-modes { display:flex; gap:6px; margin:12px 0; }
 .catalog-search-modes button { flex:1; padding:8px 6px; font-size:11px; }
 .catalog-search-modes button[aria-pressed=true] { border-color:#2e7256; background:#f0f7f2; }
@@ -312,3 +289,165 @@
 .catalog-portfolio-screening { border-block:1px solid #dce5e1; padding:10px 0; margin:12px 0; }
 .catalog-portfolio-screening input[type=number] { display:block; width:100%; box-sizing:border-box; padding:7px; margin-top:4px; }
 .catalog-event-list small { overflow-wrap:anywhere; }
+
+/* Exposure investigation: one map, optional context, independently scrolling results. */
+.is-exposure .atlas-work-area.has-event-catalog { display:flex; flex-wrap:nowrap; overflow:hidden; }
+.is-exposure .atlas-map-stage { position:relative; flex:1; height:auto; min-width:0; }
+.is-exposure .atlas-map-surface { min-height:160px; }
+.is-exposure .atlas-exposure-panel { width:280px; flex:0 0 280px; }
+.is-exposure .atlas-exposure-inspection { position:static; width:310px; flex:0 0 310px; border-left:1px solid #dce5e1; border-right:0; }
+.is-exposure .atlas-evidence-panel { width:330px; flex:0 0 330px; box-sizing:border-box; padding:0 18px 18px; }
+.is-exposure .atlas-evidence-panel>.atlas-panel-heading { position:sticky; top:0; padding:12px 0; background:white; z-index:3; }
+.atlas-evidence-bar { display:flex; flex:none; align-items:center; gap:12px; padding:7px 22px; background:#fff; border-bottom:1px solid #e1e7ef; font-size:11px; color:#536b62; }
+.atlas-evidence-bar>div { flex:1; display:flex; flex-wrap:wrap; gap:4px 12px; min-width:0; }
+.atlas-evidence-bar button { min-height:30px; font-size:11px; white-space:nowrap; }
+.atlas-case-actions .archive-assessment-actions { position:static; display:flex; margin:0; padding:0; background:transparent; }
+.is-exposure .atlas-case-context { display:none; }
+.is-exposure .exposure-layout-list .atlas-map-surface { flex:0; min-height:0; height:0; overflow:hidden; visibility:hidden; }
+.is-exposure .exposure-layout-list .atlas-results-drawer { height:auto!important; max-height:none; flex:1; min-height:0; }
+.exposure-layout-list .atlas-table-resize { display:none; }
+.exposure-layout-list .exposure-list-section { height:100%; }
+.is-exposure .atlas-map-status { flex:none; }
+.is-exposure .atlas-results-drawer { max-height:50dvh; }
+.is-exposure .exposure-metrics small { font-size:11px; line-height:1.35; }
+.is-exposure .exposure-metric-action[aria-pressed=true] { background:#eaf4ef!important; box-shadow:0 0 0 1px #2a7b65; border-radius:3px; }
+.is-exposure .metric-unknown strong { color:#9b6819; }
+.exposure-exports { position:relative; }
+.exposure-exports>summary { cursor:pointer; list-style:none; border:1px solid #cbd7e3; border-radius:5px; padding:5px 12px; font-size:12px; color:#2a485f; }
+.exposure-exports>summary::after { content:' ▾'; }
+.exposure-exports[open]>summary { background:#e8f2ed; }
+.exposure-export-menu { position:absolute; top:100%; right:0; z-index:8; width:240px; display:flex; flex-direction:column; gap:6px; background:white; padding:10px; border:1px solid #dce5e1; border-radius:6px; box-shadow:0 8px 24px #23473825; }
+.atlas-results-drawer .exposure-export-menu button { text-align:left; font-size:12px; min-height:34px; }
+.is-exposure .atlas-results-drawer th { font-size:11px; }
+.is-exposure .atlas-results-drawer td { font-size:12px; }
+.is-exposure .atlas-results-drawer td small { white-space:normal; max-width:260px; }
+@media(max-width:1100px) and (min-width:761px) {
+ .is-exposure .atlas-case-header { flex-wrap:wrap; }
+ .is-exposure .atlas-case-actions { flex-wrap:wrap; }
+ .is-exposure .atlas-exposure-panel { width:250px; flex-basis:250px; }
+ .is-exposure .atlas-evidence-panel,.is-exposure .atlas-exposure-inspection { position:absolute; right:0; top:0; bottom:0; z-index:7; width:320px; box-shadow:-6px 0 24px #23473825; }
+}
+@media(max-width:760px) {
+ .atlas-map-workspace.is-exposure { height:100dvh; min-height:0; overflow:hidden; }
+ .is-exposure .atlas-case-header { padding:8px 12px; }
+ .is-exposure .atlas-case-actions { flex-wrap:nowrap; gap:4px; }
+ .is-exposure .atlas-case-actions .archive-assessment-actions { gap:4px; flex:1; }
+ .is-exposure .atlas-case-actions button { font-size:10px; min-height:30px; padding:4px 6px; }
+ .is-exposure .atlas-summary { padding:8px 0; min-height:64px; }
+ .is-exposure .exposure-metrics { min-width:580px; }
+ .atlas-evidence-bar { padding:6px 12px; font-size:10px; }
+ .atlas-evidence-bar>div { gap:2px 6px; }
+ .is-exposure .has-event-catalog .atlas-tool-rail { flex:0 0 46px; width:46px; flex-direction:column; padding:4px 2px; }
+ .is-exposure .has-event-catalog .atlas-tool-rail button { flex:none; width:100%; font-size:8px; min-height:46px; }
+ .is-exposure .has-event-catalog .atlas-rail-spacer { display:block; }
+ .is-exposure .has-event-catalog .atlas-map-stage { flex-basis:auto; min-height:0; }
+ .is-exposure .atlas-exposure-panel { position:absolute; left:46px; top:0; bottom:0; max-height:none; width:calc(100% - 46px); z-index:7; }
+ .is-exposure .atlas-exposure-inspection,.is-exposure .atlas-evidence-panel { position:absolute; top:18%; bottom:0; left:46px; right:0; width:auto; max-height:none; z-index:8; border-top:1px solid #c8dacf; border-radius:12px 12px 0 0; box-shadow:0 -8px 24px #23473825; }
+ .is-exposure .atlas-map-status { padding:5px 8px; }
+ .is-exposure .atlas-active-filters { max-height:42px; }
+ .is-exposure .exposure-layout-list .atlas-results-drawer { min-height:0; }
+ .is-exposure .atlas-results-drawer .exposure-section-title { flex-direction:row; align-items:center; }
+ .is-exposure .atlas-results-drawer .exposure-exports { width:auto; overflow:visible; }
+ .is-exposure .atlas-results-drawer :is(td,th) { padding:9px 12px; }
+ .is-exposure .atlas-results-drawer th:nth-child(4),.is-exposure .atlas-results-drawer td:nth-child(4) { display:none; }
+}
+@media print {
+ .atlas-evidence-bar,.exposure-fit-results,.atlas-evidence-panel,.exposure-exports { display:none!important; }
+ .is-exposure .exposure-layout-list .atlas-map-surface { height:400px; visibility:visible; }
+ .is-exposure .atlas-work-area.has-event-catalog { display:block; overflow:visible; }
+}
+.is-exposure .exposure-value-review { padding:2px 0; min-height:24px; font-size:11px; background:transparent; border:0; color:#246b55; text-align:left; text-decoration:underline; }
+.atlas-catalog-replay { width:100%; margin:0 0 12px; }
+@media(max-width:760px) {
+ .is-exposure .atlas-summary { overflow:visible; padding:0; }
+ .is-exposure .exposure-metrics { display:grid; grid-template-columns:1fr 1fr; min-width:0; width:100%; gap:0; }
+ .is-exposure .exposure-metrics>div { padding:8px 10px; min-width:0; border:0; border-bottom:1px solid #dce5e1; }
+ .is-exposure .exposure-metrics>div:nth-child(2) { grid-column:1/-1; grid-row:2; display:grid; grid-template-columns:1fr auto; column-gap:10px; align-items:center; padding:6px 10px; }
+ .is-exposure .exposure-metrics>div:nth-child(2)>small { grid-column:1; font-size:9px; }
+ .is-exposure .exposure-metrics>div:nth-child(2)>.exposure-value { grid-column:2; grid-row:1; }
+ .is-exposure .exposure-metrics>div:nth-child(2)>.exposure-value-review { grid-column:2; grid-row:2; font-size:9px; }
+ .is-exposure .exposure-metrics>.metric-below { display:none; }
+ .is-exposure .exposure-metrics strong { font-size:21px; }
+ .is-exposure .exposure-metrics small { font-size:10px; }
+ .is-exposure .exposure-metrics .exposure-value span { font-size:13px; }
+ .is-exposure .exposure-metric-action { min-height:54px; }
+}
+@media(min-width:761px) {
+ .is-exposure .portfolio-snapshot-notice { padding:6px 22px; font-size:11px; }
+ .is-exposure .atlas-evidence-bar { padding:4px 22px; }
+}
+@media(max-width:760px) {
+ .is-exposure .exposure-metrics .exposure-value { font-size:13px; line-height:1.3; }
+ .is-exposure .exposure-metrics>div:nth-child(2) { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+ .is-exposure .atlas-message { max-height:64px; overflow:auto; }
+}
+.exposure-page details.exposure-exports { display:block; border:0; padding:0; }
+@media(min-width:761px) {
+ .is-exposure .exposure-value-review { min-height:16px; line-height:1.2; }
+ .is-exposure .exposure-metrics small { font-size:10px; }
+}
+
+/* One Locations control, with compact filtered counts. */
+.exposure-visible-count { display:inline-block; margin-left:8px; padding:2px 6px; border-radius:4px; background:#edf4f0; color:#315e4f; font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; }
+@media(max-width:760px) {
+ .is-exposure .exposure-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+ .is-exposure .exposure-metrics>.metric-below { display:block; }
+ .is-exposure .exposure-metrics>div:nth-child(2) { grid-column:1/-1; }
+ .is-exposure .exposure-metrics :is(.metric-screened,.metric-unknown,.metric-below) small { display:none; }
+ .is-exposure .exposure-metric-action { align-content:center; }
+ .is-exposure .exposure-metrics :is(.metric-screened,.metric-unknown,.metric-below)>button>span:first-child { flex-basis:100%; }
+}
+
+.is-exposure .atlas-tool-rail { padding-block:8px; gap:4px; }
+.is-exposure .atlas-tool-rail button { min-height:52px; }
+
+/* Keep camera actions together; expansion changes only the results presentation. */
+.atlas-map-workspace .exposure-fit-results { position:static; min-height:34px; padding:8px 12px; font-size:11px; background:#fffffff2; border:1px solid #d7e1dd; box-shadow:0 3px 10px #123e2510; }
+.atlas-map-workspace .exposure-map-menus { align-items:flex-start; }
+.exposure-list-actions { display:flex; align-items:center; gap:8px; }
+.exposure-expand-locations { min-height:30px; padding:5px 10px; font-size:11px; }
+@media(max-width:760px) {
+ .exposure-expand-locations { display:none; }
+ .atlas-map-workspace .exposure-fit-results { padding:8px 10px; }
+}
+@media print { .exposure-expand-locations { display:none; } }
+
+.atlas-tool-rail button { position:relative; }
+.workspace-rail-badge { position:absolute; top:3px; right:4px; min-width:15px; height:15px; padding:0 3px; border-radius:8px; background:#dcebe3; color:#285b46; font-size:9px; line-height:15px; font-weight:600; }
+.exposure-analysis-settings dl { margin:14px 0; font-size:12px; }
+.exposure-analysis-settings dt { color:#63776c; }
+.exposure-analysis-settings dd { margin:4px 0; font-size:15px; font-weight:600; color:#285b46; }
+.exposure-analysis-settings input { display:block; width:100%; box-sizing:border-box; margin-top:6px; padding:8px; }
+.exposure-analysis-settings>button { width:100%; margin-top:8px; }
+
+/* Location search stays with the results it filters. */
+.atlas-results-drawer .exposure-section-title { flex-direction:row; align-items:center; flex-wrap:wrap; }
+.exposure-location-search { position:relative; flex:1 1 180px; max-width:280px; margin-left:auto; }
+.exposure-location-search input { box-sizing:border-box; width:100%; min-width:0; height:32px; padding:6px 30px 6px 10px; border:1px solid #cbd9d2; border-radius:5px; background:#fff; color:#244c3a; font:inherit; font-size:12px; }
+.exposure-location-search input::-webkit-search-cancel-button { display:none; }
+.exposure-location-search button { position:absolute; right:2px; top:2px; width:28px; min-height:28px; padding:0; border:0; background:transparent; font-size:18px; }
+@media(max-width:760px) {
+ .exposure-location-search { order:3; flex-basis:100%; max-width:none; margin-left:0; }
+ .exposure-list-actions { margin-left:auto; }
+}
+@media print { .exposure-location-search { display:none; } }
+
+.exposure-location-heading h2 { margin:0 0 6px; }
+.exposure-location-heading p { margin:0 0 10px; }
+.exposure-location-status { display:inline-block; padding:4px 8px; border-radius:4px; background:#e9eeeb; color:#496055; font-size:11px; font-weight:600; }
+.exposure-location-status[data-status="meeting"] { background:#e2efe7; color:#245c40; }
+.exposure-location-status[data-status="unknown"] { background:#f5edda; color:#755b20; }
+.exposure-location-metrics { display:grid; grid-template-columns:1fr; gap:16px; padding:18px 0 12px; }
+.exposure-location-metrics>div { display:grid; gap:4px; }
+.exposure-location-metrics span,.exposure-location-metrics small { color:var(--wb-muted); font-size:11px; }
+.exposure-location-metrics strong { font-size:20px; line-height:1.25; overflow-wrap:anywhere; }
+.exposure-location-metrics>div:first-child strong { font-size:28px; letter-spacing:-.5px; }
+.exposure-inspector .exposure-location-reason { margin:0 0 14px; line-height:1.5; }
+
+.exposure-location-evidence { margin-top:18px; border-top:1px solid var(--wb-line); padding-top:12px; }
+.exposure-location-evidence summary { cursor:pointer; font-size:12px; font-weight:600; color:#285b46; }
+.exposure-location-evidence-content { padding-top:8px; font-size:11px; overflow-wrap:anywhere; }
+.exposure-location-evidence-content h3 { font-size:12px; margin:16px 0 6px; }
+.exposure-inspector .exposure-location-evidence-content dl { grid-template-columns:1fr; gap:5px; margin:10px 0; padding:0; border:0; }
+.exposure-inspector .exposure-location-evidence-content dd { text-align:left; margin-bottom:8px; }
+.exposure-location-evidence-content code { font-size:10px; overflow-wrap:anywhere; }

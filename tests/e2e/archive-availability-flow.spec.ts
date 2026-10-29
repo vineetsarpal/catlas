@@ -1,3 +1,4 @@
+import { openExport } from '../helpers/exposure-workspace';
 /// <reference path="../../services/exposure-archive/node_modules/@cloudflare/workers-types/index.d.ts" />
 import { test, expect } from '@playwright/test';
 import { gunzipSync } from 'node:zlib';
@@ -63,7 +64,7 @@ test('real archive HTTP boundaries recover visibly while frozen local evidence s
   await inspector.getByRole('button', { name: 'Retry evidence retrieval', exact: true }).click();
   await expect(inspector).toContainText('Original evidence verified');
   const frozenHash = await inspector.locator('code').innerText();
-  await page.getByRole('button', { name: 'Portfolios', exact: true }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await page.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
   await page.getByRole('button', { name: 'Exposure', exact: true }).click();
   await page.getByRole('button', { name: 'Assess portfolio', exact: true }).click();
@@ -87,10 +88,10 @@ test('real archive HTTP boundaries recover visibly while frozen local evidence s
   }
   // Exercise the browser → real bridge → real archive HTTP update path.
   async function exportedRecord() {
-    if (await page.getByRole('button', { name: 'Toggle location table' }).getAttribute('aria-expanded') !== 'true')
-      await page.getByRole('button', { name: 'Toggle location table' }).click();
+    if (await page.getByRole('button', { name:'Locations',exact:true}).getAttribute('aria-expanded') !== 'true')
+      await page.getByRole('button', { name:'Locations',exact:true}).click();
     const downloading = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Download self-contained case', exact: true }).click();
+    await openExport(page);await page.getByRole('button', { name: 'Download self-contained case', exact: true }).click();
     return JSON.parse(gunzipSync(await fs.readFile((await (await downloading).path())!)).toString());
   }
   const original = await exportedRecord();

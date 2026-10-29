@@ -13,7 +13,7 @@ test('a delayed assessment cannot replace a newer observation selected in Recove
   await page.route('**/api/exposure/captures', route => route.fulfill({ status: 201, json: { schemaVersion: 1, event, product: { id: 'race:product', source: 'us', code: event.id, updatedAt: event.updatedAt, retrospective: false }, capturedAt: '2026-10-25T12:00:00.000Z', artifacts } }));
   await page.route('**/api/exposure/artifacts/*', route => route.fulfill({ body: route.request().url().endsWith(artifacts.grid.sha256) ? grid : detail }));
   await page.goto('/exposure.html?recovery=parametric');
-  await page.getByRole('button', { name: 'Portfolios', exact: true }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await page.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
   await page.getByRole('button', { name: 'Exposure', exact: true }).click();
   await page.getByRole('button', { name: /Assessment race earthquake/ }).click();

@@ -3,7 +3,7 @@ import { type Page } from '@playwright/test';
 export async function closeDialog(page: Page) {
   const close = page.getByRole('button', { name: 'Close dialog', exact: true });
   if (await close.isVisible()) await close.click();
-  if(await page.getByRole('button',{name:'Portfolios',exact:true}).getAttribute('aria-pressed')==='true')await page.getByRole('button',{name:'Exposure',exact:true}).click();
+  if(await page.getByRole('button',{name:'Portfolio',exact:true}).getAttribute('aria-pressed')==='true')await page.getByRole('button',{name:'Exposure',exact:true}).click();
 }
 export async function openHistory(page: Page) {
   await closeDialog(page);
@@ -11,7 +11,7 @@ export async function openHistory(page: Page) {
 }
 export async function openPortfolio(page: Page) {
   await closeDialog(page);
-  await page.getByRole('button', { name: 'Portfolios', exact: true }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   const options=page.getByRole('button',{name:'Portfolio options',exact:true});
   if(await options.isVisible())await options.click();
   const details=page.getByRole('button',{name:'Portfolio details',exact:true});
@@ -24,6 +24,21 @@ export async function openFilters(page: Page) {
 }
 export async function openLocations(page: Page) {
   await closeDialog(page);
-  const table = page.getByRole('button', { name: 'Toggle location table', exact: true });
+  for (const name of ['Close side panel','Close location details','Close evidence']) {
+    const close=page.getByRole('button',{name,exact:true});
+    if(await close.isVisible())await close.click();
+  }
+  const table = page.getByRole('button', { name: 'Locations', exact: true });
   if (await table.getAttribute('aria-expanded') !== 'true') await table.click();
+}
+
+export async function openExport(page: Page) {
+  await openLocations(page);
+  const menu=page.locator('.exposure-exports');
+  if(await menu.getAttribute('open')===null)await menu.locator('summary').click();
+}
+
+export async function openEvidence(page: Page) {
+  const button=page.getByRole('button',{name:/^Evidence [＋+−]$/,exact:true});
+  if(await button.getAttribute('aria-expanded')!=='true')await button.click();
 }

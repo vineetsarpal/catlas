@@ -1,3 +1,4 @@
+import { openExport, openEvidence } from '../helpers/exposure-workspace';
 import { mockArchiveUpdate } from '../helpers/archive-update';
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
@@ -5,7 +6,7 @@ import { openFilters, openHistory, openLocations, openPortfolio } from '../helpe
 import { createHash } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
 async function replay(page:Page){await page.getByRole('button',{name:'Investigate Ridgecrest replay',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('11',{timeout:30_000});await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-shaking-ready','true');await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-land-rendered','true');}
-test.beforeEach(async({page})=>{await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolios',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();});
+test.beforeEach(async({page})=>{await page.goto('/exposure.html');await page.getByRole('button',{name:'Portfolio',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();});
 
 test('portfolio screening, unknowns, acknowledged imports, supported size and keyboard layout',async({page})=>{
  await replay(page);await expect(page.getByTestId('exposure-unknown')).toHaveText('2');
@@ -30,9 +31,9 @@ test('portfolio screening, unknowns, acknowledged imports, supported size and ke
 
 test('saved versions survive refresh and portable cases reopen offline in fresh local history',async({page,browser,baseURL})=>{
  await replay(page);await openHistory(page);await page.getByRole('button',{name:'Save this investigation locally',exact:true}).click();await expect(page.getByRole('button',{name:'Saved in this browser',exact:true})).toBeDisabled();
- await openFilters(page);await page.getByLabel('Investigation threshold',{exact:true}).fill('6');await page.getByRole('button',{name:'Apply threshold as new version',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('7');
+ await page.getByRole('button',{name:'Analysis settings',exact:true}).click();await page.getByLabel('Investigation threshold',{exact:true}).fill('6');await page.getByRole('button',{name:'Apply threshold as new version',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('7');
  await openHistory(page);await page.getByRole('button',{name:'Save this investigation locally',exact:true}).click();await expect(page.locator('.exposure-history li')).toHaveCount(2);
- await openLocations(page);const downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();const bytes=await fs.readFile((await (await downloading).path())!);const bundle=JSON.parse(gunzipSync(bytes).toString());
+ await openLocations(page);const downloading=page.waitForEvent('download');await openExport(page);await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();const bytes=await fs.readFile((await (await downloading).path())!);const bundle=JSON.parse(gunzipSync(bytes).toString());
  expect(bundle.record.version).toBe(2);expect(bundle.record.summary.meetingThreshold).toBe(7);expect(bundle.rawXml).toContain('<shakemap_grid');
  await page.reload();await openHistory(page);await expect(page.locator('.exposure-history li')).toHaveCount(2);await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();await expect(page.getByTestId('exposure-count')).toHaveText('11');
  const context=await browser.newContext({viewport:{width:375,height:812}});const fresh=await context.newPage();
@@ -50,7 +51,7 @@ test('request-driven discovery inspects unavailable evidence without creating a 
  await page.getByRole('button',{name:/Published test earthquake/}).click();
  await expect(page.getByRole('heading',{level:1})).toContainText('Published test earthquake');
  await expect(page.getByTestId('exposure-count')).toHaveText('—');await expect(page.getByTestId('exposure-unknown')).toHaveText('—');
- await expect(page.getByRole('complementary',{name:'Earthquake evidence inspector'})).toContainText('No supported shaking evidence');
+ await openEvidence(page);await expect(page.getByRole('complementary',{name:'Earthquake evidence inspector'})).toContainText('No supported shaking evidence');
  await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeDisabled();
  await expect(page.getByRole('button',{name:'Save investigation',exact:true})).toBeDisabled();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -79,27 +80,11 @@ test('source update is explicit, creates a new version and preserves the earlier
 });
 
 
-test('large map is the default and retired variant URLs cannot select another layout',async({page},info)=>{
- await expect(page.getByRole('combobox',{name:'Compare map layouts'})).toHaveCount(0);
- await expect(page.getByTestId('exposure-map')).toBeVisible();
- await expect(page.getByRole('button',{name:'Toggle location table'})).toHaveAttribute('aria-expanded','false');
- const geometry=await page.getByTestId('exposure-map').evaluate(element=>{const rect=element.getBoundingClientRect();return {top:rect.top,height:rect.height,innerHeight,innerWidth,scrollHeight:document.documentElement.scrollHeight,scrollWidth:document.documentElement.scrollWidth};});
- if(info.project.name==='mobile'){
-  // Accepted CAT48 mobile layout stacks catalog, map and inspector in document order.
-  const catalog=await page.getByRole('complementary',{name:'Earthquake catalog'}).boundingBox(),inspector=await page.getByRole('complementary',{name:'Earthquake evidence inspector'}).boundingBox();
-  expect(geometry.scrollWidth<=geometry.innerWidth&&geometry.height>=260,JSON.stringify(geometry)).toBe(true);
-  expect(catalog).not.toBeNull();expect(inspector).not.toBeNull();expect(geometry.top).toBeGreaterThanOrEqual(catalog!.y+catalog!.height);expect(inspector!.y).toBeGreaterThanOrEqual(geometry.top+geometry.height);
- }else expect(geometry.top<geometry.innerHeight*.4&&geometry.height>=260&&geometry.scrollHeight<=geometry.innerHeight&&geometry.scrollWidth<=geometry.innerWidth,JSON.stringify(geometry)).toBe(true);
- await replay(page);await openLocations(page);
- await page.getByRole('button',{name:'Ridgecrest distribution',exact:true}).click();
- await expect(page.getByRole('complementary',{name:'Selected insured location'})).toContainText('Ridgecrest distribution');
- await expect(page.getByRole('button',{name:'Zoom to location ↗'})).toBeVisible();
- await page.getByRole('button',{name:'Close side panel',exact:true}).click();
- await page.getByRole('button',{name:'Toggle location table'}).click();
- await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-ready','true');
+test('retired variant URLs do not replace the investigation workspace',async({page})=>{
  for(const variant of ['side','focus','original','workspace']){
   await page.goto(`/exposure.html?variant=${variant}`);
   await expect(page.getByRole('navigation',{name:'Investigation tools'})).toBeVisible();
   await expect(page.getByRole('combobox',{name:'Compare map layouts'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Locations',exact:true})).toBeVisible();
  }
 });

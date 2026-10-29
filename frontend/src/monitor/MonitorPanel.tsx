@@ -1,4 +1,4 @@
-import { MapFilterSummary } from './MapFilters';
+import { MapFilters, MapFilterSummary } from './MapFilters';
 import { backendEnabled, WIND_BACKEND_REQUIRED } from './backend';
 import { useState, type ReactNode } from 'react';
 import type { Portfolio } from '../exposure/model';
@@ -16,8 +16,8 @@ export function FeedStatus({label,feed,enabled,online,now,maxAge}:{label:string;
   const stale=Boolean(feed.checkedAt&&now-Date.parse(feed.checkedAt)>maxAge);
   return <div className="monitor-feed-status"><b>{label}</b><span>{!enabled?'Off':!online?'Offline · paused':feed.loading?'Checking…':feed.error?'Unavailable · previous data may be stale':sourceStale?'Source unavailable or stale · see details':sourceWarning?'Partial source coverage · see details':stale?'Stale · awaiting refresh':feed.checkedAt?'Latest check succeeded':'Waiting for first check'}</span>{feed.checkedAt&&<small>Checked {new Date(feed.checkedAt).toLocaleString()}</small>}{enabled&&feed.error&&<small className="exposure-warning">{feed.error}</small>}</div>;
 }
-export type MonitorPanelView='attention'|'portfolio'|'watchlist'|'layers'|'controls';
-export function MonitorPanel({state,items,allItems,portfolio,onPortfolio,view,controls,onOpenFilters}:{state:MonitorState;items:MonitorItem[];allItems:MonitorItem[];portfolio:Portfolio;onPortfolio:()=>void;view?:MonitorPanelView;controls?:ReactNode;onOpenFilters:()=>void}) {
+export type MonitorPanelView='attention'|'portfolio'|'watchlist'|'layers'|'controls'|'filters';
+export function MonitorPanel({state,items,allItems,portfolio,onPortfolio,view,controls}:{state:MonitorState;items:MonitorItem[];allItems:MonitorItem[];portfolio:Portfolio;onPortfolio:()=>void;view?:MonitorPanelView;controls?:ReactNode}) {
   const [localTab,setTab]=useState<MonitorPanelView>('attention'),[query,setQuery]=useState('');
   const tab=view??localTab;
   const [hazardFilter,setHazardFilter]=useState('all');
@@ -32,7 +32,7 @@ export function MonitorPanel({state,items,allItems,portfolio,onPortfolio,view,co
   return <section className="monitor-panel" aria-label="Live monitoring controls">
     {!view&&<div className="monitor-tabs" role="group" aria-label="Monitor panels">{(['attention','portfolio','watchlist','layers'] as const).map(t=><button key={t} aria-pressed={tab===t} onClick={()=>{setTab(t);setQuery('');setLimit(30);}}>{{attention:'Attention',portfolio:'Locations',watchlist:'Watchlist',layers:'Feeds'}[t]}</button>)}</div>}
     {state.storageError&&<p role="status" className="exposure-warning">{state.storageError}</p>}
-    {tab==='controls'?<div className="monitor-section">{controls}</div>:tab==='layers'?<div className="monitor-section">
+    {tab==='filters'?<div className="monitor-section"><MapFilters state={state}/></div>:tab==='controls'?<div className="monitor-section">{controls}</div>:tab==='layers'?<div className="monitor-section">
       <p>Feeds refresh while Monitor is visible and online. Publication and source updates may lag events.</p>
       <button disabled={!state.online} onClick={state.refresh}>Refresh enabled feeds</button>
       <FeedStatus label="USGS earthquakes" feed={state.earthquakes} enabled={state.prefs.earthquakes} online={state.online} now={state.now} maxAge={120000}/>
@@ -69,7 +69,7 @@ export function MonitorPanel({state,items,allItems,portfolio,onPortfolio,view,co
       <p>Data courtesy of NOAA/NCEP. {backendEnabled?'Wind decoding runs on the local backend.':WIND_BACKEND_REQUIRED} No endorsement implied.</p>
       <a href="./monitor-sources.md" target="_blank" rel="noreferrer">Integration provenance & notices ↗</a>
     </div>:<>
-      {tab==='attention'&&<MapFilterSummary state={state} onOpen={onOpenFilters}/>}
+      {tab==='attention'&&<MapFilterSummary state={state}/>}
       {tab==='portfolio'&&<div className="monitor-portfolio-caption"><span>{portfolio.locations.length} insured locations · {portfolio.asOf}</span><button onClick={onPortfolio}>Manage portfolio ↗</button></div>}
       <div className="monitor-panel-notices">{notices}</div>
       {tab==='watchlist'?<div className="monitor-event-list">{!state.prefs.watchlist.length&&<p className="monitor-section">Select an event or location, then add it to your watchlist.</p>}{state.prefs.watchlist.map(w=>{

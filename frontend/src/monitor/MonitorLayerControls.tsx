@@ -33,7 +33,7 @@ export function MonitorLayerControls({state,onFitPortfolio,canFitPortfolio}:{sta
         <p className="monitor-layer-details">Fire feeds: US & Canada</p>
         {!backendEnabled&&<p role="status">Fire feeds require the Catlas backend.</p>}
         {([
-          {key:'perimeters',label:'Fire perimeters',detail:'NIFC WFIGS (US) · CWFIS (Canada). Includes Canadian reported fire locations and satellite-estimated areas with activity in the past seven days. Estimates are distinct from published incident boundaries.'},
+          {key:'perimeters',label:'Reported fires & perimeters',detail:'NIFC WFIGS (US) · CWFIS (Canada). Includes Canadian reported fire locations and satellite-estimated areas with activity in the past seven days. Estimates are distinct from published incident boundaries.'},
           {key:'fires',label:'Fire detections',detail:'NASA FIRMS (US region) · CWFIS (Canada) · past 24 hours. Satellite hotspots can indicate fire activity; they are not incident boundaries.'},
         ] as const).map(({key,label,detail})=><div className="monitor-hazard-control" key={key}>
           <LayerToggle label={label} checked={backendEnabled&&state.prefs[key]} disabled={!backendEnabled} onChange={checked=>state.setPrefs({[key]:checked})}/>

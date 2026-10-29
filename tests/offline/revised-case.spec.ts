@@ -1,3 +1,4 @@
+import { openExport } from '../helpers/exposure-workspace';
 import { test, expect, type Page } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
@@ -10,7 +11,7 @@ const grid = (version: number) => `<shakemap_grid event_id="${event.id}" shakema
 async function download(page: Page) {
   await openLocations(page);
   const downloading = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download self-contained case', exact: true }).click();
+  await openExport(page);await page.getByRole('button', { name: 'Download self-contained case', exact: true }).click();
   const bytes = await fs.readFile((await (await downloading).path())!);
   return { bytes, envelope: JSON.parse(gunzipSync(bytes).toString()) };
 }
@@ -41,7 +42,7 @@ test('exact ZIP transfers revised archive cases with services unavailable and pr
     return raw === undefined ? route.abort() : route.fulfill({ body: raw });
   });
   await page.goto('/exposure.html');
-  await page.getByRole('button', { name: 'Portfolios', exact: true }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await page.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
   await page.getByRole('button', { name: 'Exposure', exact: true }).click();
   await page.getByRole('button', { name: /Synthetic portable earthquake/ }).click();
@@ -74,7 +75,7 @@ test('exact ZIP transfers revised archive cases with services unavailable and pr
   });
   try {
     await fresh.goto(new URL('/exposure.html', baseURL!).href);
-    await fresh.getByRole('button', { name: 'Portfolios', exact: true }).click();
+    await fresh.getByRole('button', { name: 'Portfolio', exact: true }).click();
     await fresh.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
     if (!await fresh.getByRole('table', { name: 'Insured location inventory' }).isVisible()) await fresh.getByRole('button', { name: /Show locations/ }).click();
     fresh.once('dialog', dialog => dialog.accept());
@@ -95,7 +96,7 @@ test('exact ZIP transfers revised archive cases with services unavailable and pr
     expect((await download(fresh)).envelope).toEqual(second.envelope);
     // Discovery may report the missing endpoint on entry; reopening never fetches source artifacts.
     expect(requests.slice(beforeImport).every(request => request === 'GET /api/exposure/catalog')).toBe(true);
-    await fresh.getByRole('button', { name: 'Portfolios', exact: true }).click();
+    await fresh.getByRole('button', { name: 'Portfolio', exact: true }).click();
     if (!await fresh.getByRole('table', { name: 'Insured location inventory' }).isVisible()) await fresh.getByRole('button', { name: /Show locations/ }).click();
     await expect(fresh.getByRole('table', { name: 'Insured location inventory' }).locator('tbody tr')).toHaveCount(17);
     await expect(fresh.getByRole('table', { name: 'Insured location inventory' })).not.toContainText('Phoenix warehouse');

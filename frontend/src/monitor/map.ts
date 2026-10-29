@@ -1,4 +1,5 @@
 import { backendEnabled, WIND_BACKEND_REQUIRED } from './backend';
+import { addReportedFireIcon } from './fire-icon';
 import { addVesselIcons } from './vessel-icon';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import * as maplibre from 'maplibre-gl';
@@ -10,7 +11,7 @@ import type { MonitorItem } from './model';
 import { containmentBand, observationAge, perimeterBounds, fireEvidenceTime } from './fire-display';
 import { addFireMapLayers, updateFireMapLayers } from './fire-map';
 
-export type MonitorMapProps={state:MonitorState;items:MonitorItem[];selectedItem?:MonitorItem;fitRequest?:number;filterRequest?:number};
+export type MonitorMapProps={state:MonitorState;items:MonitorItem[];selectedItem?:MonitorItem;fitRequest?:number};
 export function useMonitorMap(mapRef:RefObject<maplibre.Map|null>,ready:boolean,active:boolean,monitor?:MonitorMapProps) {
   const selection=useRef(monitor?.state.select);selection.current=monitor?.state.select;
   const [imageStatus,setImageStatus]=useState('');
@@ -18,6 +19,7 @@ export function useMonitorMap(mapRef:RefObject<maplibre.Map|null>,ready:boolean,
   useEffect(()=>{
     const map=mapRef.current;if(!ready||!map)return;
     addVesselIcons(map);
+    addReportedFireIcon(map);
     map.addSource('monitor-items',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
     map.addSource('monitor-vessel-trails',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
     map.addLayer({id:'monitor-vessel-trails',type:'line',source:'monitor-vessel-trails',paint:{'line-color':['case',['get','inPortfolio'],'#287d69','#2674bb'],'line-width':1.5,'line-opacity':0.6}});
@@ -27,7 +29,7 @@ export function useMonitorMap(mapRef:RefObject<maplibre.Map|null>,ready:boolean,
     map.addSource('monitor-cyclones',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
     map.addLayer({id:'monitor-cones',type:'fill',source:'monitor-cyclones',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':'#a27bc3','fill-opacity':.16}});
     map.addLayer({id:'monitor-tracks',type:'line',source:'monitor-cyclones',filter:['==',['geometry-type'],'LineString'],paint:{'line-color':'#7858a1','line-width':2,'line-dasharray':[3,2]}});
-    map.addLayer({id:'monitor-items',type:'circle',source:'monitor-items',filter:['all',['!=',['get','kind'],'vessel'],['any',['!=',['get','kind'],'perimeter'],['get','incidentPoint']],['!=',['get','kind'],'alert'],['!=',['get','kind'],'fire']],paint:{'circle-color':['match',['get','kind'],'earthquake','#bc7545','cyclone','#7858a1','vessel','#2674bb','fire','#d35827','perimeter','#b85a2b','#287d69'],'circle-radius':['case',['get','selected'],14,['==',['get','kind'],'earthquake'],['interpolate',['linear'],['coalesce',['get','magnitude'],0],0,4,3,6,5,9,7,12],5],'circle-stroke-color':'#fff','circle-stroke-width':2}});
+    map.addLayer({id:'monitor-items',type:'circle',source:'monitor-items',filter:['all',['!=',['get','kind'],'vessel'],['!=',['get','kind'],'perimeter'],['!=',['get','kind'],'alert'],['!=',['get','kind'],'fire']],paint:{'circle-color':['match',['get','kind'],'earthquake','#bc7545','cyclone','#7858a1','vessel','#2674bb','fire','#d35827','perimeter','#b85a2b','#287d69'],'circle-radius':['case',['get','selected'],14,['==',['get','kind'],'earthquake'],['interpolate',['linear'],['coalesce',['get','magnitude'],0],0,4,3,6,5,9,7,12],5],'circle-stroke-color':'#fff','circle-stroke-width':2}});
     map.addLayer({id:'monitor-vessels',type:'symbol',source:'monitor-items',filter:['==',['get','kind'],'vessel'],layout:{
       'icon-image':['case',['get','inPortfolio'],['case',['get','hasCourse'],'monitor-vessel-portfolio','monitor-vessel-portfolio-unknown'],['case',['get','hasCourse'],'monitor-vessel','monitor-vessel-unknown']],
       'icon-size':['interpolate',['linear'],['zoom'],2,['case',['get','selected'],1.5,['get','inPortfolio'],1.2,0.6],7,['case',['get','selected'],1.5,['get','inPortfolio'],1.2,1.1]],
@@ -43,17 +45,22 @@ export function useMonitorMap(mapRef:RefObject<maplibre.Map|null>,ready:boolean,
         'symbol-sort-key':['case',['get','selected'],-100,['-',0,['coalesce',['get','magnitude'],0]]],
       },paint:{'text-color':'#8e4727','text-halo-color':'#fffaf2','text-halo-width':2},
     });
+    map.addLayer({id:'monitor-reported-fires',type:'symbol',source:'monitor-items',
+      filter:['all',['==',['get','kind'],'perimeter'],['==',['get','incidentPoint'],true]],
+      layout:{'icon-image':'monitor-reported-fire','icon-size':['case',['get','selected'],1,.75],
+        'icon-allow-overlap':true,'icon-ignore-placement':true,'symbol-sort-key':['case',['get','selected'],1,0]},
+    });
     addFireMapLayers(map,key=>selection.current?.(key));
     map.addLayer({id:'monitor-fire-labels',type:'symbol',source:'monitor-items',minzoom:3,
       filter:['==',['get','kind'],'perimeter'],layout:{
         'text-field':['get','fireLabel'],'text-font':['Noto Sans Regular'],'text-size':11,
-        'text-anchor':'top','text-offset':[0,1],'text-max-width':18,'text-padding':28,
+        'text-anchor':'top','text-offset':[0,1.5],'text-max-width':18,'text-padding':28,
         'symbol-sort-key':['case',['get','selected'],-1,['-',0,['get','nearby']]],
       },paint:{'text-color':'#8e4727','text-halo-color':'#fffaf2','text-halo-width':2},
     });
-    for(const layer of ['monitor-items','monitor-vessels','monitor-earthquake-labels','monitor-hazard-areas','monitor-hazard-boundaries','monitor-fire-labels']){
+    for(const layer of ['monitor-items','monitor-vessels','monitor-reported-fires','monitor-earthquake-labels','monitor-hazard-areas','monitor-hazard-boundaries','monitor-fire-labels']){
       map.on('click',layer,event=>{
-        const foreground=map.queryRenderedFeatures(event.point,{layers:['monitor-items','monitor-vessels','monitor-earthquake-labels']})[0];
+        const foreground=map.queryRenderedFeatures(event.point,{layers:['monitor-items','monitor-vessels','monitor-reported-fires','monitor-earthquake-labels']})[0];
         if(foreground?foreground.layer.id!==layer:map.queryRenderedFeatures(event.point,{layers:['monitor-fire-dots','monitor-fire-selected','monitor-fire-clusters']}).length)return;
         const key=event.features?.[0]?.properties.key;if(key)selection.current?.(String(key));
       });
@@ -70,7 +77,7 @@ export function useMonitorMap(mapRef:RefObject<maplibre.Map|null>,ready:boolean,
     updateFireMapLayers(map,items,monitor?.state.selected??'',active);
     (map.getSource('monitor-cyclones') as maplibre.GeoJSONSource).setData(cycloneFeatures(items.flatMap(item=>item.cyclone?[item.cyclone]:[])));
     (map.getSource('monitor-vessel-trails') as maplibre.GeoJSONSource).setData({type:'FeatureCollection',features:items.flatMap(item=>{const points=item.vessel?.trail??[];if(points.length<2)return [];const lines:number[][][]=[[]];for(const [lon,lat] of points){const line=lines.at(-1)!;if(line.length&&Math.abs(line.at(-1)![0]-lon)>180)lines.push([]);lines.at(-1)!.push([lon,lat]);}return lines.filter(line=>line.length>=2).map(coordinates=>({type:'Feature' as const,properties:{inPortfolio:Boolean(item.inPortfolio)},geometry:{type:'LineString' as const,coordinates}}));})});
-    for(const id of ['monitor-vessels','monitor-vessel-trails','monitor-items','monitor-earthquake-labels','monitor-cones','monitor-tracks','monitor-hazard-areas','monitor-hazard-boundaries','monitor-fire-labels'])map.setLayoutProperty(id,'visibility',active?'visible':'none');
+    for(const id of ['monitor-vessels','monitor-vessel-trails','monitor-items','monitor-reported-fires','monitor-earthquake-labels','monitor-cones','monitor-tracks','monitor-hazard-areas','monitor-hazard-boundaries','monitor-fire-labels'])map.setLayoutProperty(id,'visibility',active?'visible':'none');
   },[ready,active,monitor?.items,monitor?.state.selected,mapRef]);
   const selectedItem=monitor?.selectedItem??monitor?.items.find(item=>item.key===monitor.state.selected);
   useEffect(()=>{

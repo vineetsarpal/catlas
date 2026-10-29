@@ -1,0 +1,125 @@
+import { test, expect, type Page } from '@playwright/test';
+import { gunzipSync } from 'node:zlib';
+import fs from 'node:fs/promises';
+import { openLocations } from '../helpers/exposure-workspace';
+
+async function exportCase(page: Page) {
+  await openLocations(page);
+  const menu=page.locator('.exposure-exports');
+  if(await menu.getAttribute('open')===null)await menu.locator('summary').click();
+  const downloading=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Download self-contained case',exact:true}).click();
+  const result=JSON.parse(gunzipSync(await fs.readFile((await (await downloading).path())!)).toString());
+  return result;
+}
+
+test('exposure views keep the map usable and preserve the exact investigation',async({page},info)=>{
+  await page.route('https://**/*',route=>route.abort());
+  await page.goto('/exposure.html');
+  await page.getByRole('button',{name:'Portfolio',exact:true}).click();
+  await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();
+  await page.getByRole('button',{name:'Exposure',exact:true}).click();
+  await page.getByRole('button',{name:'Investigate Ridgecrest replay',exact:true}).click();
+  await expect(page.getByTestId('exposure-count')).toHaveText('11',{timeout:30_000});
+  await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-ready','true');
+  const locations=page.getByRole('button',{name:'Locations',exact:true});
+  await expect(locations).toHaveCount(1);
+  await expect(page.getByRole('group',{name:'Exposure view',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:/^(Show|Hide) locations \d+$/})).toHaveCount(0);
+  await expect(locations).toHaveAttribute('aria-expanded',info.project.name==='mobile'?'false':'true');
+  await expect(page.getByRole('complementary',{name:'Earthquake evidence inspector',exact:true})).toBeHidden();
+  await page.getByRole('button',{name:'Save investigation',exact:true}).click();
+  const original=await exportCase(page);
+  const search=page.getByRole('searchbox',{name:'Find a location',exact:true});
+  await expect(search).toBeVisible();
+  await search.fill('Ridgecrest distribution');
+  await expect(page.getByLabel('Visible locations',{exact:true})).toHaveText('1/18');
+  await expect(page.locator('.exposure-table-scroll tbody tr')).toHaveCount(1);
+  await expect(page.locator('.exposure-table-scroll tbody')).toContainText('Ridgecrest distribution');
+  await page.screenshot({path:`output/playwright/exposure-location-search-${info.project.name}.png`,fullPage:true});
+  await page.getByRole('button',{name:'Clear location search',exact:true}).click();
+  await expect(search).toHaveValue('');
+  await expect(page.getByLabel('Visible locations',{exact:true})).toHaveText('18/18');
+
+  await page.getByRole('button',{name:'Review unknown values →',exact:true}).click();
+  await expect(page.locator('.exposure-table-scroll tbody tr')).toHaveCount(1);
+  await expect(page.locator('.exposure-table-scroll tbody')).toContainText('Insured value not supplied');
+  await page.getByRole('button',{name:'Clear filters',exact:true}).click();
+  if(await locations.getAttribute('aria-expanded')==='true')await locations.click();
+  const map=page.getByTestId('exposure-map');
+  await expect.poll(async()=>Math.round((await map.boundingBox())!.height)).toBeGreaterThan(200);
+  await expect.poll(()=>map.getAttribute('data-settled')).toBe('true');
+  const longitude=await map.getAttribute('data-camera-longitude');
+  await page.getByRole('button',{name:'Show locations meeting threshold',exact:true}).click();
+  await expect(page.locator('.exposure-table-scroll tbody tr')).toHaveCount(11);
+  await expect(map).toHaveAttribute('data-camera-longitude',longitude!);
+  if(info.project.name==='mobile')await locations.click();
+  await expect(page.getByRole('button',{name:'Fit results',exact:true})).toBeEnabled();
+  const appearance=await page.locator('.exposure-map-menus summary').filter({hasText:'Appearance'}).boundingBox();
+  const fit=await page.getByRole('button',{name:'Fit results',exact:true}).boundingBox();
+  expect(Math.abs(appearance!.y-fit!.y)).toBeLessThan(3);
+  expect(fit!.x).toBeGreaterThanOrEqual(appearance!.x+appearance!.width);
+  if(info.project.name==='mobile')await locations.click();
+  await expect(locations).toHaveAttribute('aria-expanded','true');
+  await expect(page.getByLabel('Visible locations',{exact:true})).toHaveText('11/18');
+  if(info.project.name==='desktop'){
+    await page.getByRole('button',{name:'Expand locations',exact:true}).click();
+    await expect(map).toBeHidden();
+    await expect(page.getByLabel('Visible locations',{exact:true})).toHaveText('11/18');
+    await page.screenshot({path:'output/playwright/exposure-locations-expanded.png',fullPage:true});
+    await page.keyboard.press('Escape');
+    await expect(map).toBeVisible();
+    await expect(locations).toHaveAttribute('aria-expanded','true');
+    await page.getByRole('button',{name:'Expand locations',exact:true}).click();
+    await page.getByRole('button',{name:'Restore map',exact:true}).click();
+    await expect(map).toBeVisible();
+  }
+  await page.getByRole('button',{name:'Ridgecrest distribution',exact:true}).click();
+  const details=page.getByRole('complementary',{name:'Location details',exact:true});
+  await expect(details).toContainText('Ridgecrest distribution');
+  await expect(details).toContainText('Evidence source');
+  await expect(details.locator('.exposure-location-status')).toHaveText('Meets threshold');
+  await expect(details.locator('.exposure-location-metrics')).toContainText('MMI 7.16');
+  await expect(details.locator('.exposure-location-metrics')).toContainText('$32,000,000');
+  await expect(details.locator('.exposure-location-reason')).toHaveText('Estimated shaking at this location from the captured evidence.');
+  const evidence=details.locator('.exposure-location-evidence');
+  await expect(evidence).not.toHaveAttribute('open');
+  await expect(evidence.getByText('Calculation',{exact:true})).toBeHidden();
+  await evidence.locator('summary').click();
+  await expect(evidence.getByText('Calculation',{exact:true})).toBeVisible();
+  await expect(evidence).toContainText('Source SHA-256');
+  await expect(evidence).toContainText('Unrounded MMI');
+  await evidence.locator('summary').click();
+
+  await page.screenshot({path:`output/playwright/exposure-location-details-${info.project.name}.png`,fullPage:true});
+  await page.getByRole('button',{name:'Close location details',exact:true}).click();
+  await page.getByRole('button',{name:'Evidence +',exact:true}).click();
+  await expect(page.getByRole('complementary',{name:'Earthquake evidence inspector',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Close evidence',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Show locations meeting threshold',exact:true})).toHaveAttribute('aria-pressed','true');
+  const after=await exportCase(page);
+  expect(after).toEqual(original);
+  await page.getByRole('button',{name:'Clear filters',exact:true}).click();
+  const below=page.getByRole('button',{name:'Show locations below threshold',exact:true});
+  await below.click();
+  await expect(below).toHaveAttribute('aria-pressed','true');
+  await expect(locations).toHaveAttribute('aria-expanded','true');
+  await expect(page.getByLabel('Visible locations',{exact:true})).toHaveText('5/18');
+  await expect(page.locator('.exposure-table-scroll tbody tr')).toHaveCount(5);
+  await below.click();
+  await expect(page.getByLabel('Visible locations',{exact:true})).toHaveText('18/18');
+  await expect(locations).toHaveAttribute('aria-expanded','true');
+  await locations.click();
+  await expect(page.locator('#atlas-location-table')).toBeHidden();
+  await page.getByRole('button',{name:'Show locations meeting threshold',exact:true}).click();
+  await expect(page.getByLabel('Visible locations',{exact:true})).toHaveText('11/18');
+  const geometry=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,height:innerHeight,scrollHeight:document.documentElement.scrollHeight}));
+  expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width);
+  expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.height);
+  await fs.mkdir('output/playwright',{recursive:true});
+  await page.screenshot({path:`output/playwright/exposure-locations-${info.project.name}.png`,fullPage:true});
+  if(info.project.name==='desktop'){
+    await page.reload();
+    await expect(page.getByRole('button',{name:'Locations',exact:true})).toHaveAttribute('aria-expanded','true');
+  }
+});

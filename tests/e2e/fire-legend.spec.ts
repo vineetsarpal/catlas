@@ -1,0 +1,32 @@
+import { test, expect } from '@playwright/test';
+import fs from 'node:fs/promises';
+
+test('containment legend aligns with map keys and keeps its popup anchored in the viewport',async({page},info)=>{
+  if(info.project.name==='desktop')await page.setViewportSize({width:900,height:850});
+  await page.addInitScript(()=>localStorage.setItem('catlas-monitor-1',JSON.stringify({earthquakes:false,cyclones:false,wind:false,vessels:false,locations:true,fires:true,perimeters:true,alerts:true,nearPortfolio:false,watchedOnly:false,watchlist:[]})));
+  await page.route('https://**/*',route=>route.abort());
+  await page.goto('/exposure.html?mode=monitor');
+  const legend=page.locator('.monitor-containment-legend');
+  const toggle=legend.locator('summary');
+  await expect(legend).toBeVisible();
+  await expect(legend).toHaveCSS('padding-top','0px');
+  await expect(legend).toHaveCSS('border-top-width','0px');
+  await expect(toggle).toHaveCSS('font-size','10px');
+  await toggle.focus();await page.keyboard.press('Enter');
+  const popup=page.getByLabel('Reported fire containment legend',{exact:true});
+  await expect(popup).toBeVisible();
+  await expect(popup.locator('header')).toContainText('Fire perimeters');
+  await expect(popup).toContainText('100% contained');
+  await expect(popup).toContainText('Containment does not establish location safety.');
+  const bounds=await popup.boundingBox();
+  const size=page.viewportSize()!;
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(size.width);
+  expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(size.height);
+  await expect(popup).toHaveCSS('position','absolute');
+  await fs.mkdir('output/playwright',{recursive:true});
+  await page.screenshot({path:`output/playwright/fire-containment-legend-${info.project.name}.png`,fullPage:true});
+  await toggle.press('Enter');
+  await expect(popup).toBeHidden();
+});

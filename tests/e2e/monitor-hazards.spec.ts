@@ -41,7 +41,7 @@ test('published perimeter screens insured values and its toggle controls monitor
   await expect(row).toContainText('TIV: USD 62,000,000');
   await expect(row).toContainText('1 flagged locations have unknown insured value.');
   await layers(page);await expect(page.getByLabel('Show fire perimeters on map',{exact:true})).toHaveCount(0);await closeLayers(page);
-  await layers(page);await page.getByRole('switch',{name:'Fire perimeters',exact:true}).uncheck();await closeLayers(page);
+  await layers(page);await page.getByRole('switch',{name:'Reported fires & perimeters',exact:true}).uncheck();await closeLayers(page);
   panel=await details(page);await expect(panel.getByRole('button',{name:perimeter.name,exact:true})).toHaveCount(0);
 });
 
@@ -199,22 +199,22 @@ test('fire map groups observations, preserves selection, fits a perimeter and ke
   await expect(page.getByText(/^Map display:/)).toHaveCount(0);
 });
 
-test('shared map filters persist, open from Attention and leave lists available',async({page},testInfo)=>{
+test('map filters persist in the sidebar and retain their existing scopes',async({page},testInfo)=>{
   await feeds(page,{fires:snapshot([]),perimeters:snapshot([perimeter]),alerts:snapshot([])});
   await page.goto('/?mode=monitor');
   let panel=await details(page);
   await expect(panel.getByRole('checkbox',{name:'Events relevant to portfolio locations'})).toHaveCount(0);
   await expect(panel.getByText('Earthquakes and cyclones use 250 km point proximity.',{exact:false})).toHaveCount(0);
   await expect(panel.getByRole('button',{name:perimeter.name,exact:true})).toBeVisible();
-  await panel.getByRole('button',{name:'Open map filters',exact:true}).click();
+  await page.getByRole('navigation',{name:'Monitor tools'}).getByRole('button',{name:'Map filters',exact:true}).click();
   let filters=page.getByRole('group',{name:'Map filters',exact:true});
   await expect(filters).toBeVisible();
   await expect(page.getByText('Preview',{exact:true})).toHaveCount(0);
   const mapControls=page.getByLabel('Map controls',{exact:true});
-  await expect(mapControls.locator('.exposure-layer-menu > summary')).toHaveText(['Filters','Appearance']);
+  await expect(mapControls.locator('.exposure-layer-menu > summary')).toHaveText(['Appearance']);
   await filters.getByRole('switch',{name:'Relevant to portfolio',exact:true}).check();
   await filters.getByRole('switch',{name:'Watchlist items',exact:true}).check();
-  await expect(page.getByRole('button',{name:/^Filters\s*2$/})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Map filters',exact:true}).locator('.workspace-rail-badge')).toHaveText('2');
   await filters.getByText('How matching works',{exact:true}).click();
   await expect(filters).toContainText('within 0 km');
   await page.screenshot({path:testInfo.outputPath('monitor-map-filters.png')});
@@ -227,15 +227,46 @@ test('shared map filters persist, open from Attention and leave lists available'
   await expect.poll(()=>page.evaluate(()=>{const prefs=JSON.parse(localStorage.getItem('catlas-monitor-1')!);return [prefs.nearPortfolio,prefs.watchedOnly];})).toEqual([true,true]);
   await page.reload();
   panel=await details(page);
-  await panel.getByRole('button',{name:'Open map filters',exact:true}).click();
+  await page.getByRole('navigation',{name:'Monitor tools'}).getByRole('button',{name:'Map filters',exact:true}).click();
   filters=page.getByRole('group',{name:'Map filters',exact:true});
   await expect(filters.getByRole('switch',{name:'Relevant to portfolio',exact:true})).toBeChecked();
   await expect(filters.getByRole('switch',{name:'Watchlist items',exact:true})).toBeChecked();
-  await page.getByText('Appearance',{exact:true}).click();
+  await page.keyboard.press('Escape');
   await expect(filters).not.toBeVisible();
-  await page.getByText('Appearance',{exact:true}).click();
   panel=await details(page,'Locations');
   await expect(panel.getByRole('checkbox')).toHaveCount(0);
   await expect(panel.getByRole('searchbox',{name:'Find a location'})).toBeVisible();
   await expect(panel.getByRole('button',{name:'Ridgecrest medical centre',exact:true})).toBeVisible();
+});
+
+test('reported fire locations use selectable flame markers instead of earthquake circles',async({page},info)=>{
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.addInitScript(()=>{const prefs=JSON.parse(localStorage.getItem('catlas-monitor-1')!);prefs.earthquakes=true;localStorage.setItem('catlas-monitor-1',JSON.stringify(prefs));});
+  const report:FirePerimeter={id:'reported-fire',name:'Reported Ridgecrest fire',geometry:null,position:{longitude:-117.67,latitude:35.62},provider:'CWFIS',evidence:'reported-incident',updatedAt:at,containment:null,sourceUrl:'https://cwfis.cfs.nrcan.gc.ca/',cwfis:{agency:'Test agency',status:'Out of control',recordStart:'2026-10-19T00:00:00.000Z',recordEnd:'2026-10-21T00:00:00.000Z'}};
+  await feeds(page,{fires:snapshot([]),perimeters:snapshot([report]),alerts:snapshot([])});
+  await page.route('https://earthquake.usgs.gov/earthquakes/feed/**',route=>route.fulfill({json:{type:'FeatureCollection',features:[{type:'Feature',id:'quake-near-fire',properties:{mag:4.2,place:'Earthquake near reported fire',time:Date.parse(at),updated:Date.parse(at)},geometry:{type:'Point',coordinates:[-119.2,36.6,8]}}]}}));
+  await page.goto('/?mode=monitor');
+  const panel=await details(page);
+  await expect(panel.getByRole('button',{name:/Earthquake near reported fire/})).toBeVisible();
+  await panel.getByRole('button',{name:report.name,exact:true}).click();
+  const map=page.getByTestId('exposure-map');
+  await expect(map).toHaveAttribute('data-reported-fires','1');
+  await expect(map).toHaveAttribute('data-circular-fire-reports','0');
+  await expect(page.getByLabel('Map legend',{exact:true})).toContainText('Reported fires');
+  await expect(page.getByLabel('Map legend',{exact:true})).toContainText('Earthquakes');
+  if(info.project.name==='mobile')await page.getByRole('navigation',{name:'Monitor tools'}).getByRole('button',{name:'Item details',exact:true}).click();
+  await page.getByRole('button',{name:'Dismiss fire map selection',exact:true}).click();
+  await expect(page.getByRole('region',{name:'Selected fire map card',exact:true})).toHaveCount(0);
+  await expect(map).toHaveAttribute('data-settled','true');
+  const bounds=await map.boundingBox();
+  await page.mouse.click(bounds!.x+bounds!.width/2,bounds!.y+bounds!.height/2);
+  await expect(page.getByRole('region',{name:'Selected fire map card',exact:true})).toContainText(report.name);
+  if(info.project.name==='mobile')await page.getByRole('navigation',{name:'Monitor tools'}).getByRole('button',{name:'Item details',exact:true}).click();
+  await page.screenshot({path:`output/playwright/reported-fire-marker-${info.project.name}.png`,fullPage:true});
+  await layers(page);
+  await page.getByRole('switch',{name:'Reported fires & perimeters',exact:true}).uncheck();
+  await closeLayers(page);
+  await expect(map).toHaveAttribute('data-reported-fires','0');
+  await expect(page.getByLabel('Map legend',{exact:true})).not.toContainText('Reported fires');
+  await expect(page.getByLabel('Map legend',{exact:true})).toContainText('Earthquakes');
 });
