@@ -3,6 +3,7 @@ import { WorkspaceIcon, WorkspaceRail } from '../components/WorkspaceRail';
 import type { MonitorPanelView } from '../monitor/MonitorPanel';
 import type { RecoveryView } from '../recovery/RecoveryInspector';
 import { WorkbenchHeader, type WorkspaceMode } from '../components/WorkbenchHeader';
+import { WorkbenchDialog } from '../components/WorkbenchDialog';
 
 export type WorkspacePanel = 'filters' | 'regions' | 'inspection' | 'events' | 'history' | 'layers' | 'analysis' | null;
 const preferenceKey = 'catlas.exposure.layout.v1';
@@ -57,21 +58,14 @@ export function ExposureWorkspace(props: ExposureWorkspaceProps) {
   useEffect(()=>{const query=window.matchMedia('(max-width:760px)');const update=()=>setMobile(query.matches);query.addEventListener('change',update);return()=>query.removeEventListener('change',update);},[]);
   useEffect(()=>{if(panel)setEvidenceOpen(false);},[panel]);
   const stageRef = useRef<HTMLDivElement>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
   const modal = props.mode!=='exposure'&&(panel==='events'||panel==='history');
   const drag = useRef<{y:number;height:number}|null>(null);
   useEffect(()=>{
     const close = (event: KeyboardEvent) => {
-      if(event.key==='Escape') { if(panel)onPanel(null);else if(props.mode==='monitor'){setMonitorOpen(false);setMonitorInspectOpen(false);}else if(props.mode==='recovery'){setRecoveryOpen(false);setRecoveryInspectOpen(false);}else if(evidenceOpen)setEvidenceOpen(false);else if(props.locationsExpanded)props.onRestoreLocations();else setTableOpen(false); }
+      if(event.key==='Escape'&&!event.defaultPrevented&&!document.querySelector('[aria-modal="true"]')) { if(panel)onPanel(null);else if(props.mode==='monitor'){setMonitorOpen(false);setMonitorInspectOpen(false);}else if(props.mode==='recovery'){setRecoveryOpen(false);setRecoveryInspectOpen(false);}else if(evidenceOpen)setEvidenceOpen(false);else if(props.locationsExpanded)props.onRestoreLocations();else setTableOpen(false); }
     };
     window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);
   },[panel,onPanel,props.mode,evidenceOpen,mobile,props.locationsExpanded,props.onRestoreLocations]);
-  useEffect(()=>{
-    if(!modal)return;
-    const previous = document.activeElement as HTMLElement|null;
-    modalRef.current?.focus();
-    return()=>{ if(previous?.isConnected)previous.focus(); };
-  },[modal,panel]);
   const clampHeight = (height:number) => Math.max(160,Math.min(window.innerHeight*.5,Math.max(160,(stageRef.current?.clientHeight??window.innerHeight)-260),height));
   return <div className={`exposure-page atlas-map-workspace is-${props.mode}`}>
     <WorkbenchHeader active={props.mode} onModeChange={props.onModeChange} portfolioSelector={props.portfolioSelector}/>
@@ -114,10 +108,8 @@ export function ExposureWorkspace(props: ExposureWorkspaceProps) {
       </div>
       {props.printProvenance}
     </main>
-    {modal&&<div className="atlas-modal-backdrop" onClick={event=>{if(event.target===event.currentTarget)onPanel(null);}}><div ref={modalRef} className={`atlas-modal atlas-modal-${panel}`} role="dialog" aria-modal="true" aria-labelledby="atlas-modal-title" tabIndex={-1}
-      onKeyDown={event=>{if(event.key!=='Tab')return;const items=modalRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),summary,[tabindex="0"]');if(!items?.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&(document.activeElement===first||document.activeElement===modalRef.current)){event.preventDefault();last.focus();}else if(!event.shiftKey&&(document.activeElement===last||document.activeElement===modalRef.current)){event.preventDefault();first.focus();}}}>
-      <div className="atlas-panel-heading"><div><p className="exposure-eyebrow">INVESTIGATION WORKSPACE</p><h2 id="atlas-modal-title">{panelNames[panel]}</h2></div><button aria-label="Close dialog" onClick={()=>onPanel(null)}>×</button></div>
-      <div className="atlas-modal-scroll">{props.message&&<div className="atlas-message" role={props.isError?'alert':'status'}>{props.message}</div>}{panel==='events'?<><button className="exposure-primary" disabled={props.busy} onClick={props.onReplay}>Investigate Ridgecrest replay</button>{props.discovery}</>:<>{props.identity}{panel==='history'&&props.actions}<div className="atlas-management-content">{props.inputs}</div></>}</div>
-    </div></div>}
+    {modal&&<WorkbenchDialog title={panelNames[panel]} eyebrow="INVESTIGATION WORKSPACE" className={`atlas-modal-${panel}`} focusContent onClose={()=>onPanel(null)}>
+      {props.message&&<div className="atlas-message" role={props.isError?'alert':'status'}>{props.message}</div>}{panel==='events'?<><button className="exposure-primary" disabled={props.busy} onClick={props.onReplay}>Investigate Ridgecrest replay</button>{props.discovery}</>:<>{props.identity}{panel==='history'&&props.actions}<div className="atlas-management-content">{props.inputs}</div></>}
+    </WorkbenchDialog>}
   </div>;
 }

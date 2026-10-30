@@ -20,7 +20,13 @@ def sha(path):
 
 # Follow the frontend's declared runtime dependency graph. Backend tooling is
 # installed in the same workspace but is not redistributed in the static ZIP.
-notices = ['# Third-party notices\n\nVerbatim installed frontend/runtime license and notice texts. Generated from package-lock.json and the installed packages.\n']
+notices = ['# Third-party notices\n\nVerbatim frontend/runtime license and notice texts. Generated from package-lock.json, installed packages and explicitly identified supplemental upstream notices.\n']
+supplemental_notices = {
+    ('react-remove-scroll-bar', '2.3.8'): (
+        ROOT / 'scripts/licenses/react-remove-scroll-bar-2.3.8.LICENSE',
+        'https://github.com/theKashey/react-remove-scroll-bar/blob/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE',
+    ),
+}
 lock = json.loads((ROOT / 'package-lock.json').read_text())
 packages = lock['packages']
 visited = set()
@@ -53,9 +59,14 @@ for name in sorted(redistributed):
     licenses = sorted(f for f in directory.iterdir() if f.is_file() and re.match(r'^(license|licence|copying|notice)(\.|$)', f.name, re.I))
     if not licenses and name.endswith('/murmurhash-js'):
         licenses = [directory / 'README.md'] # Contains the complete MIT notice.
+    supplemental = supplemental_notices.get((name.removeprefix('node_modules/'), package['version'])) if not licenses else None
+    if supplemental:
+        licenses = [supplemental[0]]
     if not licenses:
         raise SystemExit(f'License text missing: {name}')
     notices.append(f'\n## {name.removeprefix("node_modules/")} {package["version"]} — {package.get("license", "see notice")}\n')
+    if supplemental:
+        notices.append(f'\nSupplemental upstream notice (omitted from the npm tarball): {supplemental[1]}\n')
     for file in licenses:
         notices.extend([f'\n### {file.name}\n\n', file.read_text(), '\n'])
 (DIST / 'THIRD_PARTY_NOTICES.md').write_text(''.join(notices))

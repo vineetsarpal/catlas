@@ -1,4 +1,4 @@
-import { openExport } from '../helpers/exposure-workspace';
+import { openEvidence, openExport } from '../helpers/exposure-workspace';
 import { test, expect, type Page } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
@@ -50,6 +50,7 @@ test('exact ZIP transfers revised archive cases with services unavailable and pr
   await expect(page.getByTestId('exposure-count')).toHaveText('0');
   await page.getByRole('button', { name: 'Save investigation', exact: true }).click();
   const first = await download(page);
+  await openEvidence(page);
   await page.getByRole('button', { name: 'Check source for updates', exact: true }).click();
   await page.getByRole('button', { name: 'Apply selected evidence as new version', exact: true }).click();
   await expect(page.getByTestId('exposure-count')).toHaveText('18');
@@ -60,6 +61,7 @@ test('exact ZIP transfers revised archive cases with services unavailable and pr
   for (const [version, saved] of [[1, first], [2, second]] as const) {
     if (await page.getByRole('button', { name: 'Saved', exact: true }).getAttribute('aria-expanded') !== 'true') await page.getByRole('button', { name: 'Saved', exact: true }).click();
     await page.getByRole('button', { name: `Open saved version ${version}`, exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Saved', exact: true })).toHaveAttribute('aria-expanded', 'false');
     expect((await download(page)).envelope).toEqual(saved.envelope);
   }
   expect(forbidden).toEqual([]);
@@ -93,6 +95,7 @@ test('exact ZIP transfers revised archive cases with services unavailable and pr
     await fresh.reload();
     await fresh.getByRole('button', { name: 'Saved', exact: true }).click();
     await fresh.getByRole('button', { name: 'Open saved version 2', exact: true }).click();
+    await expect(fresh.getByRole('button', { name: 'Saved', exact: true })).toHaveAttribute('aria-expanded', 'false');
     expect((await download(fresh)).envelope).toEqual(second.envelope);
     // Discovery may report the missing endpoint on entry; reopening never fetches source artifacts.
     expect(requests.slice(beforeImport).every(request => request === 'GET /api/exposure/catalog')).toBe(true);

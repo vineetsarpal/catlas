@@ -43,7 +43,7 @@ export class PortfolioRepository {
     const value = managedPortfolioSchema.parse({ ...portfolio, revision: portfolio.revision + 1, updatedAt: new Date().toISOString() });
     await this.db.transaction('rw', this.db.portfolios, async () => {
       const existing = await this.db.portfolios.get(value.id);
-      if (!existing || existing.revision !== portfolio.revision) throw new Error('This portfolio changed in another tab. Reload before editing; your form has been preserved.');
+      if (!existing || existing.revision !== portfolio.revision) throw new Error('This portfolio changed in another tab or was deleted. Your form has been preserved. Cancel or discard your edits to load the latest inventory.');
       await this.db.portfolios.put(value);
     });
     return value;

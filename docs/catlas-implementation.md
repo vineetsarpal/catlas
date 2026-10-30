@@ -8,6 +8,8 @@ React/TypeScript/Vite, MapLibre, pure TypeScript/d3-geo calculation, Dexie/Index
 
 `npm run dev` serves development on loopback. `npm run build` type-checks and produces static assets. `npm run package:offline` builds, supplies third-party notices/presenter/evidence metadata, validates captured source digests and produces `release/catlas-offline.zip`. `npm run test:offline` extracts that exact zip, checks every release-manifest file digest, then runs production browser journeys against its Python launcher. `npm run release` performs unit checks, packaging and extracted-bundle acceptance. `npm run test:e2e` covers broader lifecycle and error cases against development.
 
+Portfolio creation and workspace event/history modals share `WorkbenchDialog`, built on Radix Dialog. It handles accessible titles, background accessibility isolation, keyboard focus trapping, focus return and dismissal. The overlay stays within its workspace's styling context; existing CSS and sidebar layouts are retained. Controlled opening buttons remain outside the shared component, so it restores focus to the element that opened it.
+
 ## Boundaries
 
 - `domain/types.ts` separates raw input snapshots from strictly validated evidence/terms. Missing and unsupported inputs remain inspectable rather than being silently repaired.
@@ -22,7 +24,7 @@ React/TypeScript/Vite, MapLibre, pure TypeScript/d3-geo calculation, Dexie/Index
 
 Raw USGS responses, selected product/origin/magnitude identifiers, aliases and measured source digests remain unchanged. The capture manifest distinguishes per-file completion, manifest preparation, event occurrence and product times. Summary `mw` is used literally; preserved XML `Mw` and origin linkage are not normalized to determine eligibility. Replay is not an as-of-event reconstruction.
 
-Packaging copies actual installed runtime dependency LICENSE/NOTICE texts, including transitive dependencies, to `THIRD_PARTY_NOTICES.md`; MurmurHash's full MIT text is retained from its README. Natural Earth land is public domain; source and USGS credits remain in CREDITS.txt. No external fonts, sprites, satellite assets or remote scripts are needed. ZIP entry timestamps are normalized container metadata; measured packaging time and file hashes are recorded separately in release-manifest.json.
+Packaging copies runtime dependency LICENSE/NOTICE texts, including transitive dependencies, to `THIRD_PARTY_NOTICES.md`; MurmurHash's full MIT text is retained from its README. For the pinned scroll-bar package whose npm tarball omits its notice, a local supplemental upstream notice and its provenance are recorded in `scripts/licenses/README.md`; packaging requires no license downloads. Natural Earth land is public domain; source and USGS credits remain in CREDITS.txt. No external fonts, sprites, satellite assets or remote scripts are needed. ZIP entry timestamps are normalized container metadata; measured packaging time and file hashes are recorded separately in release-manifest.json.
 
 ## Distribution and verification
 
