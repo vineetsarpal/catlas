@@ -1,3 +1,4 @@
+import { openEvidence } from '../helpers/exposure-workspace';
 import { test, expect } from '@playwright/test';
 const event = { id:'us-test', name:'Recent public earthquake', magnitude:6.2, latitude:35.7, longitude:-117.6, occurredAt:'2026-10-24T10:00:00.000Z', updatedAt:'2026-10-24T11:00:00.000Z', aliases:['us-test'], significance:700 };
 const catalog = { events:[event], checkedAt:'2026-10-25T12:00:00.000Z', range:{start:'2026-07-27T12:00:00.000Z',end:'2026-10-25T12:00:00.000Z'},offset:0,limit:50,hasMore:false,completeness:'complete',rejected:0 };
@@ -9,6 +10,7 @@ test('browse recent events and inspect without automatically assessing or saving
  await expect(page.getByRole('navigation',{name:'Investigation tools'})).toBeVisible();
  await expect(page.getByLabel('Catlas significance >600')).toBeChecked();
  await page.getByRole('button',{name:/Recent public earthquake/}).focus();await page.keyboard.press('Enter');
+ await openEvidence(page);
  await expect(page.getByRole('complementary',{name:'Earthquake evidence inspector'})).toContainText('No supported shaking evidence');
  await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeDisabled();
  await expect(page.getByRole('button',{name:'Investigate selected earthquake',exact:true})).toHaveCount(0);
@@ -44,6 +46,7 @@ test('verified archive evidence waits for explicit assessment and save',async({p
  await page.goto('/exposure.html');
  await page.getByRole('button',{name:'Portfolio',exact:true}).click();await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();
  await page.getByRole('button',{name:/Recent public earthquake/}).click();
+ await openEvidence(page);
  await expect(page.getByRole('complementary',{name:'Earthquake evidence inspector'})).toContainText(artifacts.grid.sha256);
  await expect(page.getByTestId('exposure-count')).toHaveText('—');
  await expect(page.getByRole('button',{name:'Save investigation',exact:true})).toBeDisabled();
@@ -72,13 +75,18 @@ test('failed refresh retains timestamped results and a changed filter cannot mix
  await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
-test('evidence inspector moves below the map at narrower desktop widths',async({page},testInfo)=>{
+test('evidence drawer remains usable within the workspace at narrower desktop widths',async({page},testInfo)=>{
  await page.setViewportSize({width:1100,height:850});
  await page.route('**/api/exposure/catalog?**',route=>route.fulfill({json:catalog}));
  await page.goto('/exposure.html');
- const map=await page.locator('.atlas-map-stage').boundingBox(),inspector=await page.getByRole('complementary',{name:'Earthquake evidence inspector'}).boundingBox();
+ await openEvidence(page);
+ const map=await page.locator('.atlas-map-stage:visible').boundingBox(),inspector=await page.getByRole('complementary',{name:'Earthquake evidence inspector'}).boundingBox();
  expect(map).not.toBeNull();expect(inspector).not.toBeNull();
- expect(inspector!.y).toBeGreaterThanOrEqual(map!.y+map!.height-1);
+ expect(map!.width).toBeGreaterThan(200);
+ expect(inspector!.y).toBeGreaterThanOrEqual(map!.y-1);
+ expect(inspector!.y+inspector!.height).toBeLessThanOrEqual(851);
+ expect(inspector!.x).toBeGreaterThanOrEqual(0);
+ expect(inspector!.x+inspector!.width).toBeLessThanOrEqual(1101);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:`output/playwright/cat48-narrow-layout-${testInfo.project.name}.png`,fullPage:true});
 });
@@ -92,6 +100,7 @@ test('corrupted archive bytes cannot enable assessment or leak insured data',asy
  await page.route('**/api/exposure/artifacts/*',route=>route.fulfill({body:detail}));
  await page.goto('/exposure.html');
  await page.getByRole('button',{name:/Recent public earthquake/}).click();
+ await openEvidence(page);
  await expect(page.getByRole('complementary',{name:'Earthquake evidence inspector'})).toContainText('SHA-256');
  await expect(page.getByRole('button',{name:'Assess portfolio',exact:true})).toBeDisabled();
  await expect(page.getByTestId('exposure-count')).toHaveText('—');
@@ -111,6 +120,7 @@ test('Monitor opens the same evidence inspection without a portfolio or automati
  const inspect=page.getByRole('button',{name:'Inspect earthquake in Exposure →',exact:true});
  await expect(inspect).toBeEnabled();await inspect.click();
  await expect(page.getByRole('button',{name:'Exposure',exact:true})).toHaveAttribute('aria-pressed','true');
+ await openEvidence(page);
  await expect(page.getByRole('complementary',{name:'Earthquake evidence inspector'})).toContainText('No supported shaking evidence');
  await expect(page.getByTestId('exposure-count')).toHaveText('—');
  expect(captures).toBe(1);
@@ -122,6 +132,7 @@ test('unavailable live evidence still permits an explicit packaged replay',async
  await page.goto('/exposure.html');
  await page.getByRole('button',{name:/Recent public earthquake/}).click();
  await expect(page.getByTestId('exposure-count')).toHaveText('—');
+ await openEvidence(page);
  await page.getByRole('button',{name:'Assess packaged Ridgecrest replay',exact:true}).click();
  await expect(page.getByTestId('exposure-count')).toHaveText('11');
  await expect(page.getByRole('heading',{level:1})).toContainText('Ridgecrest');

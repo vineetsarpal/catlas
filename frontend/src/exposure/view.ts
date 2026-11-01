@@ -2,6 +2,7 @@ import { prioritize, type ExposureRow } from './model';
 
 export type ExposureView = {
   status: string;
+  insuredValue?: 'all' | 'known' | 'unknown';
   currency: string;
   query: string;
   region: string | null;
@@ -11,6 +12,7 @@ export type ExposureView = {
 export function filterExposure(rows: ExposureRow[], threshold: number, view: ExposureView): ExposureRow[] {
   const query = view.query.trim().toLocaleLowerCase();
   return prioritize(rows).filter(row =>
+    (view.insuredValue === undefined || view.insuredValue === 'all' || (view.insuredValue === 'known' ? row.value !== null : row.value === null)) &&
     (view.currency === 'all' || row.currency === view.currency) &&
     (view.region === null || row.region === view.region) &&
     (view.businessLine === null || row.businessLine === view.businessLine) &&

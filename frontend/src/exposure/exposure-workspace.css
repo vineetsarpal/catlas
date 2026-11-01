@@ -349,7 +349,6 @@
  .is-exposure .atlas-results-drawer .exposure-section-title { flex-direction:row; align-items:center; }
  .is-exposure .atlas-results-drawer .exposure-exports { width:auto; overflow:visible; }
  .is-exposure .atlas-results-drawer :is(td,th) { padding:9px 12px; }
- .is-exposure .atlas-results-drawer th:nth-child(4),.is-exposure .atlas-results-drawer td:nth-child(4) { display:none; }
 }
 @media print {
  .atlas-evidence-bar,.exposure-fit-results,.atlas-evidence-panel,.exposure-exports { display:none!important; }
@@ -423,9 +422,9 @@
 /* Location search stays with the results it filters. */
 .atlas-results-drawer .exposure-section-title { flex-direction:row; align-items:center; flex-wrap:wrap; }
 .exposure-location-search { position:relative; flex:1 1 180px; max-width:280px; margin-left:auto; }
-.exposure-location-search input { box-sizing:border-box; width:100%; min-width:0; height:32px; padding:6px 30px 6px 10px; border:1px solid #cbd9d2; border-radius:5px; background:#fff; color:#244c3a; font:inherit; font-size:12px; }
-.exposure-location-search input::-webkit-search-cancel-button { display:none; }
-.exposure-location-search button { position:absolute; right:2px; top:2px; width:28px; min-height:28px; padding:0; border:0; background:transparent; font-size:18px; }
+.atlas-map-workspace .exposure-location-search input { box-sizing:border-box; width:100%; min-width:0; height:32px; padding:6px 30px 6px 10px; border:1px solid #cbd9d2; border-radius:5px; background:#fff; color:#244c3a; font:inherit; font-size:12px; }
+.atlas-map-workspace .exposure-location-search input::-webkit-search-cancel-button { display:none; }
+.atlas-map-workspace .exposure-location-search button { position:absolute; right:2px; top:2px; width:28px; min-height:28px; padding:0; border:0; background:transparent; font-size:18px; }
 @media(max-width:760px) {
  .exposure-location-search { order:3; flex-basis:100%; max-width:none; margin-left:0; }
  .exposure-list-actions { margin-left:auto; }
@@ -451,3 +450,31 @@
 .exposure-inspector .exposure-location-evidence-content dl { grid-template-columns:1fr; gap:5px; margin:10px 0; padding:0; border:0; }
 .exposure-inspector .exposure-location-evidence-content dd { text-align:left; margin-bottom:8px; }
 .exposure-location-evidence-content code { font-size:10px; overflow-wrap:anywhere; }
+
+/* The two insured-location workspaces share view and table controls. */
+.location-view-switch { display:none; }
+.location-filtered-summary { display:flex; flex:none; flex-wrap:wrap; align-items:center; gap:4px 16px; padding:7px 14px; border-bottom:1px solid var(--wb-line); background:#f5f9f7; color:var(--wb-muted); font-size:11px; }
+.location-filtered-summary strong { color:var(--wb-ink); font-size:12px; }
+.location-detail-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.location-detail-actions button { min-height:34px; }
+.exposure-table-scroll,.portfolio-table { scroll-padding-top:44px; }
+.exposure-table-scroll tbody button,.portfolio-table tbody button { scroll-margin-block:44px 8px; }
+/* Metadata may wrap in a narrow split. Keep a usable table viewport and let its
+   surrounding section scroll rather than squeezing rows behind the header. */
+.atlas-results-drawer .exposure-list-section { overflow:auto; }
+.atlas-results-drawer .exposure-table-scroll { flex:1 0 120px; min-height:120px; }
+.atlas-results-drawer .exposure-list-section>p { flex:none; }
+.atlas-map-filter-chips { display:flex; align-items:center; flex-wrap:wrap; gap:5px; min-width:0; }
+.atlas-map-filter-chips button { padding:4px 8px; min-height:27px; border:1px solid #b9d1c5; border-radius:4px; background:#edf6f1; color:#285b46; font-size:10px; }
+@media(max-width:760px) {
+ .location-view-switch { display:flex; flex:none; gap:4px; padding:6px 12px; background:#fff; border-bottom:1px solid var(--wb-line); }
+ .location-view-switch button { flex:1; min-height:34px; border:1px solid #c6d6ce; border-radius:5px; background:#fff; color:#315e4f; font:inherit; font-size:12px; }
+ .location-view-switch button[aria-pressed=true] { background:#e6f1eb; border-color:#36755c; font-weight:600; }
+ .is-exposure .atlas-exposure-inspection { top:0; bottom:0; left:46px; right:0; width:auto; border-radius:0; border-top:0; box-shadow:none; }
+ .is-exposure .atlas-exposure-panel { top:0; bottom:0; }
+ .location-filtered-summary { padding:6px 8px; gap:4px 10px; font-size:10px; }
+ .location-detail-actions button { flex:1; }
+ .is-exposure.location-view-locations>main:not(.portfolios-page)>.atlas-summary,
+ .is-exposure.location-view-locations>main:not(.portfolios-page)>.atlas-evidence-bar { display:none; }
+ .is-exposure .portfolio-relevance-map { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; max-height:2.8em; overflow:hidden; line-height:1.4; }
+}

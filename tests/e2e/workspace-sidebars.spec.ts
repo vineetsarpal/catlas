@@ -30,7 +30,7 @@ test('monitor keeps options left and selected location details right, preserving
   const right = page.getByRole('complementary', { name: 'Selected monitoring item' });
   await expect(right).toContainText('Ridgecrest medical centre');
   if (info.project.name === 'desktop') {
-    await orderedPanels(left, page.locator('.is-monitor .atlas-map-stage'), right);
+    await orderedPanels(left, page.locator('.is-monitor .atlas-map-stage:visible'), right);
   } else {
     await expect(left).not.toBeVisible();
   }
@@ -53,7 +53,8 @@ test('monitor keeps options left and selected location details right, preserving
 
 test('portfolio options stay left while selected location details and editing stay right', async ({ page }, info) => {
   await demoPortfolio(page);
-  await page.getByRole('button', { name: /Show locations/ }).click();
+  if(info.project.name==='mobile')await page.getByRole('group',{name:'Location view'}).getByRole('button',{name:'Locations',exact:true}).click();
+  else if(!await page.getByRole('table',{name:'Insured location inventory',exact:true}).isVisible())await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Locations',exact:true}).click();
   await page.locator('#portfolio-location-table').getByRole('button', { name: 'Ridgecrest medical centre', exact: true }).click();
   const right = page.getByRole('complementary', { name: 'Portfolio location details' });
   await expect(right).toContainText('Ridgecrest medical centre');
@@ -80,7 +81,7 @@ test('recovery separates assessment options from selected contractual details', 
   const scenario = page.getByRole('combobox', { name: 'Demonstration scenario', exact: true });
   await scenario.selectOption('ridgecrest');
   await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
-  if (info.project.name === 'desktop') await orderedPanels(left, page.locator('.is-recovery .atlas-map-stage'), right);
+  if (info.project.name === 'desktop') await orderedPanels(left, page.locator('.is-recovery .atlas-map-stage:visible'), right);
   else {
     if (!await right.isVisible()) await page.getByRole('navigation', { name: 'Recovery tools', exact: true }).getByRole('button', { name: 'Recovery details', exact: true }).click();
     await expect(right).toBeVisible();
@@ -134,7 +135,7 @@ test('every module keeps layer controls in the left sidebar and retains toggles 
   const layersButton=()=>page.getByRole('button',{name:'Layers',exact:true});
   async function layersOnLeft() {
     await layersButton().click();
-    const controls=page.locator('.exposure-map-layers[aria-label="Map layers"]');
+    const controls=page.locator('.exposure-map-layers[aria-label="Map layers"]:visible');
     await expect(controls).toBeVisible();
     await expect(page.locator('.exposure-map-menus summary').filter({hasText:/^Layers$/})).toHaveCount(0);
     expect(await controls.evaluate(node=>Boolean(node.closest('aside')))).toBe(true);

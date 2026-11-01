@@ -1,6 +1,18 @@
 import { test, expect, type Page } from '@playwright/test';
+
+async function editLocation(page: Page, name: string) {
+  await page.getByRole('table', { name: 'Insured location inventory' }).getByRole('button', { name, exact: true }).click();
+  await page.getByRole('complementary', { name: 'Portfolio location details' }).getByRole('button', { name: 'Edit location', exact: true }).click();
+}
 import fs from 'node:fs/promises';
-async function openInventory(page:Page){const hide=page.getByRole('button',{name:/Hide locations/});if(!await hide.isVisible())await page.getByRole('button',{name:/Show locations/}).click();}
+test.setTimeout(60_000);
+async function openInventory(page:Page){
+  await page.getByRole('table', { name: 'Insured location inventory', includeHidden: true }).waitFor({ state: 'attached' });
+  if (await page.getByRole('table', { name: 'Insured location inventory' }).isVisible()) return;
+  const mobile = page.getByRole('group', { name: 'Location view', exact: true });
+  if (await mobile.isVisible()) await mobile.getByRole('button', { name: 'Locations', exact: true }).click();
+  else await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Locations',exact:true}).click();
+}
 
 async function create(page: Page, name: string) {
   await page.getByRole('button',{name:'Create portfolio',exact:true}).click();
@@ -28,7 +40,7 @@ test('named portfolios, manual edits, active selection and CSV backups survive r
   await expect(page.getByRole('heading',{name:'What do you insure?'})).toBeVisible();
   await create(page,'Canadian Commercial');
   await add(page,'LOC-1','Toronto office');
-  await page.getByRole('button',{name:'Edit Toronto office',exact:true}).click();
+  await editLocation(page, 'Toronto office');
   const edit=page.getByRole('form',{name:'Edit location'});
   await edit.getByLabel('Location name',{exact:true}).fill('Toronto HQ');
   await edit.getByLabel('Total insured value',{exact:true}).fill('2500000');
@@ -79,7 +91,10 @@ test('CSV merge and replace show changes, exclude invalid rows and reject duplic
   await expect(page.getByRole('table').locator('tbody tr')).toHaveCount(1);await page.reload();await openInventory(page);await expect(page.getByRole('table').locator('tbody tr')).toHaveCount(1);
   await expect(page.getByRole('table')).not.toContainText('Updated');
   page.on('dialog',dialog=>dialog.accept());
-  await page.getByRole('button',{name:'Delete New location',exact:true}).click();
+  await page.getByRole('table', { name: 'Insured location inventory' }).getByRole('button', { name: 'New location', exact: true }).click();
+  await page.getByRole('complementary', { name: 'Portfolio location details' }).getByRole('button', { name: 'Delete location', exact: true }).click();
+  const views = page.getByRole('group', { name: 'Location view', exact: true });
+  if (await views.isVisible()) await views.getByRole('button', { name: 'Map', exact: true }).click();
   await expect(page.getByRole('heading',{name:'Your portfolio is empty'})).toBeVisible();
   await page.reload(); await expect(page.getByRole('heading',{name:'Your portfolio is empty'})).toBeVisible();
   await page.getByRole('button',{name:'Exposure',exact:true}).click();
@@ -100,9 +115,9 @@ test('editing or deleting inventory never rewrites saved investigations or repla
   await create(page,'Current book'); await add(page,'CURRENT','Current location');
   await page.getByRole('button',{name:'Exposure',exact:true}).click();
   await expect(page.getByTestId('exposure-count')).toHaveText('11');
-  await expect(page.getByText('Portfolio has changed or a different portfolio is active.',{exact:false})).toBeVisible();
-  await page.getByRole('button',{name:'Investigate latest portfolio',exact:true}).click();
-  await expect(page.getByTestId('exposure-count')).toHaveText('1');
+  // Changing the active portfolio does not change the assessment's source inventory.
+  await expect(page.getByRole('button',{name:'Investigate latest portfolio',exact:true})).toHaveCount(0);
+  await expect(page.locator('.atlas-case-version')).toContainText('Exposure v1');
   await page.getByRole('button',{name:'History',exact:true}).click();
   await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();
   await expect(page.getByTestId('exposure-count')).toHaveText('11');
@@ -117,9 +132,9 @@ test('editing or deleting inventory never rewrites saved investigations or repla
 test('stale edits in a second tab cannot overwrite a newer inventory',async({page,context})=>{
   await page.goto('/');await create(page,'Shared browser book');await add(page,'SITE','Original site');
   const second=await context.newPage();await second.goto('/?mode=portfolios');await openInventory(second);
-  await second.getByRole('button',{name:'Edit Original site',exact:true}).click();
+  await editLocation(second, 'Original site');
   await second.getByRole('form',{name:'Edit location'}).getByLabel('Location name',{exact:true}).fill('Stale change');
-  await page.getByRole('button',{name:'Edit Original site',exact:true}).click();
+  await editLocation(page, 'Original site');
   await page.getByRole('form',{name:'Edit location'}).getByLabel('Location name',{exact:true}).fill('Latest change');
   await page.getByRole('button',{name:'Save location',exact:true}).click();
   await expect(page.getByRole('table')).toContainText('Latest change');

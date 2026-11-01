@@ -1,13 +1,16 @@
 import { test, expect } from '@playwright/test';
 
 test('locations divider resizes the map and table, supports keyboard bounds, and retains size when reopened', async ({ page }, info) => {
+  test.skip(info.project.name === 'mobile', 'Mobile uses Map / Locations rather than a split view');
   await page.goto('/?mode=portfolios');
   await page.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
-  await page.getByRole('button', { name: /Show locations/ }).click();
+  const show = page.getByRole('navigation', { name: 'Portfolio tools' }).getByRole('button', { name: 'Locations', exact: true });
+  if (await show.isVisible() && await show.getAttribute('aria-expanded') === 'false') await show.click();
   const divider = page.getByRole('separator', { name: 'Resize map and locations table' });
   const table = page.locator('#portfolio-location-table');
   const map = page.locator('.portfolio-map-surface');
   await expect(divider).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Hide locations/ })).toHaveCount(1);
   const before = (await table.boundingBox())!;
   const mapBefore = (await map.boundingBox())!;
   const handle = (await divider.boundingBox())!;
@@ -21,9 +24,9 @@ test('locations divider resizes the map and table, supports keyboard bounds, and
   await expect.poll(async () => Number(await divider.getAttribute('aria-valuenow'))).toBe(Number(await divider.getAttribute('aria-valuemin')));
   await divider.press('ArrowUp');
   const resized = (await table.boundingBox())!.height;
-  await page.getByRole('button', { name: /Hide locations/ }).click();
+  await page.getByRole('button', { name: 'Hide locations', exact: true }).click();
   await expect(divider).toBeHidden();
-  await page.getByRole('button', { name: /Show locations/ }).click();
+  await page.getByRole('navigation', { name: 'Portfolio tools' }).getByRole('button', { name: 'Locations', exact: true }).click();
   await expect.poll(async () => (await table.boundingBox())!.height).toBeCloseTo(resized, 0);
   await divider.press('End');
   await expect.poll(async () => Number(await divider.getAttribute('aria-valuenow'))).toBe(Number(await divider.getAttribute('aria-valuemax')));

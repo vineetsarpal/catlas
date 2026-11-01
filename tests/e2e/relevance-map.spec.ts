@@ -27,7 +27,7 @@ test('catalog screening stays linked to selected map evidence without assessing 
   await expect(page.getByRole('button', { name: /Synthetic linked relevance earthquake/ })).toHaveCount(0);
   await expect(mapContext).toContainText('Below screening threshold');
   await expect(page.getByRole('complementary', { name: 'Earthquake evidence inspector' }).getByRole('heading', { level: 2 })).toHaveText(event.name);
-  await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-shaking-ready', 'true');
+  await expect(page.locator('[data-testid="exposure-map"]:visible')).toHaveAttribute('data-shaking-ready', 'true');
   await expect(page.getByRole('button', { name: /Synthetic distant uninspected earthquake/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save investigation', exact: true })).toBeDisabled();
   await page.screenshot({ path: `output/playwright/cat52-linked-map-${info.project.name}.png`, fullPage: true });

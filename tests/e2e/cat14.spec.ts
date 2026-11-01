@@ -24,10 +24,10 @@ test('map presentation controls preserve recovery and area inspection',async({pa
  await expect(page.getByRole('switch',{name:'Globe view',exact:true})).not.toBeChecked();
  await page.getByRole('button',{name:'Zoom out',exact:true}).click();
  await page.getByRole('button',{name:'Zoom out',exact:true}).click();
- await expect(page.getByTestId('exposure-map')).toHaveAttribute('data-settled','true');
- const longitude=await page.getByTestId('exposure-map').getAttribute('data-camera-longitude');
+ await expect(page.locator('[data-testid="exposure-map"]:visible')).toHaveAttribute('data-settled','true');
+ const longitude=await page.locator('[data-testid="exposure-map"]:visible').getAttribute('data-camera-longitude');
  await page.locator('.maplibregl-canvas').press('ArrowRight');
- await expect.poll(()=>page.getByTestId('exposure-map').getAttribute('data-camera-longitude')).not.toBe(longitude);
+ await expect.poll(()=>page.locator('[data-testid="exposure-map"]:visible').getAttribute('data-camera-longitude')).not.toBe(longitude);
  await page.getByRole('switch',{name:'Globe view',exact:true}).check();
  await page.getByText('Appearance',{exact:true}).click();
  await page.getByRole('button',{name:'Layers',exact:true}).click();

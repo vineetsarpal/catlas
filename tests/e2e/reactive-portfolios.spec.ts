@@ -1,4 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
+test.setTimeout(60_000);
+
+async function editLocation(page: Page, name: string) {
+  await page.getByRole('table', { name: 'Insured location inventory' }).getByRole('button', { name, exact: true }).click();
+  await page.getByRole('complementary', { name: 'Portfolio location details' }).getByRole('button', { name: 'Edit location', exact: true }).click();
+}
 
 async function createPortfolio(page: Page, name: string) {
   await page.getByRole('button', { name: 'Create portfolio', exact: true }).click();
@@ -9,8 +15,11 @@ async function createPortfolio(page: Page, name: string) {
 }
 
 async function openInventory(page: Page) {
+  await page.getByRole('table', { name: 'Insured location inventory', includeHidden: true }).waitFor({ state: 'attached' });
   if (!await page.getByRole('table', { name: 'Insured location inventory' }).isVisible()) {
-    await page.getByRole('button', { name: /Show locations/ }).click();
+    const mobile = page.getByRole('group', { name: 'Location view', exact: true });
+    if (await mobile.isVisible()) await mobile.getByRole('button', { name: 'Locations', exact: true }).click();
+    else await page.getByRole('navigation', { name: 'Portfolio tools' }).getByRole('button', { name: 'Locations', exact: true }).click();
   }
 }
 
@@ -48,10 +57,10 @@ test('a location draft retains its original revision when another tab updates th
   const second = await context.newPage();
   await second.goto('/?mode=portfolios');
   await openInventory(second);
-  await second.getByRole('button', { name: 'Edit Original site', exact: true }).click();
+  await editLocation(second, 'Original site');
   const draft = second.getByRole('form', { name: 'Edit location', exact: true });
   await draft.getByLabel('Location name', { exact: true }).fill('Unsaved local name');
-  await page.getByRole('button', { name: 'Edit Original site', exact: true }).click();
+  await editLocation(page, 'Original site');
   await page.getByRole('form', { name: 'Edit location', exact: true }).getByLabel('Location name', { exact: true }).fill('Newer saved name');
   await page.getByRole('button', { name: 'Save location', exact: true }).click();
   await expect(page.getByRole('table', { name: 'Insured location inventory' })).toContainText('Newer saved name');
@@ -94,7 +103,7 @@ test('an external selection and deletion retain the original draft until it is d
   const second = await context.newPage();
   await second.goto('/');
   await openInventory(second);
-  await second.getByRole('button', { name: 'Edit Original site', exact: true }).click();
+  await editLocation(second, 'Original site');
   const input = second.getByRole('form', { name: 'Edit location', exact: true }).getByLabel('Location name', { exact: true });
   await input.fill('Retained draft name');
   await createPortfolio(page, 'Replacement inventory');
@@ -127,7 +136,7 @@ test('settings and a reviewed CSV remain tied to their original inventory revisi
   await tools.getByRole('button', { name: 'Settings', exact: true }).click();
   const settings = second.getByRole('heading', { name: 'Portfolio settings', exact: true }).locator('..').locator('..');
   await settings.getByLabel('Source', { exact: true }).fill('Unsaved source');
-  await page.getByRole('button', { name: 'Edit Original site', exact: true }).click();
+  await editLocation(page, 'Original site');
   await page.getByRole('form', { name: 'Edit location' }).getByLabel('Location name', { exact: true }).fill('Newer site');
   await page.getByRole('button', { name: 'Save location', exact: true }).click();
   await expect(second.getByRole('status', { name: 'Retained portfolio draft' })).toContainText('changed since editing began');
@@ -166,7 +175,8 @@ test('a live inventory change never rewrites a saved Exposure snapshot', async (
   await second.goto('/');
   await openInventory(second);
   second.once('dialog', dialog => dialog.accept());
-  await second.getByRole('button', { name: 'Delete Phoenix warehouse', exact: true }).click();
+  await second.getByRole('table', { name: 'Insured location inventory' }).getByRole('button', { name: 'Phoenix warehouse', exact: true }).click();
+  await second.getByRole('complementary', { name: 'Portfolio location details' }).getByRole('button', { name: 'Delete location', exact: true }).click();
   await expect(second.getByRole('table', { name: 'Insured location inventory' }).locator('tbody tr')).toHaveCount(17);
   await expect(page.getByRole('button', { name: 'Investigate latest portfolio', exact: true })).toBeVisible();
   await expect(page.locator('.portfolio-snapshot-notice')).toContainText('18 locations');

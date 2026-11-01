@@ -36,6 +36,7 @@ test('screening and analysis thresholds remain independent of filters and saved-
   await expect(page.getByTestId('exposure-count')).toHaveText('11',{timeout:30000});
   await page.getByRole('button',{name:'Save investigation',exact:true}).click();
   const original=await bundle(page);
+  if(info.project.name==='mobile')await page.getByRole('button',{name:'Map',exact:true}).click();
   await page.getByRole('button',{name:'Show locations meeting threshold',exact:true}).click();
   const filterButton=page.getByRole('button',{name:'Filter locations',exact:true});
   await expect(filterButton.locator('.workspace-rail-badge')).toHaveText('1');

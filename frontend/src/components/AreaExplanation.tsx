@@ -37,9 +37,9 @@ export function AreaExplanation({
         </caption>
         <thead>
           <tr>
-            <th>Raw mw</th>
-            <th>≤25 km</th>
-            <th>&gt;25–100 km</th>
+            <th scope="col">Raw mw</th>
+            <th scope="col">≤25 km</th>
+            <th scope="col">&gt;25–100 km</th>
           </tr>
         </thead>
         <tbody>
@@ -51,7 +51,7 @@ export function AreaExplanation({
             ])
             .map(([row, inner, outer]) => (
               <tr key={row}>
-                <th>{row}</th>
+                <th scope="row">{row}</th>
                 <td
                   className={
                     area.magnitudeRow === row && area.band === "inner"

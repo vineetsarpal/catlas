@@ -8,8 +8,8 @@ test('modes retain the earthquake, camera, map instance and exposure filters',as
  await expect(page.getByTestId('exposure-count')).toHaveText('11');
  await openFilters(page);await page.getByRole('combobox',{name:'Show',exact:true}).selectOption('meeting');
  await page.getByRole('button',{name:'Close side panel',exact:true}).click();
- const map=page.getByTestId('exposure-map');await expect(map).toHaveAttribute('data-settled','true');
- const canvas=await page.locator('.maplibregl-canvas').elementHandle();
+ const map=page.locator('[data-testid="exposure-map"]:visible');await expect(map).toHaveAttribute('data-settled','true');
+ const canvas=await page.locator('.maplibregl-canvas:visible').elementHandle();
  const zoom=await map.getAttribute('data-camera-zoom');
  const title=await page.getByRole('heading',{level:1}).textContent();
  await page.getByRole('button',{name:'Recovery',exact:true}).click();

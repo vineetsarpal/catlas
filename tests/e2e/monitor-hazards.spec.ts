@@ -149,7 +149,7 @@ test('fire map groups observations, preserves selection, fits a perimeter and ke
   await expect(card).toContainText('15% contained');
   await expect(card).toContainText('USD 62,000,000 TIV');
   await expect(card).toContainText('1 with unknown insured value');
-  const map=page.getByTestId('exposure-map');
+  const map=page.locator('[data-testid="exposure-map"]:visible');
   await expect.poll(async()=>Number(await map.getAttribute('data-camera-zoom'))).toBeGreaterThan(8);
   await card.getByRole('button',{name:'Watch fire activity',exact:true}).click();
   await expect(card.getByRole('button',{name:'Remove fire watch',exact:true})).toBeVisible();
@@ -249,7 +249,7 @@ test('reported fire locations use selectable flame markers instead of earthquake
   const panel=await details(page);
   await expect(panel.getByRole('button',{name:/Earthquake near reported fire/})).toBeVisible();
   await panel.getByRole('button',{name:report.name,exact:true}).click();
-  const map=page.getByTestId('exposure-map');
+  const map=page.locator('[data-testid="exposure-map"]:visible');
   await expect(map).toHaveAttribute('data-reported-fires','1');
   await expect(map).toHaveAttribute('data-circular-fire-reports','0');
   await expect(page.getByLabel('Map legend',{exact:true})).toContainText('Reported fires');

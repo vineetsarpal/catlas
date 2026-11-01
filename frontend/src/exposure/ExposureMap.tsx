@@ -28,7 +28,7 @@ function gridImage(evidence: CapturedEvidence): string {
   }
   context.putImageData(image,0,0); return canvas.toDataURL();
 }
-export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRequest = 0, pulseRequest = 0, mode = 'exposure', recoveryAreas = [], selectedArea = '', onSelectArea, monitor, placement, controlsInSidebar=false, layersTarget }: { layersTarget?:HTMLElement|null; controlsInSidebar?:boolean; placement?: { point: MapPoint | null; enabled: boolean; onChange: (point: MapPoint) => void };  monitor?: MonitorMapProps; evidence: CapturedEvidence | null; event: Earthquake | null; rows: ExposureRow[]; selected: string; onSelect: (id: string) => void; focusRequest?: number; pulseRequest?: number; mode?: 'monitor'|'exposure'|'recovery'|'portfolio'; recoveryAreas?: Treaty['areas']; selectedArea?: string; onSelectArea?: (id:string)=>void }) {
+export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRequest = 0, pulseRequest = 0, assessed = true, mode = 'exposure', recoveryAreas = [], selectedArea = '', onSelectArea, monitor, placement, controlsInSidebar=false, layersTarget }: { layersTarget?:HTMLElement|null; controlsInSidebar?:boolean; placement?: { point: MapPoint | null; enabled: boolean; onChange: (point: MapPoint) => void };  monitor?: MonitorMapProps; evidence: CapturedEvidence | null; event: Earthquake | null; rows: ExposureRow[]; selected: string; onSelect: (id: string) => void; assessed?: boolean; focusRequest?: number; pulseRequest?: number; mode?: 'monitor'|'exposure'|'recovery'|'portfolio'; recoveryAreas?: Treaty['areas']; selectedArea?: string; onSelectArea?: (id:string)=>void }) {
   const element = useRef<HTMLDivElement>(null), mapRef = useRef<maplibre.Map | null>(null), callback = useRef(onSelect);
   const [ready,setReady] = useState(false), [error,setError] = useState(''), [show,setShow] = useState(true);
   const [showLocations,setShowLocations] = useState(true), [opacity,setOpacity] = useState(.75), [mapStyle,setMapStyle] = useState<'light'|'dark'>('light');
@@ -117,8 +117,8 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
   },[ready,mode,rows.length]);
   useEffect(() => {
     const map = mapRef.current; if (!ready || !map) return;
-    (map.getSource('exposure-sites') as maplibre.GeoJSONSource).setData({type:'FeatureCollection',features:rows.map(r=>({type:'Feature',properties:{id:r.id,color:mode==='portfolio'?'#527f92':intensityColor(r.mmi),selected:r.id===selected},geometry:{type:'Point',coordinates:[r.longitude,r.latitude]}}))});
-  },[ready,rows,selected,mode]);
+    (map.getSource('exposure-sites') as maplibre.GeoJSONSource).setData({type:'FeatureCollection',features:rows.map(r=>({type:'Feature',properties:{id:r.id,color:mode==='portfolio'||mode==='exposure'&&!assessed?'#527f92':intensityColor(r.mmi),selected:r.id===selected},geometry:{type:'Point',coordinates:[r.longitude,r.latitude]}}))});
+  },[ready,rows,selected,mode,assessed]);
   const selectedLocation = rows.find(row => row.id === selected);
   const lastPulseRequest = useRef(0);
   useEffect(() => {
@@ -249,7 +249,7 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
   useEffect(()=>{const row=rows.find(r=>r.id===selected);if(ready&&row&&focusRequest>0)mapRef.current?.easeTo({center:[row.longitude,row.latitude],duration:window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:350});},[ready,focusRequest]);
   useEffect(()=>{
     const map=mapRef.current;
-    if(!ready||!map||mode!=='exposure'||!selectedLocation||pulseRequest===0)return;
+    if(!ready||!map||(mode!=='exposure'&&mode!=='portfolio')||!selectedLocation||pulseRequest===0)return;
     const point:[number,number]=[selectedLocation.longitude,selectedLocation.latitude];
     if(!map.getBounds().contains(point))map.easeTo({center:point,duration:window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:350});
   },[ready,pulseRequest,mode]);
@@ -303,9 +303,9 @@ export function ExposureMap({ evidence, event, rows, selected, onSelect, focusRe
         {monitor?.state.prefs.perimeters&&<FirePerimeterLegend/>}
         {monitor?.state.prefs.alerts&&<span><i style={{background:'#b59424'}}/>Weather warnings</span>}
         {monitor?.state.prefs.cyclones&&<span><i style={{background:'#7858a1'}}/>Cyclones</span>}
-      </>:mode==='recovery'?<span>◆ Fixed references · 25 km inner / 100 km outer bands</span>:mode==='portfolio'?<span>● Insured locations · unassessed</span>:[3,4,5,6,7,null].map((value,i)=><span key={i}><i style={{background:intensityColor(value)}}/>{['<4','4–<5','5–<6','6–<7','7+','Unknown'][i]}</span>)}
+      </>:mode==='recovery'?<span>◆ Fixed references · 25 km inner / 100 km outer bands</span>:mode==='portfolio'||mode==='exposure'&&!assessed?<span>● Insured locations · Not assessed</span>:[3,4,5,6,7,null].map((value,i)=><span key={i}><i style={{background:intensityColor(value)}}/>{['<4','4–<5','5–<6','6–<7','7+','Unknown'][i]}</span>)}
     </div>}
 
-    <p className="exposure-map-note">{mode==='monitor'?'USGS · NOAA · NASA FIRMS · NIFC · NRCan CWFIS · ECCC. Portfolio attention only; no damage or loss assessment.':mode==='portfolio'?'Insured location inventory · No hazard assessment.':mode==='exposure'?'USGS shaking evidence · Shaking estimates do not establish property damage.':'Contractual fixed-reference distance bands · Not shaking contours or damage radii.'} Natural Earth geographic context.</p>
+    <p className="exposure-map-note">{mode==='monitor'?'USGS · NOAA · NASA FIRMS · NIFC · NRCan CWFIS · ECCC. Portfolio attention only; no damage or loss assessment.':mode==='portfolio'||mode==='exposure'&&!assessed?'Insured location inventory · Not assessed.':mode==='exposure'?'USGS shaking evidence · Shaking estimates do not establish property damage.':'Contractual fixed-reference distance bands · Not shaking contours or damage radii.'} Natural Earth geographic context.</p>
   </section>;
 }

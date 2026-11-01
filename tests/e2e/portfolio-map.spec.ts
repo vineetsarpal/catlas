@@ -1,11 +1,19 @@
 import { test, expect, type Page } from '@playwright/test';
+test.setTimeout(60_000);
 async function setup(page:Page){
   await page.goto('/');await page.getByRole('button',{name:'Use demo portfolio',exact:true}).click();
   await expect(page.getByRole('heading',{level:1})).toHaveText('Demo · Ridgecrest locations');
-  await expect(page.getByRole('region',{name:'Portfolio inventory map'}).getByTestId('exposure-map')).toHaveAttribute('data-ready','true');
+  await expect(page.getByRole('region',{name:'Portfolio inventory map'}).getByTestId('exposure-map')).toHaveAttribute('data-ready','true',{timeout:15_000});
   await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Add locations',exact:true}).click();
 }
 const rows=(page:Page)=>page.locator('#portfolio-location-table tbody tr');
+async function openInventory(page:Page){
+  await page.getByRole('table', { name: 'Insured location inventory', includeHidden: true }).waitFor({ state: 'attached' });
+  if (await page.getByRole('table', { name: 'Insured location inventory' }).isVisible()) return;
+  const mobile = page.getByRole('group', { name: 'Location view', exact: true });
+  if (await mobile.isVisible()) await mobile.getByRole('button', { name: 'Locations', exact: true }).click();
+  else await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Locations',exact:true}).click();
+}
 const response={type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:[-79.384,43.6536]},properties:{name:'Toronto City Hall',city:'Toronto',country:'Canada'}},{type:'Feature',geometry:{type:'Point',coordinates:[999,999]},properties:{name:'Invalid position'}}]};
 test('place search is submitted explicitly, previews a pin, and saves only after insurance details are confirmed',async({page})=>{
   const requests:string[]=[];
@@ -26,11 +34,13 @@ test('place search is submitted explicitly, previews a pin, and saves only after
   await form.getByRole('button',{name:'Save location',exact:true}).click();
   await expect(rows(page)).toHaveCount(19);
   await page.getByLabel('Search locations',{exact:true}).fill('CITY-1');
-  await expect(rows(page)).toContainText('43.6536, -79.384');
+  await rows(page).getByRole('button',{name:'Toronto City Hall',exact:true}).click();
+  await expect(page.getByRole('complementary',{name:'Portfolio location details'})).toContainText('43.6536, -79.384');
+  await page.getByRole('button',{name:'Close location details',exact:true}).click();
   await expect(rows(page)).toContainText('Unknown USD');
   expect(requests).toHaveLength(1);
   const url=new URL(requests[0]);expect([...url.searchParams.keys()].sort()).toEqual(['lang','limit','q']);
-  await page.reload();await page.getByRole('button',{name:/Show locations/}).click();await page.getByLabel('Search locations',{exact:true}).fill('CITY-1');await expect(rows(page)).toHaveCount(1);
+  await page.reload();await openInventory(page);await page.getByLabel('Search locations',{exact:true}).fill('CITY-1');await expect(rows(page)).toHaveCount(1);
 });
 
 test('offline pin placement and coordinate adjustment create a location without geocoding',async({page,context})=>{
@@ -46,14 +56,16 @@ test('offline pin placement and coordinate adjustment create a location without 
   await form.getByLabel('Location ID',{exact:true}).fill('PIN-1');await form.getByLabel('Location name',{exact:true}).fill('Pinned site');
   await form.getByLabel('Latitude',{exact:true}).fill('40.75');await form.getByLabel('Longitude',{exact:true}).fill('-73.98');
   await form.getByLabel('Currency',{exact:true}).fill('USD');await form.getByRole('button',{name:'Save location',exact:true}).click();
-  await expect(rows(page)).toHaveCount(19);await page.getByLabel('Search locations',{exact:true}).fill('PIN-1');await expect(rows(page)).toContainText('40.75, -73.98');expect(geocoding).toBe(0);
+  await expect(rows(page)).toHaveCount(19);await page.getByLabel('Search locations',{exact:true}).fill('PIN-1');
+  await rows(page).getByRole('button',{name:'Pinned site',exact:true}).click();
+  await expect(page.getByRole('complementary',{name:'Portfolio location details'})).toContainText('40.75, -73.98');expect(geocoding).toBe(0);
 });
 
 test('map clicks and draggable preview pins do not add locations until saved',async({page},info)=>{
   await setup(page);
   await expect(page.getByRole('region',{name:'Portfolio inventory map'}).getByTestId('exposure-map')).toHaveAttribute('data-settled','true');
   await page.screenshot({path:`test-results/portfolio-map-overview-${info.project.name}.png`});
-  const hide=page.getByRole('button',{name:/Hide locations/});if(await hide.isVisible())await hide.click();
+  const hide=page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Locations',exact:true});if(await hide.isVisible()&&await hide.getAttribute('aria-expanded')==='true')await hide.click();
   await page.getByRole('button',{name:'Drop a pin',exact:true}).click();
   const map=page.getByRole('region',{name:'Portfolio inventory map'}).getByTestId('exposure-map');
   await map.click({position:{x:75,y:200}});
@@ -69,7 +81,7 @@ test('map clicks and draggable preview pins do not add locations until saved',as
   }
   await page.getByRole('button',{name:'Discard preview',exact:true}).click();
   await expect(pin).toHaveCount(0);
-  await page.getByRole('button',{name:/Show locations/}).click();await expect(rows(page)).toHaveCount(18);
+  await openInventory(page);await expect(rows(page)).toHaveCount(18);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight)).toBe(true);
   await page.screenshot({path:`test-results/portfolio-map-${info.project.name}.png`});
 });

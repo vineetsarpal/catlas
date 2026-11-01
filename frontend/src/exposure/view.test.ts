@@ -20,6 +20,16 @@ describe('exposure investigation views', () => {
     expect(filterExposure(rows, 8, { ...all, status: 'missing-value' })).toEqual([]);
     expect(JSON.stringify(rows)).toBe(before);
   });
+  it('filters known and unknown insured values independently of shaking, keeping zero known', () => {
+    const data = rows.map((row, i) => ({ ...row, value: i === 0 ? 0 : i === 3 ? null : row.value }));
+    const before = JSON.stringify(data);
+    expect(filterExposure(data, 4, { ...all, insuredValue: 'known' }).map(row => row.id).sort()).toEqual([data[0].id, data[1].id, data[4].id].sort());
+    expect(filterExposure(data, 4, { ...all, insuredValue: 'unknown' }).map(row => row.id).sort()).toEqual([data[2].id, data[3].id].sort());
+    expect(filterExposure(data, 4, { ...all, insuredValue: 'unknown', status: 'unknown' }).map(row => row.id)).toEqual([data[3].id]);
+    expect(filterExposure(data, 4, { ...all, insuredValue: 'unknown', status: 'missing-value' }).map(row => row.id)).toEqual([data[2].id]);
+    expect(filterExposure(data, 4, { ...all, insuredValue: 'known', region: 'North', currency: 'USD' }).map(row => row.id)).toEqual([data[0].id]);
+    expect(JSON.stringify(data)).toBe(before);
+  });
   it('keeps regional counts, separate currencies and unknown values distinct', () => {
     const groups = regionExposure(rows, 4);
     expect(groups[0]).toMatchObject({ region: 'North', total: 3, meeting: 3, unknown: 0, unknownValue: 1 });
