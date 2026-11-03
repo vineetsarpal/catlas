@@ -9,7 +9,7 @@ function readLayout(workspace: 'portfolio' | 'exposure'): LayoutPreference {
     const value = JSON.parse(localStorage.getItem(`catlas.${workspace}.layout.v1`) ?? 'null');
     return {
       open: typeof value?.open === 'boolean' ? value.open : value?.layout !== 'map',
-      height: Number.isFinite(value?.height) ? Math.max(140, Math.min(window.innerHeight * .5, value.height)) : height,
+      height: Number.isFinite(value?.height) ? Math.max(160, value.height) : height,
     };
   } catch { return { open: true, height }; }
 }
@@ -20,6 +20,7 @@ export function useLocationTableLayout(workspace: 'portfolio' | 'exposure') {
   const [desktopOpen, setDesktopOpen] = useState(preference.open);
   const [height, setHeight] = useState(preference.height);
   const [mobile, setMobile] = useState(() => window.innerWidth <= 760);
+  const [expanded, setExpanded] = useState(false);
   const [view, setView] = useState<LocationView>('map');
   useEffect(() => {
     const query = window.matchMedia('(max-width:760px)');
@@ -36,7 +37,12 @@ export function useLocationTableLayout(workspace: 'portfolio' | 'exposure') {
     if (mobile) setView(previous => (typeof next === 'function' ? next(previous === 'locations') : next) ? 'locations' : 'map');
     else setDesktopOpen(next);
   }, [mobile]);
-  return { open, setOpen, height, setHeight, mobile, view, setView };
+  useEffect(() => { if (!open) setExpanded(false); }, [open]);
+  function dismiss() {
+    if (expanded) setExpanded(false);
+    else setOpen(false);
+  }
+  return { open, setOpen, height, setHeight, mobile, view, setView, expanded, setExpanded, dismiss };
 }
 
 export function LocationViewSwitch({ view, onChange }: { view: LocationView; onChange: (view: LocationView) => void }) {

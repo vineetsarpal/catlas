@@ -81,3 +81,35 @@ test('mobile assessed Locations keeps rows in view and Map retains usable geogra
   const map = page.locator('[data-testid="exposure-map"]:visible');
   await expect.poll(async () => (await map.boundingBox())?.height ?? 0).toBeGreaterThan(200);
 });
+
+test('both layouts preserve expansion across switching and dismiss one item per Escape', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'Desktop split layout');
+  await page.route('https://**/*', route => route.abort());
+  await page.goto('/?mode=portfolios');
+  await page.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
+  for (const workspace of ['Portfolio', 'Exposure']) {
+    const other = workspace === 'Portfolio' ? 'Exposure' : 'Portfolio';
+    await page.getByRole('button', { name: workspace, exact: true }).click();
+    const table = page.locator(workspace === 'Portfolio' ? '#portfolio-location-table' : '#atlas-location-table');
+    const divider = page.getByRole('separator', { name: 'Resize map and locations table', exact: true });
+    await divider.press('End');
+    await expect.poll(async () => Number(await divider.getAttribute('aria-valuenow'))).toBe(Number(await divider.getAttribute('aria-valuemax')));
+    expect((await table.boundingBox())!.height).toBeCloseTo(Number(await divider.getAttribute('aria-valuenow')), 0);
+    const stage = table.locator('..');
+    expect((await stage.locator(':scope > .atlas-map-surface').boundingBox())!.height).toBeGreaterThanOrEqual(159);
+    await divider.dblclick();
+    await expect(divider).toHaveAttribute('aria-valuenow', '250');
+    await table.getByRole('button', { name: 'Expand locations', exact: true }).click();
+    await page.getByRole('button', { name: other, exact: true }).click();
+    await page.getByRole('button', { name: workspace, exact: true }).click();
+    await expect(table.getByRole('button', { name: 'Restore map', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: workspace === 'Portfolio' ? 'Filters' : 'Filter locations', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(table.getByRole('button', { name: 'Restore map', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(table.getByRole('button', { name: 'Expand locations', exact: true })).toBeVisible();
+    await expect(table).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(table).toBeHidden();
+  }
+});

@@ -13,7 +13,7 @@ import { emptyPortfolio, inventoryCSV, planImport, type ImportMode, type Managed
 import { type MapPoint, type PlaceResult } from './geocoding';
 import type { PortfoliosState } from './usePortfolios';
 import { PlaceSearch } from './PlaceSearch';
-import { ResizableLocationTable } from './ResizableLocationTable';
+import { LocationTable } from '../components/LocationTable';
 import { InventoryFilters, useInventoryTable } from './InventoryTable';
 import { WorkspaceIcon, WorkspaceRail } from '../components/WorkspaceRail';
 import { WorkbenchDialog } from '../components/WorkbenchDialog';
@@ -35,6 +35,14 @@ export function PortfoliosWorkspace({ state, locationRequest, onLocationRequestH
     setDraftPortfolio(previous => portfolio ? previous ?? portfolio : null);
   }, []);
   const displayed = draftPortfolio ?? state.active;
+  useEffect(() => {
+    if (hidden || displayed) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented && !document.querySelector('[aria-modal="true"]')) { event.preventDefault(); setLeftPanel(null); }
+    };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [hidden, displayed]);
   const latestDraft = draftPortfolio && state.portfolios.find(portfolio => portfolio.id === draftPortfolio.id);
   const draftChanged = draftPortfolio && (!latestDraft || latestDraft.revision !== draftPortfolio.revision || state.activeId !== draftPortfolio.id);
   function discardDrafts() { setDraftPortfolio(null); setEditorEpoch(value => value + 1); setLeftPanel(null); setError(''); }
@@ -44,7 +52,7 @@ export function PortfoliosWorkspace({ state, locationRequest, onLocationRequestH
     const change=(event:MediaQueryListEvent)=>{if(event.matches)setLeftPanel(null);};
     mobile.addEventListener('change',change);return()=>mobile.removeEventListener('change',change);
   }, []);
-  useEffect(() => { if (hidden) return; const close = (event: KeyboardEvent) => { if (event.key === 'Escape' && !document.querySelector('[aria-modal="true"]')) setLeftPanel(null); }; window.addEventListener('keydown', close); return () => window.removeEventListener('keydown', close); }, [hidden]);
+
   useEffect(() => { if (error) errorRef.current?.focus(); }, [error]);
   async function run(work: () => Promise<unknown>) {
     setBusy(true); setError('');
@@ -139,9 +147,9 @@ function PortfolioDetails({ portfolio, active, locationRequest, onLocationReques
   function closeInspector() { setPanel(null); setEditing(null); setCandidate(null); setPlacing(false); }
   useEffect(() => {
     if (!active) return;
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape' && !document.querySelector('[aria-modal="true"]')) closeInspector(); };
+    const close = (event: KeyboardEvent) => { if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('[aria-modal="true"]')) return; event.preventDefault(); if (panel) closeInspector(); else if (leftPanel) setLeftPanel(null); else layout.dismiss(); };
     window.addEventListener('keydown', close); return () => window.removeEventListener('keydown', close);
-  }, [active]);
+  }, [active, panel, leftPanel, layout]);
   return <>
     <div className="atlas-summary portfolio-summary" aria-label="Portfolio inventory summary"><span className="atlas-summary-scope">FULL INVENTORY</span><div><span>Insured locations</span><strong>{portfolio.data.locations.length.toLocaleString()}</strong></div><div><span>Known insured value</span><strong>{totals.length ? totals.map(([currency,value]) => <span key={currency}>{money(value,currency)} {currency}</span>) : 'Not supplied'}</strong></div><div><span>Unknown insured value</span><strong>{portfolio.data.locations.filter(row => row.value === null).length}</strong></div><div><span>Import exclusions</span><strong>{portfolio.data.excludedRows}</strong></div></div>
     {notice && <div className="atlas-message" role="status">{notice}</div>}
@@ -175,10 +183,10 @@ function PortfolioDetails({ portfolio, active, locationRequest, onLocationReques
           {!portfolio.data.locations.length && !candidate && !placing && !editing && <div className="portfolio-empty-map"><h3>Your portfolio is empty</h3><p>Search a location, drop a pin or import CSV to start.</p></div>}
         </div>
         <div className="atlas-map-status portfolio-filter-status" hidden={!inventoryTable.hasFilters}><LocationFilterChips chips={inventoryTable.chips} onClear={inventoryTable.clearFilters}/></div>
-        <ResizableLocationTable open={tableOpen} layoutHeight={layout.height} onHeightChange={layout.setHeight} onHide={() => setTableOpen(false)}>{layoutActions =>
+        <LocationTable layout={layout} workspace="portfolio" active={active}>{layoutActions =>
           <div ref={tableScroll} className="portfolio-table"><div className="portfolio-table-tools"><h2>Portfolio locations <span className="exposure-visible-count" aria-label="Visible locations">{visible.length.toLocaleString()}/{portfolio.data.locations.length.toLocaleString()}</span></h2><LocationSearch label="Search locations" value={inventoryTable.table.state.globalFilter ?? ''} onChange={value => inventoryTable.table.setGlobalFilter(value)}/>{layoutActions}<button disabled={!portfolio.data.locations.length} onClick={() => downloadFile(`catlas-portfolio-${portfolio.id}.csv`, new Blob([inventoryCSV(portfolio.data)], { type: 'text/csv;charset=utf-8' }))}>Export portfolio CSV</button></div>
     <FilteredLocationSummary rows={visible} total={portfolio.data.locations.length}/>{inventoryTable.table.getColumn('value')!.getIsSorted() && <p className="portfolio-table-sort-note">Currencies are grouped A–Z; insured values are ordered within each currency. Unknown values stay last.</p>}{!visible.length && !!portfolio.data.locations.length && <p role="status" className="portfolio-table-sort-note">No locations match this view.</p>}<table><caption>Insured location inventory</caption><thead><tr><TableSortHeader column={inventoryTable.table.getColumn("name")!} label="Location"/><TableSortHeader column={inventoryTable.table.getColumn("value")!} label="Insured value"/><TableSortHeader column={inventoryTable.table.getColumn("region")!} label="Region"/><TableSortHeader column={inventoryTable.table.getColumn("businessLine")!} label="Business line"/></tr></thead><tbody>{inventoryTable.pageRows.map(row => <tr key={row.id} className={selected === row.id ? 'portfolio-location-selected' : undefined}><td><button aria-current={selected === row.id ? 'true' : undefined} onClick={()=>{chooseLocation(row.id);setPulseRequest(value => value + 1);}}>{row.name}</button><small>{row.id}</small></td><td>{row.value === null ? 'Unknown' : money(row.value,row.currency)} {row.currency}</td><td>{row.region || 'Not supplied'}</td><td>{row.businessLine || 'Not supplied'}</td></tr>)}</tbody></table><LocationPagination table={inventoryTable.table} page={inventoryTable.page} total={visible.length}/></div>
-        }</ResizableLocationTable>
+        }</LocationTable>
       </div>
       <aside hidden={!panel} className={`atlas-side-panel portfolio-inspector${editing?' is-editing':''}`} aria-label="Portfolio location details"><div className="atlas-panel-heading"><div><p className="exposure-eyebrow">PORTFOLIO</p><h2>{editing ? editing === 'new' ? 'Add location' : 'Edit location' : candidate ? 'Preview location' : 'Selected location'}</h2></div><button aria-label="Close location details" onClick={closeInspector}>×</button></div><div className="atlas-panel-scroll portfolio-inspector-content">{layout.mobile && <button aria-label={`Back to ${layout.view === 'locations' ? 'Locations' : 'Map'}`} onClick={closeInspector}>Back</button>}
         <>

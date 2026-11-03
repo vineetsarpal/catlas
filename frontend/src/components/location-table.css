@@ -1,0 +1,5 @@
+/* The divider is outside the drawer in both workspaces. */
+.atlas-map-stage > .location-table-divider { flex:0 0 12px; user-select:none; box-sizing:border-box; }
+.atlas-map-stage > .location-table-divider[hidden] { display:none; }
+.is-exposure .atlas-map-stage > .atlas-results-drawer { max-height:none; min-height:0; }
+.atlas-map-stage > .atlas-results-drawer .exposure-list-section { height:100%; }
