@@ -24,6 +24,12 @@ export async function openFilters(page: Page) {
 }
 export async function openLocations(page: Page) {
   await closeDialog(page);
+  const views=page.getByRole('group',{name:'Location view',exact:true});
+  if(await views.isVisible()) {
+    // Selecting Locations also dismisses mobile panels, even when already selected.
+    await views.getByRole('button',{name:'Locations',exact:true}).click();
+    return;
+  }
   for (const name of ['Close side panel','Close location details','Close evidence']) {
     const close=page.getByRole('button',{name,exact:true});
     if(await close.isVisible())await close.click();
@@ -40,5 +46,7 @@ export async function openExport(page: Page) {
 
 export async function openEvidence(page: Page) {
   const button=page.getByRole('button',{name:/^Evidence [＋+−]$/,exact:true});
+  const views=page.getByRole('group',{name:'Location view',exact:true});
+  if(!await button.isVisible() && await views.isVisible())await views.getByRole('button',{name:'Map',exact:true}).click();
   if(await button.getAttribute('aria-expanded')!=='true')await button.click();
 }

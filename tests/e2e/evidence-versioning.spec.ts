@@ -41,8 +41,10 @@ test('source checks expose selected revised capture before Apply and retain froz
  await expect(page.locator('body')).toHaveJSProperty('scrollWidth',await page.locator('body').evaluate(el=>el.clientWidth));await fs.mkdir('output/playwright',{recursive:true});await page.screenshot({path:`output/playwright/cat53-pending-${testInfo.project.name}.png`,fullPage:true});await pending.scrollIntoViewIfNeeded();await pending.screenshot({path:`output/playwright/cat53-pending-detail-${testInfo.project.name}.png`});
  expect(await bundle(page)).toEqual(v1);
  await page.getByRole('button',{name:'Portfolio',exact:true}).click();
- if(!await page.getByRole('table',{name:'Insured location inventory'}).isVisible())await page.getByRole('button',{name:/Show locations/}).click();
- page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Delete Second location',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();
+ if(!await page.getByRole('table',{name:'Insured location inventory'}).isVisible())await page.getByRole('button',{name:'Locations',exact:true}).click();
+ const closeImport=page.getByRole('button',{name:'Close import locations',exact:true});if(await closeImport.isVisible())await closeImport.click();
+  await page.getByRole('table',{name:'Insured location inventory'}).getByRole('button',{name:'Second location',exact:true}).click();
+ page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Delete location',exact:true}).click();await page.getByRole('button',{name:'Exposure',exact:true}).click();
  await apply(page);const v2=await bundle(page);expect(v2.record).toMatchObject({caseId:v1.record.caseId,version:2,previousId:v1.record.id,portfolio:v1.record.portfolio,portfolioReference:v1.record.portfolioReference,portfolioHash:v1.record.portfolioHash,settings:v1.record.settings});expect(v2.record.summary.meetingThreshold).toBe(2);expect(v2.rawXml).toBe(grid(2));
  await page.getByRole('button',{name:'Save investigation',exact:true}).click();await page.getByRole('button',{name:'Saved',exact:true}).click();await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();expect(await bundle(page)).toEqual(v1);
  await page.getByRole('button',{name:'Investigate latest portfolio',exact:true}).click();const latest=await bundle(page);expect(latest.record.portfolio.locations).toHaveLength(1);expect(latest.record.version).toBe(3);expect(latest.record.previousId).toBe(v2.record.id);
@@ -59,7 +61,7 @@ test('a changed product identity is selectable even when grid bytes and event up
 });
 
 test('unchanged products and failed source checks preserve the exact saved investigation',async({page})=>{
- const source=await setup(page);const v1=await bundle(page);source.setTimestampOnly();await check(page);
+ const source=await setup(page);const v1=await bundle(page);await check(page);
  await expect(page.getByRole('region',{name:'Source update check'})).toContainText('No newer evidence found');await expect(page.getByRole('region',{name:'Captured update to apply'})).toHaveCount(0);expect(await bundle(page)).toEqual(v1);
  source.setFailed(true);await check(page);await expect(page.getByRole('region',{name:'Source update check'})).toContainText('saved investigation unchanged');expect(await bundle(page)).toEqual(v1);
 });
@@ -70,4 +72,16 @@ test('source-confirmed canonical aliases preserve the saved case lineage when ap
  expect(v2.record).toMatchObject({caseId:v1.record.caseId,version:2,previousId:v1.record.id,event:{id:'cat53-canonical'},portfolio:v1.record.portfolio});
  await page.getByRole('button',{name:'Save investigation',exact:true}).click();await page.getByRole('button',{name:'Saved',exact:true}).click();await page.getByRole('button',{name:'Open saved version 1',exact:true}).click();await page.getByRole('button',{name:'Analysis settings',exact:true}).click();await page.getByLabel('Investigation threshold',{exact:true}).fill('5');await page.getByRole('button',{name:'Apply threshold as new version',exact:true}).click();const resumed=await bundle(page);expect(resumed.record).toMatchObject({caseId:v1.record.caseId,version:3,previousId:v2.record.id,event:{id:event.id}});
 
+});
+
+
+test('changed source event detail requires explicit application even when the grid and observation are unchanged', async ({ page }) => {
+ const source=await setup(page),v1=await bundle(page);
+ source.setTimestampOnly();await check(page);
+ await expect(page.getByRole('region',{name:'Captured update to apply'})).toBeVisible();
+ expect(await bundle(page)).toEqual(v1);
+ await apply(page);const v2=await bundle(page);
+ expect(v2.record).toMatchObject({caseId:v1.record.caseId,version:2,previousId:v1.record.id,portfolio:v1.record.portfolio,settings:v1.record.settings,summary:v1.record.summary});
+ expect(v2.record.evidence.rawSha256).toBe(v1.record.evidence.rawSha256);
+ expect(v2.record.evidence.eventDetailSha256).not.toBe(v1.record.evidence.eventDetailSha256);
 });

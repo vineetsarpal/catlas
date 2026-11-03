@@ -9,7 +9,7 @@ Open `exposure.html` from the hosted/local distribution, or follow **Investigate
 3. Filter locations or a currency. Counts and value totals describe the full assessed portfolio at the saved threshold; table/map filters change the view only. The table pages 100 rows at a time; CSV exports every assessed row.
 4. Apply a changed threshold to create a new investigation version. Save versions explicitly to retain them locally; refresh opens a clean selection with saved history available. Opening a saved version retains its exact results rather than recalculating it using current source data.
 5. Browse recent earthquakes or submit a historical search while online. Discovery runs on entry and explicit filter, refresh or paging actions, without recurring source checks. Choose an event or enter its USGS ID, then inspect captured evidence. A supported ShakeMap may not exist yet; unavailable evidence leaves intensity unknown and the archive assessment action unavailable.
-6. Check for newer source evidence when needed. A new product is offered for explicit application as another version. Previously saved results remain unchanged. The current preferred product may be retrospective for older events; provider/source labels and timestamps make that distinction visible.
+6. Check for newer source evidence when needed. A changed product or changed captured source event detail is offered for explicit application as another version, even when the shaking grid and numerical observation are unchanged. Previously saved results remain unchanged. The current preferred product may be retrospective for older events; provider/source labels and timestamps make that distinction visible.
 7. Download all-location CSV, print an impact summary, or download a self-contained case. Reopen the compressed case in another local browser history or the offline distribution; results are checked against bundled inputs before saving. Case files contain the supplied insured-location data.
 
 ## Portfolio management and imports
@@ -51,6 +51,10 @@ The self-contained case represents one selected version. Its prior-version ident
 ## Validation and implementation
 
 Source: `frontend/src/exposure/` contains typed portfolio/evidence/assessment boundaries, acquisition, immutable case storage, exports and the React workbench/MapLibre presentation. The earlier throwaway comparison was used to choose the foundation; no Cesium runtime, restricted upstream dataset, or whole Gods Eye View shell is included in this release.
+
+`InvestigationLifecycle` owns evidence inspection, observation matching, pending updates, assessment version creation, saving and exact reopening behind one interface. The workbench retains panels, viewing filters, location selection and Recovery coordination. The existing repository and bundle modules retain integrity validation and immutable storage.
+
+One investigation command runs at a time. Changing the selected observation invalidates late results and cancels supported reads. A save or case-bundle import already started completes its write and refreshes history, but cannot reopen an investigation over a newer selection. Failed writes preserve the opened investigation for retry. The two-entry public capture cache contains no portfolio snapshots.
 
 Run `npm test`, `npm run test:e2e`, `npm run package:offline`, and `npm run test:offline` using an installed Chrome/Chromium binary as documented in README. Run `CATLAS_EXPOSURE_DIAGNOSTIC=1 npm run test:frontend -- src/exposure/diagnostic.test.ts` for the separately labelled actual-grid diagnostic; output is `docs/verification/exposure-diagnostic.json`. These timings measure local calculation only, not browser rendering/FPS, a production SLA or customer validation. Release verification observations are recorded separately.
 

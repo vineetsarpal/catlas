@@ -1,4 +1,4 @@
-import { openExport } from '../helpers/exposure-workspace';
+import { openExport, openEvidence } from '../helpers/exposure-workspace';
 import { test, expect } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -25,6 +25,7 @@ test('a complete investigation retains the genuine archived Ridgecrest grid thro
   await page.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
   await page.getByRole('button', { name: 'Exposure', exact: true }).click();
   await page.getByRole('button', { name: /Ridgecrest Earthquake Sequence/ }).click();
+  await openEvidence(page);
   const inspector = page.getByRole('complementary', { name: 'Earthquake evidence inspector' });
   await expect(inspector).toContainText('f4fbcf36e9098963ddc2ea82656974c268b50df5dfdb49b9bf9ffae72ea8e306', { timeout: 30_000 });
   await expect(page.getByTestId('exposure-count')).toHaveText('—');

@@ -5,7 +5,7 @@ import { LocationDetails } from '../components/LocationDetails';
 import { TableSortHeader } from '../components/TableSortHeader';
 import { useExposureTable } from './ExposureTable';
 import { downloadFile } from '../browser/download';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { WorkspaceMode } from '../components/WorkbenchHeader';
 import { usePortfolios } from '../portfolios/usePortfolios';
 import { emptyPortfolio } from '../portfolios/inventory';
@@ -19,21 +19,17 @@ import { monitorItems, visibleMonitorItems, attentionMonitorItems } from '../mon
 import RecoveryWorkbench, { type RecoveryContext } from '../App';
 import type { EventInput } from '../domain/types';
 import { contractSchema } from '../domain/types';
-import { mainContract, ridgecrest } from '../data/fixtures';
-import { earthquakeFromRecovery, recoveryEventFromExposure, sameObservation, sameRecoveryEvent } from './event-context';
+import { mainContract } from '../data/fixtures';
+import { earthquakeFromRecovery, sameRecoveryEvent } from './event-context';
 import { ExposureMap } from './ExposureMap';
 import { RegionExposure } from './RegionExposure';
 import { filterExposure } from './view';
-import { SAMPLER_VERSION, intensityBand, intensityColor, type ExposureRow, type CapturedEvidence, type Earthquake, type Investigation, type PortfolioReference } from './model';
+import { SAMPLER_VERSION, intensityBand, intensityColor, type ExposureRow, type CapturedEvidence, type Earthquake } from './model';
 import { demoPortfolio } from './fixtures';
-import { loadReplay } from './evidence';
-import { eventFromEvidence, investigate } from './investigation';
-import type { EarthquakeCapture } from './capture';
-import { captureArchivedEarthquake, checkArchivedEarthquake, archiveEvidenceFailure } from './catalogue';
+import { InvestigationLifecycle } from './lifecycle';
 import { RecentEarthquakes } from './RecentEarthquakes';
 import { screenPortfolioRelevance } from './relevance';
-import { exposureRepository } from './repository';
-import { decodeBundle, encodeBundle, exposureCSV } from './exports';
+import { exposureCSV } from './exports';
 import '../workbench-theme.css';
 import './exposure.css';
 import { ExposureWorkspace, type WorkspacePanel } from './ExposureWorkspace';
@@ -57,11 +53,13 @@ export function ExposureWorkbench({ initialMode = 'exposure' }: { initialMode?: 
   const [layersTarget,setLayersTarget]=useState<HTMLDivElement|null>(null);
   const [monitorFitRequest,setMonitorFitRequest]=useState(0);
   const [recoverySelectionRequest,setRecoverySelectionRequest]=useState(0);
-  const [sharedEvent,setSharedEvent] = useState<EventInput|null>(null);
+  const [lifecycle] = useState(() => new InvestigationLifecycle());
+  const investigation = useSyncExternalStore(lifecycle.subscribe, lifecycle.getSnapshot);
+  useEffect(() => lifecycle.connect(), [lifecycle]);
+  const sharedEvent = investigation.observation;
+  const changeSharedEvent = useCallback((event: EventInput | null) => lifecycle.selectObservation(event), [lifecycle]);
   const [recovery,setRecovery] = useState<RecoveryContext>({kind:new URLSearchParams(location.search).get('recovery')==='parametric'?'parametric':'simple',selectedArea:'mojave',selectArea:()=>{}});
   const updateRecovery = useCallback((context:RecoveryContext)=>setRecovery(context),[]);
-  const inspectionEpoch=useRef(0);
-  const changeSharedEvent = useCallback((event:EventInput|null)=>{inspectionEpoch.current++;setSharedEvent(event);setInspectionActive(false);setInspectionTarget(null);setInspectionCheck(null);setInspection(null);setInspectionReason('');setPendingUpdate(null);},[]);
   function changeMode(next:WorkspaceMode) { setMode(next);if(next==='exposure'&&!exposureVisited.current){exposureVisited.current=true;setWorkspacePanel('events');}else if(next!=='exposure'&&next!=='portfolios')setWorkspacePanel(null);const url=new URL(location.href);url.searchParams.set('mode',next);window.history.pushState(null,'',url); }
   useEffect(()=>{const update=()=>{const value=new URLSearchParams(location.search).get('mode');setMode(value==='portfolios'||value==='monitor'||value==='recovery'||value==='exposure'?value:location.pathname.endsWith('exposure.html')?'exposure':'portfolios');};window.addEventListener('popstate',update);return()=>window.removeEventListener('popstate',update);},[]);
   const [workspacePanel, setWorkspacePanel] = useState<WorkspacePanel>(initialMode==='exposure'?'events':null);
@@ -70,32 +68,21 @@ export function ExposureWorkbench({ initialMode = 'exposure' }: { initialMode?: 
   const inventories=usePortfolios();
   const activePortfolio=inventories.active?.data??emptyPortfolio;
   const [portfolioLocationRequest,setPortfolioLocationRequest] = useState<PortfolioLocationRequest|null>(null);
-  const [record,setRecord] = useState<Investigation|null>(null), [evidence,setEvidence] = useState<CapturedEvidence|null>(null);
-  const [history,setHistory] = useState<Investigation[]>([]), [busy,setBusy] = useState(''), [error,setError] = useState(''), [notice,setNotice] = useState('');
+  const { history, inspectionActive, inspection, inspectionReason, inspectionTarget, inspectionCheck, sourceCheck, pendingUpdate } = investigation;
+  const record = investigation.opened?.record ?? null;
+  const evidence = investigation.opened?.evidence ?? null;
+  const [uiBusy, setUiBusy] = useState(''), [uiError, setUiError] = useState('');
+  const uiRunning = useRef(false);
+  useEffect(() => { if (investigation.busy) setUiError(''); }, [investigation.busy]);
+  const busy = investigation.busy || uiBusy, error = investigation.error || uiError, notice = investigation.notice;
   const [screeningThreshold,setScreeningThreshold] = useState(4);
   const [threshold,setThreshold] = useState(4), [selected,setSelected] = useState(''), [filter,setFilter] = useState('all'), [currency,setCurrency] = useState('all'), [page,setPage] = useState(0);
   const [insuredValue,setInsuredValue]=useState<'all'|'known'|'unknown'>('all');
   const [query,setQuery] = useState(''), [region,setRegion] = useState<string|null>(null), [businessLine,setBusinessLine] = useState<string|null>(null);
-  const [eventId,setEventId] = useState(''), [pendingUpdate,setPendingUpdate] = useState<EarthquakeCapture|null>(null);
-  const [inspectionActive,setInspectionActive] = useState(false);
-  const [inspection,setInspection] = useState<EarthquakeCapture|null>(null), [inspectionReason,setInspectionReason] = useState('');
-  const [sourceCheck,setSourceCheck]=useState<{recordId:string;attemptedAt:string;successfulAt?:string;failedAt?:string;reason:string}|null>(null);
-  const [inspectionTarget,setInspectionTarget] = useState<Earthquake|string|null>(null);
-  const [inspectionCheck,setInspectionCheck] = useState<{id:string;attemptedAt:string;failedAt?:string;successfulAt?:string}|null>(null);
-  // Two bounded public captures only; insured data and saved investigations are never cached here.
-  const captureCache=useRef(new Map<string,{capture:EarthquakeCapture;successfulAt:string}>());
-  function rememberCapture(capture:EarthquakeCapture,successfulAt:string) {
-    if(!capture.evidence)return;
-    const m=capture.evidence.manifest;
-    const key=JSON.stringify([capture.event.id,m.productId,m.productVersion,m.productUpdatedAt,m.rawSha256,m.eventDetailSha256,m.occurredAt,m.magnitude,m.longitude,m.latitude]);
-    captureCache.current.delete(key);captureCache.current.set(key,{capture,successfulAt});
-    while(captureCache.current.size>2)captureCache.current.delete(captureCache.current.keys().next().value!);
-  }
-  const alive = useRef(true), replayCache = useRef<CapturedEvidence|null>(null);
-  useEffect(()=>{alive.current=true;void exposureRepository.list().then(value=>{if(alive.current)setHistory(value);}).catch(e=>{if(alive.current)setError(`Local history: ${message(e)}`);});return()=>{alive.current=false;};},[]);
-  const currentRecord=!inspectionActive&&record&&sameObservation(sharedEvent,record.event)?record:null;
+  const [eventId,setEventId] = useState('');
+  const currentRecord = lifecycle.currentRecord();
   const validThreshold=Number.isFinite(threshold)&&threshold>=1&&threshold<=10;
-  const matchingInspection=inspection&&sameObservation(sharedEvent,inspection.event)?inspection:null;
+  const matchingInspection = lifecycle.matchingInspection();
   const portfolio=currentRecord?.portfolio??activePortfolio;
   const sourcePortfolio=currentRecord?.portfolioReference?inventories.portfolios.find(item=>item.id===currentRecord.portfolioReference!.id):undefined;
   const portfolioChanged=Boolean(currentRecord&&sourcePortfolio&&(sourcePortfolio.revision!==currentRecord.portfolioReference?.revision||JSON.stringify(sourcePortfolio.data)!==JSON.stringify(currentRecord.portfolio)));
@@ -127,62 +114,44 @@ export function ExposureWorkbench({ initialMode = 'exposure' }: { initialMode?: 
   const workingLocation=selectedRow&&(currentRecord?sourcePortfolio:inventories.active)?.data.locations.find(row=>row.id===selectedRow.id);
   const locationDiffers=Boolean(currentRecord&&selectedRow&&workingLocation&&['name','latitude','longitude','value','currency','region','businessLine'].some(key=>selectedRow[key as keyof ExposureRow]!==workingLocation[key as keyof typeof workingLocation]));
   const totals=Object.entries(currentRecord?.summary.knownValueByCurrency??{});
-  const latest=record?[record,...history.filter(item=>item.caseId===record.caseId)].sort((a,b)=>b.version-a.version)[0]:null;
-  async function action(label:string,work:()=>Promise<void>){if(busy)return;setBusy(label);setError('');setNotice('');try{await work();}catch(e){setError(message(e));}finally{setBusy('');}}
-  async function evaluate(event:Earthquake,nextEvidence:CapturedEvidence|null,nextPortfolio=activePortfolio,nextThreshold=threshold,reason?:string,selectedObservation?:EventInput, reference?:PortfolioReference){
-    const epoch=inspectionEpoch.current;
-    if(inventories.loading)throw new Error('Portfolios are still loading.');
-    if(!nextPortfolio.locations.length)throw new Error('Choose a portfolio with locations in Portfolio before investigating exposure.');
-    const portfolioReference=reference??(nextPortfolio===activePortfolio&&inventories.active?{id:inventories.active.id,name:inventories.active.name,revision:inventories.active.revision}:nextPortfolio===currentRecord?.portfolio?currentRecord.portfolioReference:undefined);
-    const next=await investigate({event,evidence:nextEvidence,portfolio:nextPortfolio,portfolioReference,threshold:nextThreshold,unavailableReason:reason,previous:latest});
-    if(epoch!==inspectionEpoch.current)return;
-    setInspectionActive(false);setInspection({event,evidence:nextEvidence,reason:reason??null});setInspectionReason('Captured evidence retained for this investigation.');setWorkspacePanel(null);setRecord(next);setSharedEvent(selectedObservation??recoveryEventFromExposure(next.event,nextEvidence));setEvidence(nextEvidence);setThreshold(nextThreshold);setPendingUpdate(null);resetInvestigationView();setSelected(next.rows[0]?.id??'');
-    setNotice('New investigation version is ready. Save it locally to retain it after refresh.');
+  async function action(label: string, work: () => Promise<void>) {
+    if (uiRunning.current || lifecycle.getSnapshot().busy) return;
+    uiRunning.current = true; setUiBusy(label); setUiError('');
+    try { await work(); } catch (error) { setUiError(message(error)); }
+    finally { uiRunning.current = false; setUiBusy(''); }
   }
-  const replay=()=>action('Loading frozen earthquake evidence…',async()=>{
-    const epoch=inspectionEpoch.current;
-    const input=inventories.active??await inventories.create('Demo · Ridgecrest locations',demoPortfolio);
-    const frozen=replayCache.current??await loadReplay();replayCache.current=frozen;if(epoch!==inspectionEpoch.current)return;await evaluate(eventFromEvidence(frozen),frozen,input.data,threshold,undefined,undefined,{id:input.id,name:input.name,revision:input.revision});});
-  const selectArchived=(event:Earthquake|string)=>action('Inspecting captured public evidence…',async()=>{
-    const epoch=++inspectionEpoch.current;
-    const targetId=typeof event==='string'?event:event.id,attemptedAt=new Date().toISOString();
-    const cached=[...captureCache.current.values()].reverse();
-    const currentInspection=inspection?.evidence&&(inspection.event.id===targetId||inspection.evidence.manifest.aliases.includes(targetId))?inspection:undefined;
-    const inspectedManifest=currentInspection?.evidence?.manifest;
-    const retained:{capture:EarthquakeCapture;successfulAt?:string}|undefined=currentInspection?{capture:currentInspection,successfulAt:cached.find(item=>item.capture.evidence?.manifest.rawSha256===inspectedManifest?.rawSha256&&item.capture.evidence?.manifest.eventDetailSha256===inspectedManifest?.eventDetailSha256&&item.capture.evidence?.manifest.productId===inspectedManifest?.productId&&item.capture.evidence?.manifest.productVersion===inspectedManifest?.productVersion)?.successfulAt}:cached.find(item=>item.capture.event.id===targetId||item.capture.evidence?.manifest.aliases.includes(targetId));
-    setInspectionTarget(event);setInspectionCheck({id:targetId,attemptedAt,successfulAt:retained?.successfulAt});
-    setInspectionActive(true);setSharedEvent(retained?recoveryEventFromExposure(retained.capture.event,retained.capture.evidence):typeof event==='string'?null:recoveryEventFromExposure(event,null));setInspection(retained?.capture??null);setInspectionReason(retained?'Checking public evidence; retained verified evidence remains inspectable.':'Retrieving available public evidence…');setEvidence(retained?.capture.evidence??null);setWorkspacePanel('events');
-    try {
-      const result=await captureArchivedEarthquake(targetId),successfulAt=new Date().toISOString();
-      if(epoch!==inspectionEpoch.current)return;
-      rememberCapture(result,successfulAt);
-      setInspection(result);setEvidence(result.evidence);setSharedEvent(recoveryEventFromExposure(result.event,result.evidence));setInspectionReason(result.reason??'Original evidence verified. Assess explicitly to calculate portfolio exposure.');setInspectionCheck({id:targetId,attemptedAt,successfulAt});
-    } catch(error) {if(epoch!==inspectionEpoch.current)return;setInspectionReason(`${archiveEvidenceFailure(error).message}${retained?' Retained verified evidence remains available with its original provenance; this failed check did not replace it.':''}`);setInspectionCheck({id:targetId,attemptedAt,successfulAt:retained?.successfulAt,failedAt:new Date().toISOString()});}
-  });
-  const capture=()=>{if(eventId)void selectArchived(eventId);};
-  const save=()=>action('Saving this investigation locally…',async()=>{if(record){await exposureRepository.save(record,evidence);setHistory(await exposureRepository.list());setNotice('Investigation saved in this browser.');}});
-  const resume=(snapshot:Investigation)=>action('Opening the saved snapshot…',async()=>{const epoch=inspectionEpoch.current;const frozen=await exposureRepository.evidenceFor(snapshot);if(epoch!==inspectionEpoch.current)return;setInspectionActive(false);setInspection({event:snapshot.event,evidence:frozen,reason:snapshot.unavailableReason});setInspectionReason('Exact saved evidence reopened.');setRecord(snapshot);setSharedEvent(recoveryEventFromExposure(snapshot.event,frozen));setEvidence(frozen);setThreshold(snapshot.settings.threshold);setSelected(snapshot.rows[0]?.id??'');setPendingUpdate(null);resetInvestigationView();setWorkspacePanel(null);setNotice('Exact saved assessment reopened. It has not been recalculated.');});
-  const checkUpdate=()=>action('Checking USGS for newer evidence…',async()=>{
-    if(!currentRecord)return;const epoch=inspectionEpoch.current,checking=currentRecord,attemptedAt=new Date().toISOString();
-    const successfulAt=sourceCheck?.recordId===checking.id?sourceCheck.successfulAt:undefined;
-    setSourceCheck({recordId:checking.id,attemptedAt,successfulAt,reason:'Checking the public source. Retained verified evidence remains inspectable.'});
-    try{
-      const result=await checkArchivedEarthquake(checking.event.id);if(epoch!==inspectionEpoch.current)return;
-      if(!result.evidence){setSourceCheck({recordId:checking.id,attemptedAt,successfulAt,failedAt:new Date().toISOString(),reason:result.reason??'No supported newer evidence is available. Saved evidence is unchanged.'});setNotice(result.reason??'No supported newer evidence is available. Saved evidence is unchanged.');return;}
-      rememberCapture(result,new Date().toISOString());
-      const prior=checking.evidence,next=result.evidence.manifest;
-      const unchanged=prior&&prior.rawSha256===next.rawSha256&&prior.productId===next.productId&&prior.productVersion===next.productVersion&&prior.productUpdatedAt===next.productUpdatedAt&&prior.provider===next.provider&&prior.sourceUrl===next.sourceUrl&&prior.occurredAt===next.occurredAt&&prior.magnitude===next.magnitude&&prior.longitude===next.longitude&&prior.latitude===next.latitude;
-      const reason=unchanged?'No newer evidence found. This version is unchanged.':'Newer source evidence is available. Apply it explicitly to create a new investigation version.';
-      setSourceCheck({recordId:checking.id,attemptedAt,successfulAt:new Date().toISOString(),reason});setNotice(reason);
-      setPendingUpdate(unchanged?null:result);
-    }catch(error){if(epoch!==inspectionEpoch.current)return;const reason=archiveEvidenceFailure(error).message;setSourceCheck({recordId:checking.id,attemptedAt,successfulAt,failedAt:new Date().toISOString(),reason:`${reason} Retained verified evidence remains inspectable; saved investigation unchanged.`});}
-  });
-  const exportBundle=()=>action('Preparing the self-contained case bundle…',async()=>{if(record)downloadFile(`catlas-case-${record.event.id}-v${record.version}.json.gz`,await encodeBundle(record,evidence));});
+  const portfolioInput = { portfolio: activePortfolio, loading: inventories.loading,
+    portfolioReference: inventories.active ? { id: inventories.active.id, name: inventories.active.name, revision: inventories.active.revision } : undefined };
+  const replay = () => lifecycle.replayAssessment(async () => {
+    const input = inventories.active ?? await inventories.create('Demo · Ridgecrest locations', demoPortfolio);
+    return { portfolio: input.data, loading: inventories.loading, portfolioReference: { id: input.id, name: input.name, revision: input.revision } };
+  }, threshold);
+  const selectArchived = (event: Earthquake | string) => {
+    if (!lifecycle.getSnapshot().busy) setWorkspacePanel('events');
+    return lifecycle.inspect(event);
+  };
+  const capture = () => { if (eventId) void selectArchived(eventId); };
+  const save = () => lifecycle.save();
+  const resume = (snapshot: NonNullable<typeof record>) => lifecycle.resume(snapshot);
+  const checkUpdate = () => lifecycle.checkUpdate();
+  const exportBundle = async () => {
+    const result = await lifecycle.exportBundle();
+    if (result) downloadFile(`catlas-case-${result.record.event.id}-v${result.record.version}.json.gz`, result.blob);
+  };
+  const seenOpenRevision = useRef(investigation.openRevision);
+  useLayoutEffect(() => {
+    if (seenOpenRevision.current === investigation.openRevision) return;
+    seenOpenRevision.current = investigation.openRevision;
+    if (!record || !currentRecord) return;
+    setThreshold(record.settings.threshold); setSelected(record.rows[0]?.id ?? '');
+    resetInvestigationView();
+    if (investigation.openKind !== 'import') setWorkspacePanel(null);
+  }, [investigation.openRevision]);
   const [locationsRequest,setLocationsRequest] = useState(0);
   function showSummaryFilter(value:string){showFilter(value);setLocationsRequest(value=>value+1);setWorkspacePanel(null);}
   function showFilter(value:string){setFilter(value);setPage(0);}
   const selectedEarthquake=useMemo(()=>earthquakeFromRecovery(sharedEvent),[sharedEvent]);
-  const screeningEvidence=[...new Set([inspection?.evidence,evidence,pendingUpdate?.evidence,...[...captureCache.current.values()].map(item=>item.capture.evidence)].filter((item):item is CapturedEvidence=>Boolean(item)))];
+  const screeningEvidence=[...new Set([inspection?.evidence,evidence,pendingUpdate?.evidence,...investigation.captures.map(item=>item.capture.evidence)].filter((item):item is CapturedEvidence=>Boolean(item)))];
   const screeningPortfolioLabel=inventories.active?`${inventories.active.name} · revision ${inventories.active.revision}`:'No current portfolio selected';
   const screeningEvent=inspectionActive&&inspectionTarget&&typeof inspectionTarget!=='string'?inspectionTarget:selectedEarthquake;
   const selectedRelevance=screeningEvent?screenPortfolioRelevance(screeningEvent,activePortfolio,screeningEvidence,screeningThreshold):null;
@@ -190,15 +159,7 @@ export function ExposureWorkbench({ initialMode = 'exposure' }: { initialMode?: 
   const selectedRelevanceLabel=selectedRelevance?.kind==='match'?'Potential match':selectedRelevance?.kind==='below'?'Below screening threshold':'Unknown relevance';
   const recoveryAreas=useMemo(()=>{if(recovery.kind!=='parametric')return [];const parsed=contractSchema.shape.areas.safeParse(recovery.evaluation?.contract.areas??mainContract.areas);return parsed.success?parsed.data:[];},[recovery.evaluation?.contract,recovery.kind]);
   const recoveryMatches=Boolean(recovery.evaluation&&sameRecoveryEvent(recovery.evaluation.event,sharedEvent));
-  const investigateSelected=(requireVerifiedCapture=false)=>action('Investigating selected earthquake…',async()=>{
-    const epoch=inspectionEpoch.current;
-    if(!selectedEarthquake||currentRecord||!validThreshold)return;
-    if((requireVerifiedCapture||inspectionActive)&&!matchingInspection?.evidence)return;
-    const packaged=sharedEvent?.id===ridgecrest.id&&sharedEvent.magnitude===ridgecrest.magnitude&&sharedEvent.provenance?.kind==='historical';
-    const captured=matchingInspection?.evidence??(packaged?(replayCache.current??await loadReplay()):null);
-    if(epoch!==inspectionEpoch.current)return;
-    await evaluate(matchingInspection?.event??selectedEarthquake,captured,activePortfolio,threshold,'No shaking evidence is attached to this selected observation. Capture supported USGS evidence to screen exposure.',sharedEvent??undefined);
-  });
+  const investigateSelected = (requireVerifiedCapture = false) => lifecycle.assessSelected(portfolioInput, threshold, requireVerifiedCapture);
   const allMonitorItems=useMemo(()=>monitorItems(monitor,activePortfolio),[monitor.vessels.rows,monitor.vessels.portfolio,monitor.earthquakes.data,monitor.cyclones.data,monitor.fires.data,monitor.perimeters.data,monitor.alerts.data,monitor.prefs,monitor.now,activePortfolio]);
   const visibleItems=useMemo(()=>visibleMonitorItems(allMonitorItems,monitor),[allMonitorItems,monitor.prefs]);
   const captureMonitored=(event:Earthquake)=>{changeMode('exposure');void selectArchived(event);};
@@ -206,7 +167,7 @@ export function ExposureWorkbench({ initialMode = 'exposure' }: { initialMode?: 
   const monitorMetrics=<section className="monitor-summary" aria-label="Monitoring summary"><span><b>{monitor.prefs.earthquakes?(monitor.earthquakes.data?.events.length??'—'):'Off'}</b> earthquakes · past 24h</span><span><b>{monitor.prefs.cyclones?(monitor.cyclones.data?.storms.length??'—'):'Off'}</b> cyclone advisories</span><span><b>{monitor.prefs.perimeters?(monitor.perimeters.data?allMonitorItems.filter(item=>item.kind==='perimeter').length:'—'):'Off'}</b> fire reports / areas</span><span><b>{monitor.prefs.alerts?(monitor.alerts.data?allMonitorItems.filter(item=>item.kind==='alert').length:'—'):'Off'}</b> weather alerts</span><span><b>{activePortfolio.locations.length}</b> portfolio locations</span><span>{!monitor.online?'Offline · paused':monitor.earthquakes.loading||monitor.cyclones.loading||monitor.fires.loading||monitor.perimeters.loading||monitor.alerts.loading?'Checking feeds…':(monitor.prefs.earthquakes&&monitor.earthquakes.error)||(monitor.prefs.cyclones&&monitor.cyclones.error)||(monitor.prefs.fires&&(monitor.fires.error||monitor.fires.data?.stale||monitor.fires.data?.warning))||(monitor.prefs.perimeters&&(monitor.perimeters.error||monitor.perimeters.data?.stale||monitor.perimeters.data?.warning))||(monitor.prefs.alerts&&(monitor.alerts.error||monitor.alerts.data?.stale||monitor.alerts.data?.warning))?'Some feeds unavailable':'Latest available public data'} · {monitor.prefs.watchlist.length} watched</span></section>;
   function inspectLocation(id: string) { setSelected(id);setPulseRequest(value=>value+1); if(mode==='exposure')setWorkspacePanel('inspection');if(mode==='recovery')setRecoverySelectionRequest(value=>value+1); }
   const filterPanel = (<section className="exposure-view-controls" aria-label="Map and location filters">        <div className="exposure-filters"><label>Show<select disabled={!currentRecord} value={filter} onChange={e=>showFilter(e.target.value)}><option value="all">All locations</option><option value="meeting">Meeting threshold</option><option value="unknown">Unknown intensity</option><option value="missing-value">Unknown screened value</option><option value="below">Below threshold</option></select></label><label>Insured value<select value={insuredValue} onChange={e=>{setInsuredValue(e.target.value as 'all'|'known'|'unknown');setPage(0);}}><option value="all">All values</option><option value="known">Known values</option><option value="unknown">Unknown values</option></select></label><label>Currency<select value={currency} onChange={e=>{setCurrency(e.target.value);setPage(0);}}><option value="all">All · values grouped by currency</option>{[...new Set(portfolio.locations.map(s=>s.currency))].sort().map(code=><option key={code}>{code}</option>)}</select></label><label>Region<select value={region===null?'':JSON.stringify(region)} onChange={e=>{setRegion(e.target.value===''?null:JSON.parse(e.target.value));setPage(0);}}><option value="">All regions</option>{[...new Set(portfolio.locations.map(row=>row.region))].sort().map(name=><option key={name} value={JSON.stringify(name)}>{name||'Not supplied'}</option>)}</select></label><label>Business line<select value={businessLine===null?'':JSON.stringify(businessLine)} onChange={e=>{setBusinessLine(e.target.value===''?null:JSON.parse(e.target.value));setPage(0);}}><option value="">All business lines</option>{[...new Set(portfolio.locations.map(row=>row.businessLine))].sort().map(name=><option key={name} value={JSON.stringify(name)}>{name||'Not supplied'}</option>)}</select></label><span role="status">{ordered.length} of {rows.length} {currentRecord?'assessed ':''}locations visible{hasViewFilters?' · filtered view':''}</span>{hasViewFilters&&<button onClick={clearViewFilters}>Clear filters</button>}</div><p>Filters apply to the map and location list. Summary totals and regional breakdown describe the full portfolio or assessment.</p></section>);
-  const analysisPanel = <section className="exposure-analysis-settings" aria-label="Analysis settings"><p>Changes assess the portfolio again and create a new investigation version.</p><dl><dt>Current investigation threshold</dt><dd>{currentRecord?`MMI ≥ ${currentRecord.settings.threshold}`:'Not assessed'}</dd></dl><label>Threshold MMI ≥<input aria-label="Investigation threshold" type="number" min="1" max="10" step=".5" value={Number.isNaN(threshold)?'':threshold} onChange={e=>setThreshold(e.target.value===''?NaN:Number(e.target.value))}/></label><button disabled={!currentRecord||Boolean(busy)||!Number.isFinite(threshold)||threshold<1||threshold>10||threshold===currentRecord.settings.threshold} onClick={()=>void action('Creating revised investigation…',async()=>{if(currentRecord)await evaluate(currentRecord.event,evidence,portfolio,threshold,currentRecord.unavailableReason??undefined);})}>Apply threshold as new version</button><p>Event screening has its own threshold in Events. Viewing filters do not change either threshold.</p></section>;
+  const analysisPanel = <section className="exposure-analysis-settings" aria-label="Analysis settings"><p>Changes assess the portfolio again and create a new investigation version.</p><dl><dt>Current investigation threshold</dt><dd>{currentRecord?`MMI ≥ ${currentRecord.settings.threshold}`:'Not assessed'}</dd></dl><label>Threshold MMI ≥<input aria-label="Investigation threshold" type="number" min="1" max="10" step=".5" value={Number.isNaN(threshold)?'':threshold} onChange={e=>setThreshold(e.target.value===''?NaN:Number(e.target.value))}/></label><button disabled={!currentRecord||Boolean(busy)||!Number.isFinite(threshold)||threshold<1||threshold>10||threshold===currentRecord.settings.threshold} onClick={()=>void lifecycle.revise({ threshold })}>Apply threshold as new version</button><p>Event screening has its own threshold in Events. Viewing filters do not change either threshold.</p></section>;
   const mapPanel = (<ExposureMap assessed={Boolean(currentRecord)} monitor={{state:monitor,items:visibleItems,selectedItem:allMonitorItems.find(item=>item.key===monitor.selected),fitRequest:monitorFitRequest}} controlsInSidebar layersTarget={layersTarget} mode={mode==='portfolios'?'exposure':mode==='recovery'&&recovery.kind!=='parametric'?'exposure':mode} recoveryAreas={recoveryAreas} selectedArea={recovery.selectedArea} onSelectArea={id=>{setSelected('');recovery.selectArea(id);setRecoverySelectionRequest(value=>value+1);}} evidence={currentRecord?evidence:matchingInspection?.evidence??null} event={selectedEarthquake} rows={mode==='monitor'?inventoryRows:ordered} selected={selected} onSelect={inspectLocation} focusRequest={focusRequest} pulseRequest={pulseRequest}/>);
   const inspectorPanel = (<aside className="exposure-inspector" aria-label="Selected insured location"><p className="exposure-eyebrow">LOCATION INSPECTION</p>{selectedRow?<LocationDetails location={selectedRow} actions={<><button className="exposure-zoom-location" aria-label="Zoom to location" disabled={!ordered.some(row=>row.id===selected)} onClick={()=>setFocusRequest(v=>v+1)}>Zoom to location ↗</button>{(currentRecord?sourcePortfolio:inventories.active)?workingLocation?<button onClick={()=>void openWorkingPortfolio(selectedRow.id)}>Open in Portfolio</button>:<button onClick={()=>void openWorkingPortfolio()}>Open portfolio</button>:null}</>}>
         {!ordered.some(row=>row.id===selected)&&<div role="status"><p>This location is outside your current filters</p><button onClick={clearViewFilters}>Clear filters</button></div>}
@@ -230,11 +191,11 @@ export function ExposureWorkbench({ initialMode = 'exposure' }: { initialMode?: 
         <div className="metric-unknown"><button className="exposure-metric-action" aria-label="Show locations with unknown intensity" aria-pressed={filter==='unknown'} disabled={!currentRecord} onClick={()=>showSummaryFilter(filter==='unknown'?'all':'unknown')}><span>Needs investigation</span><strong data-testid="exposure-unknown">{currentRecord?.summary.unknownIntensity??'—'}</strong><small>Unknown intensity is not zero</small><span className="exposure-metric-link">Investigate unknowns →</span></button></div>
         <div className="metric-below"><button className="exposure-metric-action" aria-label="Show locations below threshold" aria-pressed={filter==='below'} disabled={!currentRecord} onClick={()=>showSummaryFilter(filter==='below'?'all':'below')}><span>Below selected threshold</span><strong>{currentRecord?.summary.belowThreshold??'—'}</strong><small>Below threshold does not establish no damage</small><span className="exposure-metric-link">View locations →</span></button></div>
       </section>);
-  const caseActionsPanel = (currentRecord&&<section className="exposure-case-actions" aria-label="Investigation actions"><button disabled={Boolean(busy)||saved} onClick={()=>void save()}>{saved?'Saved in this browser':'Save this investigation locally'}</button><button disabled={Boolean(busy)} onClick={()=>void checkUpdate()}>Check for newer source evidence</button>{pendingUpdate&&<button disabled={Boolean(busy)} onClick={()=>void action('Applying captured evidence update…',async()=>{await evaluate(pendingUpdate.event,pendingUpdate.evidence,portfolio,currentRecord.settings.threshold,pendingUpdate.reason??undefined);})}>Apply captured update as new version</button>}<p>Saved versions retain exact results. Updating inputs creates a new version; refreshing does not silently update a saved case.</p></section>);
+  const caseActionsPanel = (currentRecord&&<section className="exposure-case-actions" aria-label="Investigation actions"><button disabled={Boolean(busy)||saved} onClick={()=>void save()}>{saved?'Saved in this browser':'Save this investigation locally'}</button><button disabled={Boolean(busy)} onClick={()=>void checkUpdate()}>Check for newer source evidence</button>{pendingUpdate&&<button disabled={Boolean(busy)} onClick={()=>void lifecycle.revise({ applyEvidence: true })}>Apply captured update as new version</button>}<p>Saved versions retain exact results. Updating inputs creates a new version; refreshing does not silently update a saved case.</p></section>);
   const inputsPanel = (<section className="exposure-inputs">
-        <div aria-label="Saved exposure cases"><h2>Saved investigation versions</h2><p>Local history is specific to this browser and URL origin. Self-contained case downloads include insured-location data.</p><label>Open a self-contained case<input type="file" accept=".gz,application/gzip" disabled={Boolean(busy)} onChange={e=>{const file=e.target.files?.[0];if(file)void action('Validating and opening the case bundle…',async()=>{const epoch=inspectionEpoch.current;const imported=await decodeBundle(file);await exposureRepository.save(imported.record,imported.evidence);setHistory(await exposureRepository.list());if(epoch!==inspectionEpoch.current)return;setInspectionActive(false);setInspection({event:imported.record.event,evidence:imported.evidence,reason:imported.record.unavailableReason});setInspectionReason('Imported frozen evidence verified.');setRecord(imported.record);setSharedEvent(recoveryEventFromExposure(imported.record.event,imported.evidence));setEvidence(imported.evidence);setThreshold(imported.record.settings.threshold);setSelected(imported.record.rows[0]?.id??'');resetInvestigationView();setPendingUpdate(null);setNotice('Case verified, saved locally and reopened from its frozen evidence.');});e.target.value='';}}/></label>
+        <div aria-label="Saved exposure cases"><h2>Saved investigation versions</h2><p>Local history is specific to this browser and URL origin. Self-contained case downloads include insured-location data.</p><label>Open a self-contained case<input type="file" accept=".gz,application/gzip" disabled={Boolean(busy)} onChange={e=>{const file=e.target.files?.[0];if(file)void lifecycle.importBundle(file);e.target.value='';}}/></label>
           {history.length===0?<p>No exposure cases saved yet.</p>:<ul className="exposure-history">{history.map(item=><li key={item.id}><strong>{item.event.name} · v{item.version}</strong><span>{item.portfolioReference?.name??item.portfolio.source} · {item.portfolio.locations.length} locations · MMI ≥{item.settings.threshold} · {item.summary.meetingThreshold===null?'Unknown assessment':`${item.summary.meetingThreshold} meeting threshold`}</span><span>Portfolio revision {item.portfolioReference?.revision??'not recorded in this older case'} · supplied as of {item.portfolio.asOf}</span>{item.evidence?<><small>Evidence {item.evidence.productId} · product version {item.evidence.productVersion} · source updated {item.evidence.productUpdatedAt}</small><code>{item.evidence.rawSha256}</code></>:<small>No compatible frozen shaking evidence recorded.</small>}<small>{new Date(item.createdAt).toLocaleString()}</small><button disabled={Boolean(busy)} onClick={()=>void resume(item)}>Open saved version {item.version}</button></li>)}</ul>}
-          {currentRecord&&history.some(item=>item.caseId===currentRecord.caseId)&&<button disabled={Boolean(busy)} onClick={()=>{if(window.confirm('Delete this exposure case and every saved version from this browser? Download a case bundle first if you need to retain it.'))void action('Deleting local case…',async()=>{await exposureRepository.removeCase(currentRecord.caseId);setHistory(await exposureRepository.list());setNotice('The saved case versions were deleted locally. The current unsaved view remains open.');});}}>Delete this case and all saved versions</button>}
+          {currentRecord&&history.some(item=>item.caseId===currentRecord.caseId)&&<button disabled={Boolean(busy)} onClick={()=>{if(window.confirm('Delete this exposure case and every saved version from this browser? Download a case bundle first if you need to retain it.'))void lifecycle.deleteCase();}}>Delete this case and all saved versions</button>}
         </div></section>);
   const catalogPanel = <><div hidden={workspacePanel!=='events'}>{mode==='exposure'&&discoveryPanel}</div><div hidden={workspacePanel!=='history'}>{identityPanel}{caseActionsPanel}{inputsPanel}</div></>;
   const relevanceContext=selectedEarthquake&&selectedRelevance?<section className="portfolio-relevance-inspector" aria-label="Current portfolio relevance"><h3>{selectedRelevanceLabel}</h3><p>{screeningPortfolioLabel} · supplied as of {activePortfolio.asOf||'not supplied'} · screening MMI ≥ {Number.isFinite(screeningThreshold)?screeningThreshold:'invalid'}</p><p>{selectedRelevance.explanation}</p>{screeningObservationDiffers&&<p>Screening uses the requested catalog observation. The map retains an earlier captured observation; differing observations are not interchangeable.</p>}{selectedRelevance.evidence&&<p>Screening evidence: {selectedRelevance.evidence.productId} · product version {selectedRelevance.evidence.productVersion} · captured {selectedRelevance.evidence.capturedAt}. The map keeps its selected evidence version.</p>}{currentRecord&&<p>Catalog screening uses current holdings. The map and saved assessment retain their frozen portfolio and evidence until an explicit new-version action.</p>}</section>:null;
@@ -242,7 +203,7 @@ export function ExposureWorkbench({ initialMode = 'exposure' }: { initialMode?: 
   const assessmentPortfolio=currentRecord?.portfolio??activePortfolio;
   const assessmentReference=currentRecord?currentRecord.portfolioReference:inventories.active;
   const assessmentContext=<section className="assessment-context" aria-label="Assessment context"><h3>{currentRecord?'Frozen assessment snapshot':'Current portfolio to assess'}</h3>{!currentRecord&&!inventories.active?<p>No current portfolio selected. Choose a portfolio in Portfolio before assessment.</p>:<dl><dt>Portfolio</dt><dd>{assessmentReference?.name??assessmentPortfolio.source}</dd><dt>Portfolio revision</dt><dd>{assessmentReference?.revision??'Not recorded in this older case'}</dd><dt>Supplied portfolio as of</dt><dd>{assessmentPortfolio.asOf}</dd><dt>Consolidated insured locations</dt><dd>{assessmentPortfolio.locations.length}</dd></dl>}<dl><dt>Investigation threshold</dt><dd>{currentRecord?`MMI ≥ ${currentRecord.settings.threshold}`:validThreshold?`MMI ≥ ${threshold}`:'Choose a value from 1 through 10 in Analysis.'}</dd><dt>Numeric sampler</dt><dd>{currentRecord?.settings.sampler??SAMPLER_VERSION}</dd></dl>{currentRecord&&threshold!==currentRecord.settings.threshold&&<p>The draft threshold has changed. This snapshot still uses MMI ≥ {currentRecord.settings.threshold}; apply the threshold explicitly as a new version in Analysis.</p>}<p>Potentially affected exposure is an investigation screening measure. It does not establish damage, insured loss or reinsurance recovery. The supplied as-of date does not establish policy coverage at the earthquake occurrence.</p>{currentRecord&&<p>Assessment already created. Its inputs and results stay frozen; use explicit settings or latest-portfolio actions to create a new version.</p>}</section>;
-  const pendingEvidencePanel=currentRecord&&pendingUpdate?.evidence?<section aria-label="Captured update to apply"><h3>Captured update to apply</h3><p>This selected capture has not changed the frozen assessment. Applying it creates a new version using this assessment’s original portfolio snapshot.</p><dl><dt>Product</dt><dd>{pendingUpdate.evidence.manifest.productId}</dd><dt>Product version</dt><dd>{pendingUpdate.evidence.manifest.productVersion}</dd><dt>Source updated</dt><dd>{pendingUpdate.evidence.manifest.productUpdatedAt}</dd><dt>Captured</dt><dd>{pendingUpdate.evidence.manifest.capturedAt}</dd></dl><code>{pendingUpdate.evidence.manifest.rawSha256}</code><button disabled={Boolean(busy)} onClick={()=>void action('Applying captured evidence update…',()=>evaluate(pendingUpdate.event,pendingUpdate.evidence,currentRecord.portfolio,currentRecord.settings.threshold,pendingUpdate.reason??undefined))}>Apply selected evidence as new version</button></section>:null;
+  const pendingEvidencePanel=currentRecord&&pendingUpdate?.evidence?<section aria-label="Captured update to apply"><h3>Captured update to apply</h3><p>This selected capture has not changed the frozen assessment. Applying it creates a new version using this assessment’s original portfolio snapshot.</p><dl><dt>Product</dt><dd>{pendingUpdate.evidence.manifest.productId}</dd><dt>Product version</dt><dd>{pendingUpdate.evidence.manifest.productVersion}</dd><dt>Source updated</dt><dd>{pendingUpdate.evidence.manifest.productUpdatedAt}</dd><dt>Captured</dt><dd>{pendingUpdate.evidence.manifest.capturedAt}</dd></dl><code>{pendingUpdate.evidence.manifest.rawSha256}</code><button disabled={Boolean(busy)} onClick={()=>void lifecycle.revise({ applyEvidence: true })}>Apply selected evidence as new version</button></section>:null;
   const archiveInspector = <><p className="exposure-eyebrow">PUBLIC EVENT EVIDENCE</p><h2>{sharedEvent?.name??(inspectionActive&&typeof inspectionTarget==='string'?`USGS event ${inspectionTarget}`:'Select an earthquake')}</h2><p>{inspectionReason||'Inspect evidence before assessing or saving an investigation.'}</p>{assessmentContext}{pendingEvidencePanel}{relevanceContext}{matchingInspection?.evidence&&<><dl><dt>Occurred</dt><dd>{matchingInspection.event.occurredAt}</dd><dt>Source updated</dt><dd>{matchingInspection.evidence.manifest.productUpdatedAt}</dd><dt>Captured</dt><dd>{matchingInspection.evidence.manifest.capturedAt}</dd><dt>Product</dt><dd>{matchingInspection.evidence.manifest.productId}</dd></dl><p>{matchingInspection.evidence.manifest.retrospective?'Retrospective product; not evidence as known at occurrence.':'Captured public evidence; source observations may have been revised.'}</p><a href={matchingInspection.evidence.manifest.sourceUrl} target="_blank" rel="noreferrer">Original source grid</a><code>{matchingInspection.evidence.manifest.rawSha256}</code></>}{currentRecord&&sourceCheck?.recordId===currentRecord.id&&<section aria-label="Source update check"><p>{sourceCheck.reason}</p><dl><dt>Last source check</dt><dd><time dateTime={sourceCheck.attemptedAt}>{sourceCheck.attemptedAt}</time></dd>{sourceCheck.failedAt&&<><dt>Last failed source check</dt><dd><time dateTime={sourceCheck.failedAt}>{sourceCheck.failedAt}</time></dd></>}{sourceCheck.successfulAt&&<><dt>Last successful source check</dt><dd><time dateTime={sourceCheck.successfulAt}>{sourceCheck.successfulAt}</time></dd></>}</dl></section>}{inspectionCheck&&inspectionActive&&<dl><dt>Last evidence check</dt><dd><time dateTime={inspectionCheck.attemptedAt}>{inspectionCheck.attemptedAt}</time></dd>{inspectionCheck.successfulAt&&<><dt>Last successful check</dt><dd><time dateTime={inspectionCheck.successfulAt}>{inspectionCheck.successfulAt}</time></dd></>}{inspectionCheck.failedAt&&<><dt>Last failed check</dt><dd><time dateTime={inspectionCheck.failedAt}>{inspectionCheck.failedAt}</time></dd></>}</dl>}<div className="archive-evidence-actions">{currentRecord&&<button disabled={Boolean(busy)} onClick={()=>void checkUpdate()}>Check source for updates</button>}{inspectionActive&&inspectionTarget&&<button disabled={Boolean(busy)} onClick={()=>void selectArchived(inspectionTarget)}>Retry evidence retrieval</button>}</div>{currentRecord&&<p>Assessment v{currentRecord.version} · {saved?'Saved locally':'Not saved'}</p>}<p>Insured locations remain in this browser. Discovery and selection do not assess or save.</p>{inspectionActive&&!matchingInspection?.evidence&&<div><button disabled={Boolean(busy)} onClick={()=>void replay()}>Assess packaged Ridgecrest replay</button><p>Runs a separate historical demonstration using packaged evidence.</p></div>}</>;
   const filterChips = hasViewFilters || Boolean(query) || Boolean(selectedEarthquake && selectedRelevance) ? (<>
         {selectedEarthquake&&selectedRelevance&&<span className="portfolio-relevance-map" role="status" aria-label="Selected event portfolio relevance">{selectedRelevanceLabel} · {selectedEarthquake.id} · {Number.isFinite(screeningThreshold)?`Screening MMI ≥ ${screeningThreshold}`:'Invalid screening threshold'} · {screeningPortfolioLabel}. {screeningObservationDiffers?'Map retains an earlier captured observation; screening uses the catalog observation.':currentRecord?'Frozen assessment map; catalog screening uses current holdings.':'Map locations show current holdings; relevance is separate from an assessment.'}</span>}
@@ -263,7 +224,7 @@ export function ExposureWorkbench({ initialMode = 'exposure' }: { initialMode?: 
   return <ExposureWorkspace layersTargetRef={setLayersTarget} monitorView={monitorView} onMonitorViewChange={setMonitorView} monitorHasSelection={allMonitorItems.some(item=>item.key===monitor.selected)} recoveryView={recoveryView} onRecoveryViewChange={setRecoveryView} recoveryInspectorTargetRef={setRecoveryInspectorTarget} recoveryLocationDetails={recoveryLocationDetails} recoveryFocus={selected||recovery.evaluation||recovery.simple?`${recoverySelectionRequest}:${selected}:${recovery.evaluation?.id??''}:${recovery.selectedArea}:${recovery.simple?.result.recovery??''}:${recovery.simple?.version??''}`:''} monitorFilterCount={Number(monitor.prefs.nearPortfolio)+Number(monitor.prefs.watchedOnly)} monitorFocus={monitor.focus} monitorInspector={<MonitorInspector state={monitor} items={allMonitorItems} portfolio={activePortfolio} busy={Boolean(busy)||inventories.loading} onCapture={event=>void captureMonitored(event)}/>} monitorPanel={monitorPanel} monitorMetrics={monitorMetrics} mode={mode} onModeChange={changeMode}
     portfolios={<PortfoliosWorkspace state={inventories} hidden={mode!=='portfolios'} locationRequest={portfolioLocationRequest} onLocationRequestHandled={()=>setPortfolioLocationRequest(null)}/>}
     portfolioSelector={<label className="portfolio-selection">Active portfolio<select aria-label="Active portfolio" disabled={inventories.loading||Boolean(busy)} value={inventories.activeId??''} onChange={event=>void action('Selecting portfolio…',()=>inventories.select(event.target.value))}><option value="" disabled>{inventories.loading?'Loading…':'Create a portfolio'}</option>{inventories.portfolios.map(item=><option key={item.id} value={item.id}>{item.name} · {item.data.asOf}</option>)}</select></label>}
-    snapshotNotice={<>{inventories.error&&<div role="alert">{inventories.error} <button onClick={inventories.retry}>Retry portfolio storage</button></div>}{currentRecord&&<div className="portfolio-snapshot-notice"><span>Investigation snapshot: {currentRecord.portfolioReference?.name??currentRecord.portfolio.source} · {currentRecord.portfolio.asOf} · {currentRecord.portfolio.locations.length} locations.{portfolioChanged?' Portfolio has changed since this assessment.':''}{!sourcePortfolio?' Source working portfolio unavailable; the frozen assessment is retained.':''}</span>{portfolioChanged&&sourcePortfolio&&<button disabled={Boolean(busy)||!sourcePortfolio.data.locations.length} onClick={()=>void action('Investigating latest portfolio…',()=>evaluate(currentRecord.event,evidence,sourcePortfolio.data,currentRecord.settings.threshold,currentRecord.unavailableReason??undefined,sharedEvent??undefined,{id:sourcePortfolio.id,name:sourcePortfolio.name,revision:sourcePortfolio.revision}))}>Investigate latest portfolio</button>}</div>}</>}
+    snapshotNotice={<>{inventories.error&&<div role="alert">{inventories.error} <button onClick={inventories.retry}>Retry portfolio storage</button></div>}{currentRecord&&<div className="portfolio-snapshot-notice"><span>Investigation snapshot: {currentRecord.portfolioReference?.name??currentRecord.portfolio.source} · {currentRecord.portfolio.asOf} · {currentRecord.portfolio.locations.length} locations.{portfolioChanged?' Portfolio has changed since this assessment.':''}{!sourcePortfolio?' Source working portfolio unavailable; the frozen assessment is retained.':''}</span>{portfolioChanged&&sourcePortfolio&&<button disabled={Boolean(busy)||!sourcePortfolio.data.locations.length} onClick={()=>void lifecycle.revise({ portfolio: { portfolio: sourcePortfolio.data, portfolioReference: { id: sourcePortfolio.id, name: sourcePortfolio.name, revision: sourcePortfolio.revision } } })}>Investigate latest portfolio</button>}</div>}</>}
     recoveryPanel={recoveryPanel} recoveryMetrics={recoveryMetrics}
     onInvestigateSelected={()=>void investigateSelected()} hasSelectedEvent={Boolean(sharedEvent)}
     panel={workspacePanel} onPanel={setWorkspacePanel}
