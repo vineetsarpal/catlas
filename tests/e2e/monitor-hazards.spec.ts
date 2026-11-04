@@ -154,15 +154,15 @@ test('fire map groups observations, preserves selection, fits a perimeter and ke
   await card.getByRole('button',{name:'Watch fire activity',exact:true}).click();
   await expect(card.getByRole('button',{name:'Remove fire watch',exact:true})).toBeVisible();
   await page.screenshot({path:testInfo.outputPath('fire-map.png')});
-  await page.getByText('Appearance',{exact:true}).click();
+  await page.getByRole('region',{name:'Live hazards and portfolio map',exact:true}).getByText('Appearance',{exact:true}).click();
   await page.getByRole('button',{name:'Dark map',exact:true}).click();
-  await page.getByText('Appearance',{exact:true}).click();
+  await page.getByRole('region',{name:'Live hazards and portfolio map',exact:true}).getByText('Appearance',{exact:true}).click();
   await page.clock.runFor(500);
   await expect(card).toContainText('USD 62,000,000 TIV');
   await page.screenshot({path:testInfo.outputPath('fire-map-dark.png')});
-  await page.getByText('Appearance',{exact:true}).click();
+  await page.getByRole('region',{name:'Live hazards and portfolio map',exact:true}).getByText('Appearance',{exact:true}).click();
   await page.getByRole('button',{name:'Light map',exact:true}).click();
-  await page.getByText('Appearance',{exact:true}).click();
+  await page.getByRole('region',{name:'Live hazards and portfolio map',exact:true}).getByText('Appearance',{exact:true}).click();
   await card.getByRole('button',{name:'Dismiss fire map selection'}).click();
   await layers(page);await page.getByRole('switch',{name:'Fire detections',exact:true}).check();
   // Insured locations sit in front and receive overlapping clicks. Hide them to exercise fire selection.
@@ -252,8 +252,8 @@ test('reported fire locations use selectable flame markers instead of earthquake
   const map=page.locator('[data-testid="exposure-map"]:visible');
   await expect(map).toHaveAttribute('data-reported-fires','1');
   await expect(map).toHaveAttribute('data-circular-fire-reports','0');
-  await expect(page.getByLabel('Map legend',{exact:true})).toContainText('Reported fires');
-  await expect(page.getByLabel('Map legend',{exact:true})).toContainText('Earthquakes');
+  await expect(page.getByRole('region',{name:'Live hazards and portfolio map',exact:true}).getByLabel('Map legend',{exact:true})).toContainText('Reported fires');
+  await expect(page.getByRole('region',{name:'Live hazards and portfolio map',exact:true}).getByLabel('Map legend',{exact:true})).toContainText('Earthquakes');
   if(info.project.name==='mobile')await page.getByRole('navigation',{name:'Monitor tools'}).getByRole('button',{name:'Item details',exact:true}).click();
   await page.getByRole('button',{name:'Dismiss fire map selection',exact:true}).click();
   await expect(page.getByRole('region',{name:'Selected fire map card',exact:true})).toHaveCount(0);
@@ -267,6 +267,6 @@ test('reported fire locations use selectable flame markers instead of earthquake
   await page.getByRole('switch',{name:'Reported fires & perimeters',exact:true}).uncheck();
   await closeLayers(page);
   await expect(map).toHaveAttribute('data-reported-fires','0');
-  await expect(page.getByLabel('Map legend',{exact:true})).not.toContainText('Reported fires');
-  await expect(page.getByLabel('Map legend',{exact:true})).toContainText('Earthquakes');
+  await expect(page.getByRole('region',{name:'Live hazards and portfolio map',exact:true}).getByLabel('Map legend',{exact:true})).not.toContainText('Reported fires');
+  await expect(page.getByRole('region',{name:'Live hazards and portfolio map',exact:true}).getByLabel('Map legend',{exact:true})).toContainText('Earthquakes');
 });

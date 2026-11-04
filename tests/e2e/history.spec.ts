@@ -29,10 +29,10 @@ test('real IndexedDB retains reviewed bytes, unreviewed snapshots, selection cle
     // Store a non-fixture input through the public repository seam. Resume must show
     // this exact snapshot, never the newest fixture with its old stored calculation.
     await page.evaluate(async () => {
-        const repoUrl = '/src/persistence/repository.ts', packetUrl = '/src/domain/packets.ts', fixtureUrl = '/src/data/fixtures.ts';
-        const { demoRepository } = await import(repoUrl), { evaluate } = await import(packetUrl), { ridgecrest, mainContract } = await import(fixtureUrl);
+        const repoUrl = '/src/recovery/parametric/repository.ts', packetUrl = '/src/recovery/parametric/packets.ts', fixtureUrl = '/src/recovery/data/fixtures.ts', eventFixtureUrl = '/src/events/fixtures.ts';
+        const { demoRepository } = await import(repoUrl), { evaluate } = await import(packetUrl), { mainContract } = await import(fixtureUrl), { ridgecrest } = await import(eventFixtureUrl);
         await demoRepository.mutateLifecycle((state: any) => evaluate(state, { ...ridgecrest, id: 'SIM-RETAINED', name: 'Retained custom simulation', magnitude: 6.9, evidenceVersion: 'SIM-RETAINED-1', provenance: { kind: 'simulation', description: 'Persistence verification fixture' } }, { ...mainContract, eventCap: 9000000 }), null);
-        const serviceUrl='/src/delivery/service.ts';
+        const serviceUrl='/src/recovery/delivery/service.ts';
         const retained=await demoRepository.db.packets.toArray();
         await (await import(serviceUrl)).submitPacket(demoRepository,retained[0].value,'accept');
     });
@@ -82,7 +82,7 @@ test('incompatible history remains raw and requires explicit reset', async ({ pa
     await choose(page, 'ridgecrest');
     await openRecoveryDetails(page); await page.getByRole('button', { name: 'Review evaluation v1', exact: true }).click();
     const packet = JSON.parse(await download(page, 'Download reviewed JSON'));
-    await page.evaluate(async () => { const url = '/src/persistence/repository.ts'; const { demoRepository } = await import(url); await demoRepository.db.metadata.put({ key: 'format', schemaVersion: 99, ruleVersion: 'future-rule' }); });
+    await page.evaluate(async () => { const url = '/src/recovery/parametric/repository.ts'; const { demoRepository } = await import(url); await demoRepository.db.metadata.put({ key: 'format', schemaVersion: 99, ruleVersion: 'future-rule' }); });
     await page.reload();
     await openRecoveryHistory(page); await expect(page.getByRole('alert')).toContainText('Compatibility problem');
     await openRecoveryAssessment(page); await expect(page.getByRole('combobox', { name: 'Demonstration scenario', exact: true })).toBeDisabled();
@@ -104,7 +104,7 @@ test('storage opening failure is visible and never claims successful retention',
 test('failed atomic save keeps previous retained content and displays error', async ({ page }) => {
     await page.goto('/?mode=recovery&recovery=parametric');
     await choose(page, 'ridgecrest');
-    await page.evaluate(async () => { const url = '/src/persistence/repository.ts'; const { demoRepository } = await import(url); demoRepository.mutateLifecycle = async () => { throw new DOMException('Simulated quota exhausted', 'QuotaExceededError'); }; });
+    await page.evaluate(async () => { const url = '/src/recovery/parametric/repository.ts'; const { demoRepository } = await import(url); demoRepository.mutateLifecycle = async () => { throw new DOMException('Simulated quota exhausted', 'QuotaExceededError'); }; });
     await openRecoveryDetails(page); await page.getByRole('button', { name: 'Review evaluation v1', exact: true }).click();
     await openRecoveryHistory(page); await expect(page.getByRole('alert')).toContainText('Storage unavailable');
     await openRecoveryHistory(page); await expect(page.getByRole('region', { name: 'Local history storage' })).toContainText('Simulated quota exhausted');
@@ -116,8 +116,8 @@ test('failed atomic save keeps previous retained content and displays error', as
 test('incomplete scheduled reference survives evaluation, exception export and reload',async({page})=>{
  await page.goto('/?mode=recovery&recovery=parametric');await choose(page,'ridgecrest');
  await page.evaluate(async()=>{
-  const repoUrl='/src/persistence/repository.ts',packetUrl='/src/domain/packets.ts',fixtureUrl='/src/data/fixtures.ts';
-  const {demoRepository}=await import(repoUrl),{evaluate}=await import(packetUrl),{ridgecrest,mainContract}=await import(fixtureUrl);
+  const repoUrl='/src/recovery/parametric/repository.ts',packetUrl='/src/recovery/parametric/packets.ts',fixtureUrl='/src/recovery/data/fixtures.ts',eventFixtureUrl='/src/events/fixtures.ts';
+  const {demoRepository}=await import(repoUrl),{evaluate}=await import(packetUrl),{mainContract}=await import(fixtureUrl),{ridgecrest}=await import(eventFixtureUrl);
   await demoRepository.mutateLifecycle((state:any)=>evaluate(state,ridgecrest,{...mainContract,id:'DEMO-MISSING-REFERENCE',areas:mainContract.areas.map((area:any,index:number)=>index?area:{...area,latitude:undefined})}),null);
  });
  await page.reload();

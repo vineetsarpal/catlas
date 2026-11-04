@@ -79,6 +79,18 @@ export function useMonitorMap(mapRef:RefObject<maplibre.Map|null>,ready:boolean,
     (map.getSource('monitor-vessel-trails') as maplibre.GeoJSONSource).setData({type:'FeatureCollection',features:items.flatMap(item=>{const points=item.vessel?.trail??[];if(points.length<2)return [];const lines:number[][][]=[[]];for(const [lon,lat] of points){const line=lines.at(-1)!;if(line.length&&Math.abs(line.at(-1)![0]-lon)>180)lines.push([]);lines.at(-1)!.push([lon,lat]);}return lines.filter(line=>line.length>=2).map(coordinates=>({type:'Feature' as const,properties:{inPortfolio:Boolean(item.inPortfolio)},geometry:{type:'LineString' as const,coordinates}}));})});
     for(const id of ['monitor-vessels','monitor-vessel-trails','monitor-items','monitor-reported-fires','monitor-earthquake-labels','monitor-cones','monitor-tracks','monitor-hazard-areas','monitor-hazard-boundaries','monitor-fire-labels'])map.setLayoutProperty(id,'visibility',active?'visible':'none');
   },[ready,active,monitor?.items,monitor?.state.selected,mapRef]);
+  useEffect(() => {
+    const map = mapRef.current; if (!ready || !map) return;
+    const update = () => {
+      if (!map.isStyleLoaded() || !map.getLayer('monitor-fire-clusters')) return;
+      const element = map.getContainer();
+      for (const [name, layer] of [['fireClusters', 'monitor-fire-clusters'], ['fireDetections', 'monitor-fire-dots'], ['selectedFires', 'monitor-fire-selected'], ['reportedFires', 'monitor-reported-fires']] as const)
+        element.dataset[name] = String(map.queryRenderedFeatures({ layers: [layer] }).length);
+      element.dataset.circularFireReports = String(map.queryRenderedFeatures({ layers: ['monitor-items'] }).filter(feature => feature.properties.kind === 'perimeter').length);
+    };
+    map.on('idle', update);
+    return () => { map.off('idle', update); };
+  }, [mapRef, ready]);
   const selectedItem=monitor?.selectedItem??monitor?.items.find(item=>item.key===monitor.state.selected);
   useEffect(()=>{
     const map=mapRef.current, item=selectedItem;

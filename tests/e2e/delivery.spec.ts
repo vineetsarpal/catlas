@@ -30,7 +30,7 @@ async function downloaded(page: Page) {
 }
 async function records(page: Page) {
   return page.evaluate(async () => {
-    const url = "/src/persistence/repository.ts";
+    const url = "/src/recovery/parametric/repository.ts";
     const { demoRepository } = await import(url);
     return demoRepository.exportArchive();
   });
@@ -138,7 +138,7 @@ test("incompatible operational rows are preserved and block send until explicit 
   await select(page);
   await review(page);
   await page.evaluate(async () => {
-    const url = "/src/persistence/repository.ts";
+    const url = "/src/recovery/parametric/repository.ts";
     const { demoRepository } = await import(url);
     await demoRepository.deliveryTransaction(async ({ submissions }: any) =>
       submissions.add({ id: "future-submission", schemaVersion: 99 }),
@@ -167,8 +167,8 @@ test("atomic concurrent sends deduplicate and altered retained content cannot re
   await select(page);
   await review(page);
   const result = await page.evaluate(async () => {
-    const repo = "/src/persistence/repository.ts",
-      service = "/src/delivery/service.ts";
+    const repo = "/src/recovery/parametric/repository.ts",
+      service = "/src/recovery/delivery/service.ts";
     const { demoRepository } = await import(repo);
     const { submitPacket } = await import(service);
     const archive = await demoRepository.exportArchive();

@@ -1,3 +1,4 @@
+import { openEvidence } from '../helpers/exposure-workspace';
 import { test, expect } from '@playwright/test';
 import { createHash } from 'node:crypto';
 
@@ -26,7 +27,11 @@ test('catalog screening stays linked to selected map evidence without assessing 
   await page.getByLabel('Screening threshold MMI', { exact: true }).fill('6.0001');
   await expect(page.getByRole('button', { name: /Synthetic linked relevance earthquake/ })).toHaveCount(0);
   await expect(mapContext).toContainText('Below screening threshold');
+  await openEvidence(page);
   await expect(page.getByRole('complementary', { name: 'Earthquake evidence inspector' }).getByRole('heading', { level: 2 })).toHaveText(event.name);
+  await page.getByRole('button', { name: 'Close evidence', exact: true }).click();
+  const events = page.getByRole('button', { name: 'Events', exact: true });
+  if (await events.getAttribute('aria-expanded') !== 'true') await events.click();
   await expect(page.locator('[data-testid="exposure-map"]:visible')).toHaveAttribute('data-shaking-ready', 'true');
   await expect(page.getByRole('button', { name: /Synthetic distant uninspected earthquake/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save investigation', exact: true })).toBeDisabled();

@@ -27,19 +27,19 @@ test('extracted static assets, genuine evidence, all five walkthroughs and map c
  await page.screenshot({path:`offline-test-results/opening-${info.project.name}.png`});
  await choose(page,'ridgecrest');await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
  await expect(page.getByTestId('analytical-map')).toHaveAttribute('data-ready','true');
- await expect(page.locator('[data-zone-features]')).toHaveAttribute('data-zone-features','4');
- await expect(page.locator('[data-land-rendered]')).toHaveAttribute('data-land-rendered','true');
+ await expect(page.getByTestId('analytical-map').locator('[data-zone-features]')).toHaveAttribute('data-zone-features','4');
+ await expect(page.getByTestId('analytical-map').locator('[data-land-rendered]')).toHaveAttribute('data-land-rendered','true');
  await expect(page.getByText('Map unavailable',{exact:false})).toHaveCount(0);
- await expect.poll(async()=>Number(await page.locator('[data-camera-zoom]').getAttribute('data-camera-zoom'))).toBeGreaterThan(0);
+ await expect.poll(async()=>Number(await page.getByTestId('analytical-map').locator('[data-camera-zoom]').getAttribute('data-camera-zoom'))).toBeGreaterThan(0);
  await page.getByTestId('analytical-map').screenshot({path:`offline-test-results/map-${info.project.name}.png`});
  const manifest=await (await page.request.get('/evidence/capture-manifest.json')).json();
  for(const file of manifest.files){const bytes=await (await page.request.get(`/evidence/${file.file}`)).body();expect(createHash('sha256').update(bytes).digest('hex')).toBe(file.sha256);}
  const notices=await (await page.request.get('/THIRD_PARTY_NOTICES.md')).text();
  for(const name of ['maplibre-gl','react-dom','dexie','d3-geo','zod','scheduler','murmurhash-js'])expect(notices).toContain(`## ${name} `);
  const original=await review(page,1);const parsed=JSON.parse(original);expect(parsed.aggregation.totalRecovery).toBe(6000000);
- await openRecoveryDetails(page); await button(page,'Western $1,500,000').click();await closeRecoveryPanels(page);await page.getByText('Appearance',{exact:true}).click();await page.getByRole('switch',{name:'Globe view',exact:true}).check();await page.getByText('Appearance',{exact:true}).click();
+ await openRecoveryDetails(page); await button(page,'Western $1,500,000').click();await closeRecoveryPanels(page);await page.getByTestId('analytical-map').getByText('Appearance',{exact:true}).click();await page.getByRole('switch',{name:'Globe view',exact:true}).check();await page.getByTestId('analytical-map').getByText('Appearance',{exact:true}).click();
  expect(await download(page,button(page,'Download reviewed JSON'))).toBe(original);
- await closeRecoveryPanels(page);await page.getByText('Appearance',{exact:true}).click();await page.getByRole('switch',{name:'Globe view',exact:true}).uncheck();await page.getByText('Appearance',{exact:true}).click();
+ await closeRecoveryPanels(page);await page.getByTestId('analytical-map').getByText('Appearance',{exact:true}).click();await page.getByRole('switch',{name:'Globe view',exact:true}).uncheck();await page.getByTestId('analytical-map').getByText('Appearance',{exact:true}).click();
  await choose(page,'outer');await expect(page.getByTestId('treaty-total')).toHaveText('$3,750,000');
  const outer=JSON.parse(await review(page,1));expect(outer.evaluation.event.id).toBe('SIM-OUTER-01');expect(outer.evaluation.assessment.areas.map((a:any)=>a.contribution)).toEqual([2250000,1500000]);
  await choose(page,'high-threshold');await expect(page.getByTestId('treaty-total')).toHaveText('$0');

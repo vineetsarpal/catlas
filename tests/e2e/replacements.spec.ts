@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 const panel = (page: Page) => page.getByRole('region', { name: 'Simulated RAS delivery', exact: true });
 async function download(page: Page) { const pending = page.waitForEvent('download'); await openRecoveryDetails(page); await page.getByRole('button', { name: 'Download reviewed JSON', exact: true }).click(); return fs.readFile((await (await pending).path())!, 'utf8'); }
-async function archive(page: Page) { return page.evaluate(async () => { const url = '/src/persistence/repository.ts'; return (await import(url)).demoRepository.exportArchive(); }); }
+async function archive(page: Page) { return page.evaluate(async () => { const url = '/src/recovery/parametric/repository.ts'; return (await import(url)).demoRepository.exportArchive(); }); }
 async function review(page: Page, version: number) { await openRecoveryDetails(page); await page.getByRole('button', { name: `Review evaluation v${version}`, exact: true }).click(); await openRecoveryDetails(page); await expect(page.getByRole('button', { name: 'Download reviewed JSON', exact: true })).toBeEnabled(); return download(page); }
 async function send(page: Page) { await openRecoveryDetails(page); await panel(page).getByRole('combobox', { name: 'Simulated receiver outcome' }).selectOption('accept'); await openRecoveryDetails(page); await panel(page).getByRole('button', { name: 'Send reviewed packet', exact: true }).click(); await openRecoveryDetails(page); await expect(panel(page)).toContainText('Received by simulated RAS'); }
 async function resume(page: Page, version: number) { await openRecoveryHistory(page); await page.getByTestId('retained-evaluation').filter({ hasText: `evaluation v${version}` }).getByRole('button', { name: /Resume evaluation/ }).click(); }
@@ -108,7 +108,7 @@ test('receiver rejects stale racing replacement base without changing the accept
     await openRecoveryDetails(page); await expect(panel(page).getByRole('button', { name: 'Send reviewed packet', exact: true })).toBeDisabled();
     // Service checks the current receiver under its own transaction, even if a stale
     // UI caller submits before observing the new operational state.
-    const outcome = await page.evaluate(async (packet: any) => { const repo = '/src/persistence/repository.ts', service = '/src/delivery/service.ts'; return (await import(service)).submitPacket((await import(repo)).demoRepository, packet, 'accept'); }, zero);
+    const outcome = await page.evaluate(async (packet: any) => { const repo = '/src/recovery/parametric/repository.ts', service = '/src/recovery/delivery/service.ts'; return (await import(service)).submitPacket((await import(repo)).demoRepository, packet, 'accept'); }, zero);
     expect(outcome.state).toBe('rejected');
     expect(outcome.reason).toContain('stale');
     const raw = await archive(page);

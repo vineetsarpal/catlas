@@ -24,7 +24,7 @@ async function prepare(page: Page) {
 }
 async function rows(page: Page) {
   return page.evaluate(async () => {
-    const url = "/src/persistence/repository.ts";
+    const url = "/src/recovery/parametric/repository.ts";
     const { demoRepository } = await import(url);
     return demoRepository.exportArchive();
   });
@@ -82,8 +82,8 @@ test("lost acknowledgement survives refresh and repeated checks reconcile origin
   );
   await openRecoveryHistory(page); await expect(page.getByTestId("delivery-attempt")).toHaveCount(2);
   await page.evaluate(async () => {
-    const repo = "/src/persistence/repository.ts",
-      service = "/src/delivery/service.ts";
+    const repo = "/src/recovery/parametric/repository.ts",
+      service = "/src/recovery/delivery/service.ts";
     const { demoRepository } = await import(repo);
     const { checkPacketStatus } = await import(service);
     const archive = await demoRepository.exportArchive();
@@ -142,8 +142,8 @@ test("unknown receiver status remains unconfirmed and changed content cannot reu
 }) => {
   await prepare(page);
   const result = await page.evaluate(async () => {
-    const repo = "/src/persistence/repository.ts",
-      service = "/src/delivery/service.ts";
+    const repo = "/src/recovery/parametric/repository.ts",
+      service = "/src/recovery/delivery/service.ts";
     const { demoRepository } = await import(repo);
     const { checkPacketStatus } = await import(service);
     const archive = await demoRepository.exportArchive();

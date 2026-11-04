@@ -1,7 +1,7 @@
 import { openRecoveryAssessment, openRecoveryHistory, openRecoveryDetails, closeRecoveryPanels } from '../helpers/recovery-workspace';
 import { test, expect, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
-import { packetSchema } from "../../frontend/src/domain/packets";
+import { packetSchema } from "../../frontend/src/recovery/parametric/packets";
 async function downloaded(page: Page, buttonName: string) {
   await openRecoveryDetails(page);
   const promise = page.waitForEvent("download");
@@ -37,9 +37,9 @@ test("reviewed positive download is immutable under presentation changes", async
   await openRecoveryDetails(page); await page
     .getByRole("button", { name: "Western $1,500,000", exact: true })
     .click();
-  await closeRecoveryPanels(page); await page.getByText('Appearance',{exact:true}).click();
+  await closeRecoveryPanels(page); await page.getByTestId('analytical-map').getByText('Appearance',{exact:true}).click();
   await page.getByRole("switch", { name: "Globe view", exact: true }).check();
-  await page.getByText('Layers',{exact:true}).click();
+  await page.getByRole('navigation',{name:'Recovery tools',exact:true}).getByRole('button',{name:'Layers',exact:true}).click();
   await page.getByLabel("Treaty trigger zones", { exact: true }).uncheck();
   expect(await downloaded(page, "Download reviewed JSON")).toBe(content);
   await openRecoveryAssessment(page); await page

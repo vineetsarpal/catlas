@@ -1,5 +1,5 @@
-import type { EventInput } from '../domain/types';
-import { ridgecrest } from '../data/fixtures';
+import type { EventInput } from '../events/model';
+import { ridgecrest } from '../events/fixtures';
 import type { EarthquakeCapture } from './capture';
 import { archiveEvidenceFailure, captureArchivedEarthquake, checkArchivedEarthquake } from './catalogue';
 import { loadReplay } from './evidence';

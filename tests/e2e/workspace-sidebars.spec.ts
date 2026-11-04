@@ -83,7 +83,7 @@ test('recovery separates assessment options from selected contractual details', 
   await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
   if (info.project.name === 'desktop') await orderedPanels(left, page.locator('.is-recovery .atlas-map-stage:visible'), right);
   else {
-    if (!await right.isVisible()) await page.getByRole('navigation', { name: 'Recovery tools', exact: true }).getByRole('button', { name: 'Recovery details', exact: true }).click();
+    // Evaluation opens the inspector; await that transition rather than toggling it mid-update.
     await expect(right).toBeVisible();
     await expect(left).not.toBeVisible();
   }
@@ -185,4 +185,31 @@ test('sidebar titles identify one task without repeating content introductions',
   await recoveryTools.getByRole('button',{name:'History',exact:true}).click();
   await expect(page.locator('#atlas-recovery-panel').getByRole('heading')).toHaveText(['Recovery history']);
   await noViewportOverflow(page);
+});
+
+test('Escape dismisses active workspace panels while inactive workspace visibility is retained', async ({ page }, info) => {
+  await page.addInitScript(() => localStorage.setItem('catlas-monitor-1', JSON.stringify({ earthquakes: false, cyclones: false, wind: false, vessels: false, locations: true, fires: false, perimeters: false, alerts: false, nearPortfolio: false, watchedOnly: false, watchlist: [] })));
+  await demoPortfolio(page);
+  await page.getByRole('button', { name: 'Monitor', exact: true }).click();
+  const monitor = page.locator('#atlas-monitor-panel');
+  await page.getByRole('button', { name: 'Locations', exact: true }).click();
+  await expect(monitor).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(monitor).toBeHidden();
+  await page.getByRole('button', { name: 'Locations', exact: true }).click();
+  await expect(monitor).toBeVisible();
+
+  await page.getByRole('button', { name: 'Recovery', exact: true }).click();
+  const recovery = page.locator('#atlas-recovery-panel');
+  if (info.project.name === 'mobile') await page.getByRole('navigation', { name: 'Recovery tools', exact: true }).getByRole('button', { name: 'Assessment', exact: true }).click();
+  await expect(recovery).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(recovery).toBeHidden();
+
+  await page.getByRole('button', { name: 'Monitor', exact: true }).click();
+  await expect(monitor).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(monitor).toBeHidden();
+  await page.getByRole('button', { name: 'Recovery', exact: true }).click();
+  await expect(recovery).toBeHidden();
 });

@@ -10,7 +10,12 @@ test('packaged portfolio inventory persists and is reusable without external res
   await page.getByLabel('I have reviewed the changes and excluded rows.').check();
   await page.getByRole('button',{name:'Apply import'}).click();
   await expect(page.getByRole('table')).toContainText('Offline site');
-  await page.reload();await page.getByRole('button',{name:/Show locations/}).click();await expect(page.getByRole('table')).toContainText('Offline site');
+  await page.reload();
+  await expect(page.locator('#portfolio-location-table')).toBeAttached();
+  const views=page.getByRole('group',{name:'Location view',exact:true});
+  if(await views.isVisible())await views.getByRole('button',{name:'Locations',exact:true}).click();
+  else if(!await page.locator('#portfolio-location-table').isVisible())await page.getByRole('navigation',{name:'Portfolio tools'}).getByRole('button',{name:'Locations',exact:true}).click();
+  await expect(page.getByRole('table')).toContainText('Offline site');
   await expect(page.getByLabel('Active portfolio',{exact:true}).locator('option:checked')).toContainText('Offline locations');
   await page.getByRole('button',{name:'Exposure',exact:true}).click();
   await page.getByRole('button',{name:'Investigate Ridgecrest replay',exact:true}).click();

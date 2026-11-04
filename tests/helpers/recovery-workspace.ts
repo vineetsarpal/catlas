@@ -22,7 +22,7 @@ export async function openRecoveryDetails(page: Page) {
 
 export async function closeRecoveryPanels(page: Page) {
   await expect(page.getByTestId("treaty-total")).toBeAttached();
-  await expect(page.getByTestId("exposure-map")).toHaveAttribute("data-settled", "true");
+  await expect(page.getByTestId("analytical-map").getByTestId("exposure-map")).toHaveAttribute("data-settled", "true");
   await openRecoveryDetails(page);
   for (const name of ['Close recovery options', 'Close recovery details']) {
     const close = page.getByRole('button', { name, exact: true });

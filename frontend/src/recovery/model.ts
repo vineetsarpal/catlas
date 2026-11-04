@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { EventInput } from '../domain/types';
+import type { EventInput } from '../events/model';
 
 const amount = z.number().finite().min(0).max(1e12).refine(value => value === Math.round(value * 100) / 100, 'Use at most two decimal places.');
 const text = z.string().trim().min(1).max(500);

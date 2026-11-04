@@ -43,9 +43,6 @@
 .portfolios-page summary { cursor:pointer; font-size:12px; }
 .portfolios-page li { font-size:11px; line-height:1.7; }
 .portfolio-preview-changes { max-height:220px; overflow:auto; }
-.portfolio-results-drawer { flex:none; display:flex; flex-direction:column; background:white; overflow:hidden; }
-.portfolio-table-divider { flex:0 0 12px; user-select:none; box-sizing:border-box; }
-.portfolio-table-divider[hidden],.portfolio-results-drawer[hidden] { display:none; }
 .portfolio-table-tools { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:8px 14px; border-bottom:1px solid var(--wb-line); flex:none; }
 .portfolio-filter-status[hidden] { display:none; }
 .portfolio-table-tools h2 { margin:0; font-size:13px; white-space:nowrap; }
@@ -152,9 +149,6 @@
   .portfolio-work-area .portfolio-inspector .portfolio-fields { grid-template-columns:1fr; }
 }
 
-.portfolio-layout-list>.atlas-map-surface { flex:0; min-height:0; height:0; overflow:hidden; visibility:hidden; }
-.portfolio-layout-list>.portfolio-results-drawer { flex:1; height:auto!important; min-height:0; }
-.portfolio-layout-list>.portfolio-table-divider { display:none; }
 @media(max-width:760px) {
  .portfolio-work-area .portfolio-table-divider { display:none; }
  .atlas-map-workspace .portfolio-work-area>.portfolio-inspector { top:0; bottom:0; max-height:none; border-radius:0; }

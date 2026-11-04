@@ -70,7 +70,7 @@ for name in sorted(redistributed):
     for file in licenses:
         notices.extend([f'\n### {file.name}\n\n', file.read_text(), '\n'])
 (DIST / 'THIRD_PARTY_NOTICES.md').write_text(''.join(notices))
-manifest = json.loads((ROOT / 'frontend/src/data/evidence-manifest.json').read_text())
+manifest = json.loads((ROOT / 'frontend/src/events/evidence-manifest.json').read_text())
 (DIST / 'evidence/capture-manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
 for file in manifest['files']:
     path = DIST / 'evidence' / file['file']

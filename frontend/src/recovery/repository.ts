@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { EventInput } from '../domain/types';
+import type { EventInput } from '../events/model';
 import { assessLoss, recoveryCaseKey, verifySnapshot, type LossPosition, type RecoverySnapshot } from './model';
 
 class RecoveryDatabase extends Dexie {

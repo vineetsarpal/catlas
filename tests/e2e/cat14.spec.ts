@@ -16,7 +16,7 @@ test('select the synthetic outer observation and clear both modes safely',async(
 test('map presentation controls preserve recovery and area inspection',async({page})=>{
  await page.goto('/?mode=recovery&recovery=parametric');await openRecoveryAssessment(page); await page.getByRole('button',{name:'Ridgecrest historical replay · M7.1',exact:true}).click();
  await expect(page.getByTestId('analytical-map')).toHaveAttribute('data-ready','true');
- await closeRecoveryPanels(page); await page.getByText('Appearance',{exact:true}).click();
+ await closeRecoveryPanels(page); await page.getByTestId('analytical-map').getByText('Appearance',{exact:true}).click();
  await expect(page.getByRole('switch',{name:'Globe view',exact:true})).toBeChecked();
  await page.getByRole('switch',{name:'Globe view',exact:true}).check();
  await expect(page.getByRole('switch',{name:'Globe view',exact:true})).toBeChecked();
@@ -26,19 +26,19 @@ test('map presentation controls preserve recovery and area inspection',async({pa
  await page.getByRole('button',{name:'Zoom out',exact:true}).click();
  await expect(page.locator('[data-testid="exposure-map"]:visible')).toHaveAttribute('data-settled','true');
  const longitude=await page.locator('[data-testid="exposure-map"]:visible').getAttribute('data-camera-longitude');
- await page.locator('.maplibregl-canvas').press('ArrowRight');
+ await page.getByTestId('analytical-map').locator('.maplibregl-canvas').press('ArrowRight');
  await expect.poll(()=>page.locator('[data-testid="exposure-map"]:visible').getAttribute('data-camera-longitude')).not.toBe(longitude);
  await page.getByRole('switch',{name:'Globe view',exact:true}).check();
- await page.getByText('Appearance',{exact:true}).click();
+ await page.getByTestId('analytical-map').getByText('Appearance',{exact:true}).click();
  await page.getByRole('button',{name:'Layers',exact:true}).click();
  await expect(page.getByRole('switch',{name:'Globe view',exact:true})).not.toBeVisible();
  await page.getByLabel('Treaty trigger zones',{exact:true}).uncheck();
  await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');
  await page.getByLabel('Treaty trigger zones',{exact:true}).check();
  await page.getByRole('button',{name:'Layers',exact:true}).click();
- await page.getByText('Appearance',{exact:true}).click();
+ await page.getByTestId('analytical-map').getByText('Appearance',{exact:true}).click();
  await page.getByRole('switch',{name:'Globe view',exact:true}).uncheck();
- await page.getByText('Appearance',{exact:true}).click();
+ await page.getByTestId('analytical-map').getByText('Appearance',{exact:true}).click();
  await openRecoveryDetails(page); await page.getByRole('button',{name:'Western $1,500,000',exact:true}).click();
  await openRecoveryDetails(page); await expect(page.getByRole('region',{name:'Western contribution explanation'})).toContainText('68.107 km');
  await expect(page.getByTestId('treaty-total')).toHaveText('$6,000,000');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assessLoss, lossPositionSchema, recoveryCaseKey, verifySnapshot, type LossPosition } from './model';
-import { ridgecrest } from '../data/fixtures';
+import { ridgecrest } from '../events/fixtures';
 const position: LossPosition = {entity:'Example insurer',businessLine:'Property',source:'Claims estimate 1',valuationDate:'2019-07-10',currency:'USD',eligibleLoss:20_000_000,treaty:'CAT 2019 v1',inception:'2019-01-01',expiry:'2019-12-31',retention:10_000_000,limit:15_000_000,availableLimit:15_000_000,share:100,confirmed:true};
 describe('single occurrence recovery',()=>{
   it('shows the recovery and remaining loss for a partially used layer',()=>{

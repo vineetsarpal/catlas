@@ -113,3 +113,33 @@ test('both layouts preserve expansion across switching and dismiss one item per 
     await expect(table).toBeHidden();
   }
 });
+
+test('printing restores the expanded map and includes a hidden location drawer with impact provenance', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'Print uses the desktop impact-summary layout');
+  await page.route('https://**/*', route => route.abort());
+  await page.goto('/?mode=portfolios');
+  await page.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
+  await page.getByRole('button', { name: 'Exposure', exact: true }).click();
+  await page.getByRole('button', { name: 'Investigate Ridgecrest replay', exact: true }).click();
+  await expect(page.getByTestId('exposure-count')).toHaveText('11');
+  const table = page.locator('#atlas-location-table');
+  const map = table.locator('..').locator(':scope > .atlas-map-surface');
+  await table.getByRole('button', { name: 'Expand locations', exact: true }).click();
+  await expect(map).toBeHidden();
+
+  await page.emulateMedia({ media: 'print' });
+  await expect(map).toBeVisible();
+  await expect.poll(async () => (await map.boundingBox())?.height).toBe(400);
+  await expect(table).toBeVisible();
+  await expect(page.locator('.exposure-print-provenance')).toBeVisible();
+  await expect(page.locator('.exposure-print-provenance')).toContainText('Impact summary · Ridgecrest');
+
+  await page.emulateMedia({ media: 'screen' });
+  await expect(map).toBeHidden();
+  await table.getByRole('button', { name: 'Hide locations', exact: true }).click();
+  await expect(table).toBeHidden();
+  await page.emulateMedia({ media: 'print' });
+  await expect(table).toBeVisible();
+  await expect(table.getByRole('heading', { name: /Portfolio locations/ })).toBeVisible();
+  await expect(page.locator('.exposure-print-provenance')).toBeVisible();
+});

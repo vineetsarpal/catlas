@@ -1,4 +1,4 @@
-import type { EventInput } from '../domain/types';
+import type { EventInput } from '../events/model';
 import type { CapturedEvidence, Earthquake } from './model';
 
 /** Transfer the selected observation; missing magnitude type stays unknown. */
@@ -31,13 +31,4 @@ export function sameObservation(event: EventInput | null, earthquake: Earthquake
   return Boolean(event && event.id === earthquake.id && event.magnitude === earthquake.magnitude &&
     event.latitude === earthquake.latitude && event.longitude === earthquake.longitude &&
     event.occurredAt && Date.parse(event.occurredAt) === Date.parse(earthquake.occurredAt));
-}
-
-export function sameRecoveryEvent(left: EventInput | null | undefined, right: EventInput | null | undefined): boolean {
-  const canonical = (value: unknown): unknown => {
-    if (Array.isArray(value)) return value.map(canonical);
-    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([,entry])=>entry!==undefined).sort(([a],[b])=>a.localeCompare(b)).map(([key,entry])=>[key,canonical(entry)]));
-    return value;
-  };
-  return Boolean(left && right && JSON.stringify(canonical(left)) === JSON.stringify(canonical(right)));
 }

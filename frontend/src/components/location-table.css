@@ -1,5 +1,22 @@
+/* The shared table frame owns drawer, divider and expanded-list geometry.
+   Grouped selectors retain their original specificity; feature content and late
+   mobile/print overrides remain with the workbench and portfolio presentation. */
+.portfolio-results-drawer,.atlas-results-drawer { flex:none; background:#fff; overflow:hidden; }
+.portfolio-results-drawer { display:flex; flex-direction:column; }
+.atlas-results-drawer { max-height:50dvh; min-height:160px; }
+.portfolio-table-divider[hidden],.portfolio-results-drawer[hidden],.atlas-results-drawer[hidden] { display:none; }
+.atlas-table-resize { height:12px; cursor:ns-resize; display:flex; justify-content:center; align-items:center; background:#f6f9f7; touch-action:none; }
+.atlas-table-resize span { width:40px; height:3px; border-radius:3px; background:#cbd8d0; }
 /* The divider is outside the drawer in both workspaces. */
 .atlas-map-stage > .location-table-divider { flex:0 0 12px; user-select:none; box-sizing:border-box; }
 .atlas-map-stage > .location-table-divider[hidden] { display:none; }
 .is-exposure .atlas-map-stage > .atlas-results-drawer { max-height:none; min-height:0; }
 .atlas-map-stage > .atlas-results-drawer .exposure-list-section { height:100%; }
+.portfolio-layout-list>.atlas-map-surface,
+.is-exposure .exposure-layout-list .atlas-map-surface { flex:0; min-height:0; height:0; overflow:hidden; visibility:hidden; }
+.portfolio-layout-list>.portfolio-results-drawer,
+.is-exposure .exposure-layout-list .atlas-results-drawer { flex:1; height:auto!important; min-height:0; }
+.is-exposure .exposure-layout-list .atlas-results-drawer { max-height:none; }
+.portfolio-layout-list>.portfolio-table-divider,
+.exposure-layout-list .atlas-table-resize { display:none; }
+.exposure-layout-list .exposure-list-section { height:100%; }

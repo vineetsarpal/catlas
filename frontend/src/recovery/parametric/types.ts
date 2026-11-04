@@ -1,0 +1,17 @@
+import type { EventInput } from '../../events/model';
+import { z } from 'zod';
+const coordinate = z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) });
+export const contractSchema = z.object({ schemaVersion: z.literal(1), id: z.string().min(1), name: z.string(), version: z.number().int().positive(), source: z.literal('Simulated RAS'), cedent: z.object({ id: z.string(), name: z.string() }), currency: z.literal('USD'), inception: z.iso.datetime(), expiry: z.iso.datetime(), eventCap: z.number().nonnegative(), minimumMagnitude: z.number().min(0).max(10).optional(), areas: z.array(z.object({ id: z.string(), name: z.string(), ...coordinate.shape, allocation: z.number().nonnegative() })).min(1) }).superRefine((c, ctx) => { if (Date.parse(c.expiry) <= Date.parse(c.inception)) ctx.addIssue({code:'custom',message:'Expiry must follow inception',path:['expiry']}); if(new Set(c.areas.map(a=>a.id)).size!==c.areas.length) ctx.addIssue({code:'custom',message:'Area IDs must be unique',path:['areas']}); });
+// Raw evaluation snapshots retain missing/unsupported values for exception packets.
+// Contract calculation remains strict; shared event validation lives in events/model.ts.
+export const contractInputSchema = contractSchema.partial().extend({
+ inception: z.string().nullable().optional(), expiry: z.string().nullable().optional(),
+ areas: z.array(contractSchema.shape.areas.element.partial().extend({
+  latitude:z.number().nullable().optional(), longitude:z.number().nullable().optional(),
+ })).optional(),
+});
+export type ContractInput = z.infer<typeof contractInputSchema>;
+export type Treaty = z.infer<typeof contractSchema>;
+export type AreaAssessment = { areaId: string; name: string; distanceKm: number; band: 'inner'|'outer'|'outside'; magnitudeRow: string; rate: number; allocation: number; contribution: number };
+export type Assessment = { ruleVersion: string; status: 'Trigger met'|'Not triggered'|'Outside coverage'|'Needs review'; amount: number|null; uncappedSum: number|null; eventCap: number|null; areas: AreaAssessment[]; exceptions: string[]; knownFailures: string[] };
+export type Evaluation = { id: string; version: number; evaluatedAt: string; event: EventInput; contract: ContractInput; assessment: Assessment; previousEvaluationId?: string };

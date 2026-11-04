@@ -50,6 +50,10 @@ Monitor is available at `/?mode=monitor` and through the shared mode switch: liv
 
 See [backend setup and limits](docs/catlas-backend.md) for localhost wind decoding and AIS vessel monitoring. The default frontend remains browser-only.
 
+## Architecture
+
+The browser app groups code by feature, with application composition in `frontend/src/app`, shared observation data in `events`, and a retained MapLibre host in `maps`. Monitor sessions and Recovery presentation own their workflow behavior behind concrete interfaces. Focused dependency checks protect application ownership, approved cross-feature imports and runtime cycles. See the [implementation architecture](docs/catlas-implementation.md) for module ownership, runtime relationships and verification.
+
 ## npm workspaces
 
 - `frontend/` — React/Vite application, browser unit tests, static assets and frontend build output (`frontend/dist/`).
@@ -63,7 +67,7 @@ Run `npm ci` once from the repository root. One root lockfile covers all three p
 npm run dev              # frontend
 npm run dev:all          # frontend + localhost API; enables backend integration
 npm run backend          # separate terminal; localhost API
-npm run check            # all packages plus browser test types
+npm run check            # architecture rules, package and browser test types
 npm test                 # shared, frontend and backend tests
 npm run build            # shared/backend type checks and frontend bundle
 npm run test:frontend -- src/monitor/wind.test.ts
@@ -78,7 +82,7 @@ npm ci --prefix services/exposure-archive
 npm run verify
 ```
 
-`verify` runs `check:all`, `test:all`, and `build:all`: workspace/browser-test type checks, archive type checks, workspace unit tests, archive unit tests, deployment-script fixture tests, the frontend production build, and the archive Wrangler **dry-run** build. It does not publish or deploy. Tests use local fixtures and require localhost socket access for backend HTTP tests; they do not require provider or database credentials. Dependencies must already be installed; installation may need network access. The archive dry run uses the existing local Wrangler tooling.
+`verify` runs `check:all`, `test:all`, and `build:all`: architecture rules, workspace/browser-test type checks, archive type checks, workspace unit tests, archive unit tests, architecture/deployment-script fixture tests, the frontend production build, and the archive Wrangler **dry-run** build. It does not publish or deploy. Tests use local fixtures and require localhost socket access for backend HTTP tests; they do not require provider or database credentials. Dependencies must already be installed; installation may need network access. The archive dry run uses the existing local Wrangler tooling.
 
 `test:archive:unit` explicitly excludes the two opt-in PostgreSQL HTTP suites, even if `CATLAS_POSTGRES_TEST` is set in the environment. For PostgreSQL integration verification, follow the fixed disposable local database setup in the [archive README](services/exposure-archive/README.md) and run `CATLAS_POSTGRES_TEST=1 npm test --prefix services/exposure-archive`. Those tests use fixture credentials and never read the hosted `DATABASE_URL`. This is separate from `verify` and is not evidence of production database health.
 

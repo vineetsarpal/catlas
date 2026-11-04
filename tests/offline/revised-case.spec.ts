@@ -16,6 +16,14 @@ async function download(page: Page) {
   return { bytes, envelope: JSON.parse(gunzipSync(bytes).toString()) };
 }
 
+async function showInventory(page: Page) {
+  await expect(page.locator('#portfolio-location-table')).toBeAttached();
+  const views = page.getByRole('group', { name: 'Location view', exact: true });
+  if (await views.isVisible()) await views.getByRole('button', { name: 'Locations', exact: true }).click();
+  else if (!await page.locator('#portfolio-location-table').isVisible()) await page.getByRole('navigation', { name: 'Portfolio tools' }).getByRole('button', { name: 'Locations', exact: true }).click();
+  await expect(page.getByRole('table', { name: 'Insured location inventory' })).toBeVisible();
+}
+
 test('exact ZIP transfers revised archive cases with services unavailable and preserves working inventory', async ({ page, browser, baseURL }) => {
   let unavailable = false;
   const originals = new Map<string, string>();
@@ -79,9 +87,11 @@ test('exact ZIP transfers revised archive cases with services unavailable and pr
     await fresh.goto(new URL('/exposure.html', baseURL!).href);
     await fresh.getByRole('button', { name: 'Portfolio', exact: true }).click();
     await fresh.getByRole('button', { name: 'Use demo portfolio', exact: true }).click();
-    if (!await fresh.getByRole('table', { name: 'Insured location inventory' }).isVisible()) await fresh.getByRole('button', { name: /Show locations/ }).click();
+    await showInventory(fresh);
+    await fresh.getByRole('table', { name: 'Insured location inventory' }).getByRole('button', { name: 'Phoenix warehouse', exact: true }).click();
     fresh.once('dialog', dialog => dialog.accept());
-    await fresh.getByRole('button', { name: 'Delete Phoenix warehouse', exact: true }).click();
+    await fresh.getByRole('complementary', { name: 'Portfolio location details', exact: true }).getByRole('button', { name: 'Delete location', exact: true }).click();
+    await showInventory(fresh);
     await expect(fresh.getByRole('table', { name: 'Insured location inventory' }).locator('tbody tr')).toHaveCount(17);
     await fresh.getByRole('button', { name: 'Exposure', exact: true }).click();
     const beforeImport = requests.length;
@@ -100,7 +110,7 @@ test('exact ZIP transfers revised archive cases with services unavailable and pr
     // Discovery may report the missing endpoint on entry; reopening never fetches source artifacts.
     expect(requests.slice(beforeImport).every(request => request === 'GET /api/exposure/catalog')).toBe(true);
     await fresh.getByRole('button', { name: 'Portfolio', exact: true }).click();
-    if (!await fresh.getByRole('table', { name: 'Insured location inventory' }).isVisible()) await fresh.getByRole('button', { name: /Show locations/ }).click();
+    await showInventory(fresh);
     await expect(fresh.getByRole('table', { name: 'Insured location inventory' }).locator('tbody tr')).toHaveCount(17);
     await expect(fresh.getByRole('table', { name: 'Insured location inventory' })).not.toContainText('Phoenix warehouse');
   } finally { await freshContext.close(); }
